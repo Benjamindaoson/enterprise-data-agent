@@ -1,0 +1,120 @@
+package:
+  id: iowa_liquor_wholesale
+  version: 1.0.0
+  title: Iowa Liquor Wholesale Semantic Package
+  timezone: America/Chicago
+  currency: USD
+  source_snapshot_alias: iowa_liquor_rolling
+  default_snapshot: iowa_liquor_snapshot_2026_07_v1
+  description: >-
+    Semantic contract for Iowa Class E licensee liquor purchase orders. This is
+    wholesale/order analysis, not consumer POS data and not store profit.
+
+facts:
+  - id: fact_liquor_order_line
+    grain: one official invoice and line item at order time
+    primary_key: source_record_id
+    source_table: liquor_sales_combined
+    allowed_for_analysis: true
+    event_time_column: order_date
+
+metrics:
+  - id: wholesale_sales_amount
+    label: Wholesale Sales Amount
+    expression: SUM(line_wholesale_sales_amount)
+    unit: USD
+    availability: {from: 2024-01-01, to: 2026-07-31}
+    description: Amount invoiced by the Iowa state distributor to the licensed store.
+  - id: bottles_ordered
+    label: Bottles Ordered
+    expression: SUM(bottles_ordered)
+    unit: bottles
+    availability: {from: 2024-01-01, to: 2026-07-31}
+  - id: volume_liters
+    label: Volume Liters
+    expression: SUM(ordered_volume_liters)
+    unit: liters
+    availability: {from: 2024-01-01, to: 2026-07-31}
+  - id: average_wholesale_price_per_bottle
+    label: Average Wholesale Price per Bottle
+    expression: SUM(line_wholesale_sales_amount) / NULLIF(SUM(bottles_ordered), 0)
+    unit: USD/bottle
+    availability: {from: 2024-01-01, to: 2026-07-31}
+  - id: state_acquisition_cost
+    label: State Acquisition Cost
+    expression: SUM(ROUND(state_cost_per_bottle * bottles_ordered, 2))
+    unit: USD
+    availability: {from: 2025-07-01, to: 2026-07-31}
+    unavailable_behavior: reject_or_partial_never_zero_fill
+  - id: wholesale_gross_spread
+    label: Wholesale Gross Spread
+    expression: SUM(line_wholesale_sales_amount) - SUM(ROUND(state_cost_per_bottle * bottles_ordered, 2))
+    unit: USD
+    availability: {from: 2025-07-01, to: 2026-07-31}
+    unavailable_behavior: reject_or_partial_never_zero_fill
+    caution: State acquisition cost versus store purchase amount, not store accounting profit.
+  - id: wholesale_spread_rate
+    label: Wholesale Spread Rate
+    expression: wholesale_gross_spread / NULLIF(wholesale_sales_amount, 0)
+    unit: ratio
+    availability: {from: 2025-07-01, to: 2026-07-31}
+    unavailable_behavior: reject_or_partial_never_zero_fill
+  - id: average_state_cost_per_bottle
+    label: Average State Cost per Bottle
+    expression: state_acquisition_cost / NULLIF(bottles_ordered, 0)
+    unit: USD/bottle
+    availability: {from: 2025-07-01, to: 2026-07-31}
+    unavailable_behavior: reject_or_partial_never_zero_fill
+
+dimensions:
+  - {id: order_date, label: Order Date, source: order_date, grain: day}
+  - {id: month, label: Order Month, source: order_date, grain: month}
+  - {id: year, label: Order Year, source: order_date, grain: year}
+  - {id: store, label: Store, source: store_id, attributes: [store_name_at_order]}
+  - {id: county, label: County, source: county_fips_code, attributes: [county_name_at_order]}
+  - {id: city, label: City, source: city_at_order}
+  - {id: vendor, label: Vendor, source: vendor_id, attributes: [vendor_name_at_order]}
+  - {id: category, label: Category, source: category_id, attributes: [category_name_at_order]}
+  - {id: product, label: Product, source: product_id, attributes: [product_name_at_order]}
+  - {id: pack, label: Pack, source: pack}
+  - {id: bottle_volume_ml, label: Bottle Volume, source: bottle_volume_ml}
+
+join_policies:
+  - id: fact_to_store_current
+    from: fact_liquor_order_line
+    to: dim_store_current
+    type: LEFT
+    cardinality: many_to_one
+    'on': fact_liquor_order_line.store_id = dim_store_current.store_id
+    historical_authority: fact_wins
+  - id: fact_to_product_current
+    from: fact_liquor_order_line
+    to: dim_product_current
+    type: LEFT
+    cardinality: many_to_one
+    'on': fact_liquor_order_line.product_id = dim_product_current.product_id
+    historical_authority: fact_wins
+
+business_rules:
+  - id: terminology_no_store_profit
+    rule: Do not label wholesale_gross_spread as store profit, gross profit, or accounting profit.
+  - id: cost_window_required
+    rule: Cost, spread, rate, and average state cost queries outside 2025-07-01 to 2026-07-31 must be partial or unavailable.
+  - id: event_time_authority
+    rule: Historical names and county/category/vendor/product descriptions are taken from fact event-time fields.
+  - id: rolling_alias_resolution
+    rule: iowa_liquor_rolling must resolve to an immutable snapshot before planning or execution.
+
+quality_rules:
+  - id: source_record_id_unique
+    rule: source_record_id is unique in fact_liquor_order_line after only exact raw-record duplicates are removed and counted.
+  - id: current_dimension_non_multiplying
+    rule: Current dimension joins must not increase fact row count or monetary aggregates.
+  - id: availability_no_zero_fill
+    rule: Missing cost-period values are not interpreted as zero.
+
+access_policies:
+  default:
+    allowed_metrics: [wholesale_sales_amount, bottles_ordered, volume_liters, average_wholesale_price_per_bottle, state_acquisition_cost, wholesale_gross_spread, wholesale_spread_rate, average_state_cost_per_bottle]
+    allowed_dimensions: [order_date, month, year, store, county, city, vendor, category, product, pack, bottle_volume_ml]
+    allowed_objects: [fact_liquor_order_line, dim_date, dim_store_current, dim_product_current]

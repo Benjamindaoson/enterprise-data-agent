@@ -1,0 +1,2 @@
+source_record_id,order_date,store_id,bottles_ordered,line_wholesale_sales_amount,state_cost_per_bottle
+fixture-2024-001,2024-03-01,S-100,10,100.00,

@@ -127,7 +127,7 @@ Raw 层保存官方值、官方字段名和来源元数据，不做业务值修�
 
 | Source Field | Meaning | Source Type | Required for MVP |
 | --- | --- | --- | --- |
-| `invoice_id` | invoice + line 拼接的官方唯一行标识 | STRING | yes |
+| `invoice_id` | 官方发票/订单标识；不是事实行主键 | STRING | yes |
 | `ordered_on` | 订单日期 | DATE | yes |
 | `store_no` / `store_name` | 门店标识/名称 | STRING | yes |
 | `store_address` / `store_city` / `store_zip_code` | 交易时记录的门店地址 | STRING | no |
@@ -142,7 +142,7 @@ Raw 层保存官方值、官方字段名和来源元数据，不做业务值修�
 | `sales_dollars` | 订单行金额 | FLOAT in source | yes |
 | `sales_liters` / `sales_gallons` | 订单行体积 | FLOAT in source | no |
 
-`invoice_id` 的官方定义是 invoice 与 line number 拼接后的单项唯一标识。Snapshot Quality Gate 必须再次验证非空和唯一；验证失败时整个候选快照不得发布。
+真实官方导出画像（2026-09-01）证明，同一 `invoice_id` 可以包含多条商品行。因此 `invoice_id` 是发票/订单标识，必须非空，但不能作为事实主键。`source_record_id` 由影响业务含义的完整源字段内容指纹生成；逐字段完全相同的 Raw 副本只可按 ADR-002 去重，并记录数量。任何非精确、无法解释的重复仍会使候选快照进入 `REJECTED`。
 
 ### 4.2 Source Metadata
 
@@ -184,7 +184,9 @@ metric_windows:
   cost_and_spread:
     valid_from: 2025-07-01
 profiling:
-  invoice_id_unique: GENERATED_AT_BUILD
+  invoice_id_non_null: GENERATED_AT_BUILD
+  source_record_id_unique_after_exact_deduplicate: GENERATED_AT_BUILD
+  exact_duplicate_raw_rows: GENERATED_AT_BUILD
   row_count: GENERATED_AT_BUILD
   schema_fingerprint: GENERATED_AT_BUILD
   content_fingerprint: GENERATED_AT_BUILD
@@ -192,13 +194,13 @@ profiling:
 
 `GENERATED_AT_BUILD` 是未构建状态的占位标识。Snapshot 进入 `READY` 前必须替换为真实值；包含该占位符的 manifest 不得被 Agent 查询。
 
-若 `invoice_id` 唯一性失败，可以为隔离区记录生成基于 source identity、invoice ID 和选定业务字段的稳定 `source_row_id`，但 Snapshot 必须进入 `REJECTED`，不能用 fallback key 掩盖上游契约失败。
+`invoice_id` 不再作为唯一性门槛。Raw 保留不变；Curated 层只依据 ADR-002 去除完整源字段均相同的副本，并把原始行数、去重数、逻辑事实行数和规则版本写入 manifest。不能由此规则解释的重复必须令 Snapshot 进入 `REJECTED`。
 
 ## 5. Curated 数据契约
 
 ### 5.1 `fact_liquor_order_line`
 
-Grain：每个官方 `invoice_id` 一行。
+Grain：每个可区分的官方订单商品行一行；`invoice_id` 可跨多行重复，`source_record_id` 是稳定内容指纹。
 
 核心映射：
 
@@ -424,7 +426,7 @@ Rolling Channel 更新不会自动改写既有 Golden Result。新 Snapshot 必�
 - 三个官方源资产具有完整 source contract；
 - v1 Snapshot manifest 填入真实 row count、timestamps 和 fingerprints；
 - Raw 与 Curated Schema 验证通过；
-- `invoice_id` 唯一性和必需字段检查通过；
+- `invoice_id` 非空、必需字段检查通过；逻辑 `source_record_id` 唯一性和精确 Raw 重复行计数已验证；
 - 指标可用期规则可被 Context Compiler/Evaluation 使用；
 - Join 前后行数与金额可对账；
 - v1 主问题具有独立生成的 deterministic result set，并保存 `reference_query_hash`、`reviewed_by`、`reviewed_at` 和 `review_status=APPROVED`；

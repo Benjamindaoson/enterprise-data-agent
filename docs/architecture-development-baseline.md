@@ -11,6 +11,7 @@
 - [MVP Vertical Slice 设计](mvp-vertical-slice-design.md)
 - [Phase 0 实施计划](phase-0-implementation-plan.md)
 - [ADR-001：MVP 主数据集与双轨评测数据策略](adr/ADR-001-primary-demo-dataset.md)
+- [ADR-002：Iowa 源行标识与精确重复行处理](adr/ADR-002-iowa-source-identity-and-exact-duplicate-policy.md)
 - [MVP 数据基础冻结设计](data-foundation-design.md)
 
 ## 0. 文档用途

@@ -80,7 +80,7 @@ ADR-001 与《MVP 数据基础冻结设计》已经冻结 Iowa 官方数据、�
 - 每个资产的 CC BY 许可、归属文本和 NOTICE 规则；
 - `iowa_liquor_snapshot_2026_07_v1` 的 2024-01-01 至 2026-07-31 窗口及最大业务日期；
 - `OPERATING_TREND_WINDOW` 与 `COST_SPREAD_WINDOW` 的 Metric Availability；
-- `invoice_id` 唯一性、Raw/Curated Schema 和当前参考表 Join Coverage；
+- `invoice_id` 非空、`source_record_id` 去重后唯一性、精确 Raw 重复行计数、Raw/Curated Schema 和当前参考表 Join Coverage；
 - 真实 row count、timestamps、schema/content fingerprint；
 - 独立参考计算及其数值 Ground Truth、reference query hash 和 analyst approval metadata；
 - Controlled Fixture 的固定 seed、缺陷注入和预期行为；
@@ -495,7 +495,7 @@ Phase 0 冻结下列一级分类：
 
 ### 10.3 Dataset Tests
 
-- Raw/Curated schema、`invoice_id` 唯一性和 grain；
+- Raw/Curated schema、`invoice_id` 非空、逻辑 `source_record_id` 唯一性和事实 grain；
 - Current Store/Product Join 以 coverage/reconciliation 验证，不以删除历史事实的强 FK 验收；
 - Official Snapshot 提取 manifest 和 fingerprint 可复核；
 - Controlled Fixture 固定 seed 可复现；

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enterprise Intelligence Workspace</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">EI</span><div><strong>Enterprise<br />Intelligence</strong><small>WORKSPACE</small></div></div>
+        <nav id="nav">
+          <button data-page="home" class="active">⌂ <span>Today</span></button>
+          <button data-page="new">＋ <span>New analysis</span></button>
+          <button data-page="history">◷ <span>History</span></button>
+          <div class="nav-label">TRUST &amp; GOVERNANCE</div>
+          <button data-page="data">▦ <span>Data status</span></button>
+          <button data-page="semantic">◇ <span>Semantic explorer</span></button>
+          <button data-page="evaluation">✓ <span>Quality dashboard</span></button>
+          <button data-page="settings">⚙ <span>Settings</span></button>
+        </nav>
+        <div class="sidebar-footer"><span class="status-dot"></span><span>Local workspace</span><small>Deterministic provider</small></div>
+      </aside>
+      <main class="main"><header class="topbar"><div><span class="eyebrow">BUILT ON ENTERPRISE DATA AGENT PLATFORM</span><h1 id="page-title">Today</h1></div><div class="top-meta"><span id="data-badge" class="badge">Checking dataset…</span><span class="avatar">LU</span></div></header><section id="app" class="content"></section></main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

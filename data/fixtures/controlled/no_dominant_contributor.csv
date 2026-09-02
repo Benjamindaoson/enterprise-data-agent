@@ -1,0 +1,5 @@
+source_record_id,order_date,category_id,bottles_ordered,line_wholesale_sales_amount
+fixture-jun-a,2026-06-01,A,100,1000.00
+fixture-jul-a,2026-07-01,A,101,1010.00
+fixture-jun-b,2026-06-01,B,100,1000.00
+fixture-jul-b,2026-07-01,B,99,990.00

@@ -1,0 +1,7 @@
+README.md
+pyproject.toml
+enterprise_intelligence_workspace.egg-info/PKG-INFO
+enterprise_intelligence_workspace.egg-info/SOURCES.txt
+enterprise_intelligence_workspace.egg-info/dependency_links.txt
+enterprise_intelligence_workspace.egg-info/requires.txt
+enterprise_intelligence_workspace.egg-info/top_level.txt

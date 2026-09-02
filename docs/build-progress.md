@@ -1,14 +1,28 @@
-# MVP Build Progress
+# Build Progress
 
-All timestamps use UTC. Phase gates are evaluated against the frozen architecture and data contracts.
+Updated: 2026-09-01 UTC.
 
-| Phase | Status | Started At | Completed At | Implemented | Tests | Failures Found | Fixes | Remaining Risks | Gate Result |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Phase 0A — Data Foundation | BLOCKED | 2026-09-01T19:54:00Z | — | Read all frozen baselines; verified the required immutable snapshot and measured-manifest contract; attempted official catalog/API discovery. | Direct HTTPS access checks to the official Socrata metadata and catalog endpoints. | The execution environment rejects outbound HTTPS tunnel creation with HTTP 403 before the Iowa endpoints can respond. | Retried both the known Socrata asset metadata route and catalog discovery route. | No official rows can be extracted; therefore row counts, checksums, source timestamps, profiles, reconciliation, and deterministic ground truth cannot be measured without fabrication. | BLOCKED — see `docs/BLOCKER_REPORT.md`. |
-| Phase 0B — Contracts & Benchmark | NOT_STARTED | — | — | — | — | Phase 0A is a prerequisite. | — | — | NOT_STARTED |
-| Phase 1 — Trusted Query | NOT_STARTED | — | — | — | — | Phase 0A is a prerequisite. | — | — | NOT_STARTED |
-| Phase 2 — Autonomous Investigation | NOT_STARTED | — | — | — | — | Phase 0A is a prerequisite. | — | — | NOT_STARTED |
-| Phase 3 — Evidence-native Workspace | NOT_STARTED | — | — | — | — | Phase 0A is a prerequisite. | — | — | NOT_STARTED |
-| Phase 4 — Evaluation & Hardening | NOT_STARTED | — | — | — | — | Phase 0A is a prerequisite. | — | — | NOT_STARTED |
+The repository began as a Phase 0 contract skeleton. The full-product build
+now includes a runnable FastAPI workspace, a deterministic analytical workflow,
+real curated Iowa data, evidence/report artifacts, and a browser UI.
 
-The blocked status is intentional: the frozen contract prohibits inventing source metadata or substituting synthetic data for the official flagship snapshot.
+## Verified milestones
+
+- 6,484,227 curated fact rows covering 2024-01-01 through 2026-07-31;
+- 20 exact raw duplicates measured and removed according to ADR-002;
+- current Store/Product dimension joins reconcile to row count and sales;
+- 16 automated tests pass;
+- 12/12 initial Golden Cases pass in the deterministic local runner;
+- `make dev` serves the workspace and public task/resource APIs.
+
+## Remaining work
+
+See [FULL_PRODUCT_GAP_ANALYSIS.md](FULL_PRODUCT_GAP_ANALYSIS.md) and
+[FULL_PRODUCT_PROGRESS.md](FULL_PRODUCT_PROGRESS.md). Remaining items are
+follow-on hardening: richer deterministic tools, checkpoint/replay, formal
+provider adapters, complete resource-level identity enforcement, and browser
+E2E coverage.
+
+The external download blocker from the earlier MVP report is isolated to future
+fresh acquisition. It does not block analysis over the verified local snapshot
+or independent product development.

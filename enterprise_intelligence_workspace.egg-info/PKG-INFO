@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: enterprise-intelligence-workspace
+Version: 0.1.0
+Summary: Evidence-native analytical agent core for governed enterprise data investigation.
+Author: Enterprise Intelligence Workspace contributors
+License: Apache-2.0
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: alembic<2,>=1.14
+Requires-Dist: duckdb<2,>=1.1
+Requires-Dist: fastapi<1,>=0.115
+Requires-Dist: httpx<1,>=0.28
+Requires-Dist: opentelemetry-api<2,>=1.28
+Requires-Dist: opentelemetry-sdk<2,>=1.28
+Requires-Dist: pydantic<3,>=2.10
+Requires-Dist: pydantic-settings<3,>=2.7
+Requires-Dist: PyYAML<7,>=6.0
+Requires-Dist: sqlalchemy<3,>=2.0
+Requires-Dist: sqlglot<29,>=26
+Requires-Dist: uvicorn[standard]<1,>=0.34
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary]<4,>=3.2; extra == "postgres"
+Provides-Extra: dev
+Requires-Dist: mypy<2,>=1.14; extra == "dev"
+Requires-Dist: pytest<9,>=8.3; extra == "dev"
+Requires-Dist: pytest-asyncio<1,>=0.25; extra == "dev"
+Requires-Dist: ruff<1,>=0.8; extra == "dev"
+
+# enterprise-data-agent
+Enterprise Data Agent — an evidence-native analytical agent for governed enterprise data exploration, contribution analysis, BI generation, and business reporting.
+
+## Development baseline
+
+- [Enterprise Intelligence Workspace: Architecture and Development Baseline](docs/architecture-development-baseline.md)
+- [Core Module Design](docs/core-module-design.md)
+- [MVP Vertical Slice Design](docs/mvp-vertical-slice-design.md)
+- [Phase 0 Implementation Plan](docs/phase-0-implementation-plan.md)
+- [ADR-001: Primary Demo Dataset and Dual-track Evaluation Data](docs/adr/ADR-001-primary-demo-dataset.md)
+- [MVP Data Foundation Design](docs/data-foundation-design.md)
