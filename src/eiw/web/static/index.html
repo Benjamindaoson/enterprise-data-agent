@@ -1,29 +1,60 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Enterprise Intelligence Workspace</title>
+    <meta name="theme-color" content="#102b3a" />
+    <title>企业智能分析工作台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <div class="shell">
-      <aside class="sidebar">
-        <div class="brand"><span class="brand-mark">EI</span><div><strong>Enterprise<br />Intelligence</strong><small>WORKSPACE</small></div></div>
-        <nav id="nav">
-          <button data-page="home" class="active">⌂ <span>Today</span></button>
-          <button data-page="new">＋ <span>New analysis</span></button>
-          <button data-page="history">◷ <span>History</span></button>
-          <div class="nav-label">TRUST &amp; GOVERNANCE</div>
-          <button data-page="data">▦ <span>Data status</span></button>
-          <button data-page="semantic">◇ <span>Semantic explorer</span></button>
-          <button data-page="evaluation">✓ <span>Quality dashboard</span></button>
-          <button data-page="settings">⚙ <span>Settings</span></button>
+      <aside class="sidebar" id="sidebar">
+        <div class="brand" onclick="navigate('home')" role="button" tabindex="0">
+          <span class="brand-mark">◆</span>
+          <div><strong>企业智能分析<br />工作台</strong><small>爱荷华州批发分析</small></div>
+        </div>
+        <nav id="nav" aria-label="主导航">
+          <div class="nav-group">
+            <div class="nav-label">分析</div>
+            <button data-page="home" class="active"><i>⌂</i><span>首页</span></button>
+            <button data-page="new"><i>＋</i><span>发起分析</span></button>
+            <button data-page="dashboard"><i>▥</i><span>数据看板</span></button>
+            <button data-page="evidence"><i>⌘</i><span>证据库</span></button>
+            <button data-page="history"><i>◷</i><span>分析历史</span></button>
+          </div>
+          <div class="nav-group">
+            <div class="nav-label">数据治理</div>
+            <button data-page="data"><i>▦</i><span>数据状态</span></button>
+            <button data-page="semantic"><i>◇</i><span>语义配置</span></button>
+            <button data-page="evaluation"><i>✓</i><span>评测中心</span></button>
+            <button data-page="settings"><i>⚙</i><span>系统设置</span></button>
+          </div>
         </nav>
-        <div class="sidebar-footer"><span class="status-dot"></span><span>Local workspace</span><small>Deterministic provider</small></div>
+        <div class="sidebar-footer"><span class="status-dot"></span><span>本地参考环境</span><small>确定性运行 · 只读数据</small></div>
+        <button class="collapse-button" onclick="toggleSidebar()" aria-label="收起导航">« <span>收起导航</span></button>
       </aside>
-      <main class="main"><header class="topbar"><div><span class="eyebrow">BUILT ON ENTERPRISE DATA AGENT PLATFORM</span><h1 id="page-title">Today</h1></div><div class="top-meta"><span id="data-badge" class="badge">Checking dataset…</span><span class="avatar">LU</span></div></header><section id="app" class="content"></section></main>
+      <main class="main">
+        <header class="topbar">
+          <button class="mobile-menu" onclick="toggleSidebar()" aria-label="打开导航">☰</button>
+          <div class="breadcrumb"><span class="eyebrow">企业数据分析工作台</span><h1 id="page-title">今日工作台</h1></div>
+          <div class="top-actions">
+            <label class="global-search"><span>⌕</span><input id="global-search" placeholder="搜索问题、指标、数据集、分析任务…" /><kbd>⌘ K</kbd></label>
+            <button class="button primary" onclick="navigate('new')">＋ 新建分析</button>
+            <button class="icon-button notification" aria-label="通知">♧<b>3</b></button>
+            <button class="icon-button" aria-label="帮助">?</button>
+            <div class="user-menu"><span class="avatar">张</span><span class="user-copy"><strong>张伟</strong><small>经营分析负责人</small></span><span>⌄</span></div>
+          </div>
+        </header>
+        <div class="mobile-task-context" id="mobile-task-context"></div>
+        <section id="app" class="content" aria-live="polite"></section>
+      </main>
     </div>
+    <div id="toast" class="toast" role="status"></div>
+    <div id="modal-root"></div>
     <script src="/static/app.js"></script>
   </body>
 </html>
