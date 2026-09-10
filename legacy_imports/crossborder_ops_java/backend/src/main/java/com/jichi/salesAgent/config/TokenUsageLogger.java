@@ -1,0 +1,39 @@
+package com.jichi.salesAgent.config;
+
+import dev.langchain4j.model.chat.listener.ChatModelListener;
+import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+@Component
+@Slf4j
+public class TokenUsageLogger implements ChatModelListener {
+
+    private final Counter inputTokenCounter;
+    private final Counter outputTokenCounter;
+
+    public TokenUsageLogger(MeterRegistry meterRegistry) {
+        this.inputTokenCounter = Counter.builder("llm.tokens.input")
+                .description("Input tokens consumed")
+                .register(meterRegistry);
+        this.outputTokenCounter = Counter.builder("llm.tokens.output")
+                .description("Output tokens consumed")
+                .register(meterRegistry);
+    }
+
+    @Override
+    public void onResponse(ChatModelResponseContext responseContext) {
+        var usage = responseContext.chatResponse().tokenUsage();
+        if (usage != null) {
+            int input = usage.inputTokenCount() != null ? usage.inputTokenCount() : 0;
+            int output = usage.outputTokenCount() != null ? usage.outputTokenCount() : 0;
+
+            inputTokenCounter.increment(input);
+            outputTokenCounter.increment(output);
+
+            log.info("Token 用量 | 输入：{} | 输出：{}", input, output);
+        }
+    }
+}

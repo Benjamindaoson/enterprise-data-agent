@@ -1,0 +1,88 @@
+server:
+  port: ${SERVER_PORT:8087}
+
+spring:
+  application:
+    name: crossborder-ops-agent
+  main:
+    web-application-type: servlet
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      repositories:
+        enabled: false
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/crossborder_ops?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    defer-datasource-initialization: true
+
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: ${LLM_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      api-key: ${LLM_API_KEY:}
+      model-name: ${LLM_MODEL:qwen-max}
+      temperature: 0.1
+      max-tokens: 2048
+    streaming-chat-model:
+      base-url: ${LLM_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      api-key: ${LLM_API_KEY:}
+      model-name: ${LLM_MODEL:qwen-max}
+      temperature: 0.1
+      max-tokens: 2048
+
+sa-token:
+  token-name: sa-token
+  timeout: 86400
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+crossborder-ops:
+  demo:
+    title: Crossborder Ops Agent
+
+logging:
+  level:
+    com.jichi.salesAgent: DEBUG
+    dev.langchain4j: INFO
+
+app:
+  auth:
+    enabled: false

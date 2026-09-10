@@ -14,6 +14,8 @@ The imported code under `legacy_imports/` is historical reference material. It i
 
 Source commit: `130e2a233a5ddd75c77985bc8e8032c28c69e3b1`
 
+Deletion audit update: `a7c016e` was the final source commit before repository retirement. The follow-up audit preserved remaining unique non-IDE assets that were not in the first import, including the API wrapper, LLM/prompt-loading helpers, README, audit notes, roadmap, package metadata and lockfile.
+
 Preserved assets:
 - DeepAgents main-agent / DB-sub-agent composition;
 - MySQL tool implementation;
@@ -28,6 +30,8 @@ Risk note: the historical SQL executor accepts arbitrary SQL text. It is referen
 ### iquery-agentic-chatbi-platform
 
 Source commit: `3b326593206277ca80d5c2f56c4898595dff6de3`
+
+Deletion audit update: `1725332` was the final source commit before repository retirement. The follow-up audit preserved remaining unique source, tests, requirements, compact data fixtures, knowledge markdown and architecture artifacts. Binary course documents and office/PDF archives remain intentionally excluded.
 
 Preserved assets:
 - SQL / DataFrame / Python analysis tool concepts;
@@ -44,6 +48,8 @@ Risk note: the historical Python tool uses dynamic `exec`, and the historical SQ
 Source commit: `54a1e28f0b667ff500c77c695f7b85efd473dd33`
 Python subtree: `2863cfa0ad1f7fd07c5c8db46fa8332ed0c2cb3c`
 
+Deletion audit update: `28e7022` was the final `enterprise-business-analytics-agent` commit before repository retirement. The follow-up audit also checked `crossborder-ops-agent @ 607ff24`, which retained the product-line Java/Vue teaching implementation and fuller Python hardening snapshot.
+
 Preserved assets:
 - local/JWT and OIDC/JWKS authentication reference;
 - request observability and OpenTelemetry instrumentation;
@@ -54,7 +60,9 @@ Preserved assets:
 
 Destination: `legacy_imports/crossborder_ops_python/`
 
-The earlier Java teaching implementation is not promoted into the canonical runtime. The cross-border business domain may later be rebuilt as a versioned domain/semantic package using the canonical product contracts.
+Additional destination: `legacy_imports/crossborder_ops_java/`
+
+The earlier Java/Vue teaching implementation is preserved as historical product-line reference but is not promoted into the canonical runtime. The cross-border business domain may later be rebuilt as a versioned domain/semantic package using the canonical product contracts.
 
 ### data-ananlysis-demo
 

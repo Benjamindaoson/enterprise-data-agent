@@ -1,0 +1,36 @@
+[project]
+name = "crossborder-ops-agent-python"
+version = "1.0.0"
+description = "Python FastAPI backend for Crossborder Ops Agent"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy>=2.0",
+  "pymysql>=1.1",
+  "httpx>=0.27",
+  "PyJWT[crypto]>=2.10",
+  "alembic>=1.16",
+  "redis>=6.4",
+    "opentelemetry-api>=1.39",
+    "opentelemetry-sdk>=1.39",
+    "opentelemetry-exporter-otlp>=1.39",
+    "opentelemetry-instrumentation-fastapi>=0.60b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.60b0",
+    "opentelemetry-instrumentation-httpx>=0.60b0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+crossborder-seed = "app.seed:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["app*"]

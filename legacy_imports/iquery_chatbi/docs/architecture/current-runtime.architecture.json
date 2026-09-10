@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "iQuery 当前运行架构",
+    "locale": "zh-CN",
+    "output": "current-runtime.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "user", "type": "external", "label": "用户", "pos": [40, 300], "size": [130, 60] },
+    { "id": "interfaces", "type": "frontend", "label": "CLI / Web", "sublabel": "src/cli.py · web/server.py", "pos": [250, 300], "size": [180, 60] },
+    { "id": "agent", "type": "backend", "label": "Agent ReAct", "sublabel": "LLM 对话循环", "pos": [500, 300], "size": [160, 60] },
+    { "id": "planner", "type": "backend", "label": "PlanningEngine", "sublabel": "解析工具调用", "pos": [720, 160], "size": [170, 60] },
+    { "id": "registry", "type": "backend", "label": "ToolRegistry", "sublabel": "工具注册与 Schema", "pos": [720, 300], "size": [170, 60] },
+    { "id": "executor", "type": "backend", "label": "ActionExecutor", "sublabel": "执行、重试、上下文", "pos": [720, 440], "size": [170, 60] },
+    { "id": "tools", "type": "backend", "label": "SQL / Data / Python", "sublabel": "三个分析工具", "pos": [930, 300], "size": [190, 60] },
+    { "id": "memory", "type": "database", "label": "消息与知识库", "sublabel": "MessageManager + data/knowledge", "pos": [480, 500], "size": [200, 60] },
+    { "id": "llm", "type": "external", "label": "OpenAI 兼容 LLM", "sublabel": "Chat Completions + tools", "pos": [930, 120], "size": [190, 60] },
+    { "id": "mysql", "type": "database", "label": "MySQL iquery", "sublabel": "业务数据查询", "pos": [1150, 300], "size": [170, 60] }
+  ],
+  "boundaries": [
+    { "kind": "security-group", "label": "应用运行边界", "wraps": ["interfaces", "agent", "planner", "registry", "executor", "tools", "memory"] },
+    { "kind": "region", "label": "外部依赖", "wraps": ["llm", "mysql"] }
+  ],
+  "connections": [
+    { "id": "user-interface", "from": "user", "to": "interfaces", "label": "输入问题", "variant": "emphasis" },
+    { "id": "interface-agent", "from": "interfaces", "to": "agent", "label": "chat(message)" },
+    { "id": "agent-planner", "from": "agent", "to": "planner" },
+    { "id": "agent-registry", "from": "agent", "to": "registry" },
+    { "id": "agent-executor", "from": "agent", "to": "executor" },
+    { "id": "agent-memory", "from": "agent", "to": "memory", "fromSide": "bottom", "toSide": "top", "route": "straight" },
+    { "id": "agent-llm", "from": "agent", "to": "llm", "variant": "security" },
+    { "id": "registry-tools", "from": "registry", "to": "tools" },
+    { "id": "executor-tools", "from": "executor", "to": "tools" },
+    { "id": "tools-mysql", "from": "tools", "to": "mysql" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "主链路", "items": ["用户从 CLI 或 Web 提交问题", "Agent 调用兼容 OpenAI 的 LLM 并循环执行工具"] },
+    { "dot": "emerald", "title": "分析能力", "items": ["ToolRegistry 暴露 SQL、数据提取和 Python 工具", "ActionExecutor 维护执行历史、DataFrame 上下文和图表"] },
+    { "dot": "rose", "title": "外部依赖", "items": ["LLM 端点由环境变量配置", "SQL 和数据提取工具依赖本机 MySQL iquery 数据库"] }
+  ]
+}
