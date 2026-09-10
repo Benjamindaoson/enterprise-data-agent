@@ -1,0 +1,5 @@
+{"id":"summary-zh","question":"分析最近 30 天经营概览","mustContain":["经营概览","平均订单利润","退款率"]}
+{"id":"trend-chart-zh","question":"画出最近 6 个月净销售额和利润趋势图","mustContain":["VISUAL_PAYLOAD:","echarts","净销售额"]}
+{"id":"refund-risk-en","question":"show refund risk skus","mustContain":["退款风险 SKU 排名","YM-US-2001"]}
+{"id":"ad-acos-en","question":"list high ACOS campaigns and ROAS","mustContain":["高 ACOS 广告活动","ACOS","ROAS"]}
+{"id":"review-zh","question":"最近有哪些低星评论问题","mustContain":["低星评论分析","建议"]}
