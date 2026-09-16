@@ -1,8 +1,14 @@
+<div align="center">
+
 # Enterprise Data Agent
 
 ### 企业自主数据分析智能体平台
 
 **Autonomous multi-agent analytics for long-horizon business investigation.**
+
+`Agent Systems` · `Multi-Agent Orchestration` · `Context Engineering` · `Semantic Layer` · `Agent Runtime`
+
+</div>
 
 Enterprise Data Agent is designed for multi-store business analysis where a useful answer requires more than generating one SQL query. It turns an ambiguous business question into a durable analysis task, then coordinates planning, data investigation, hypothesis updates, verification, and reporting over governed enterprise data.
 
