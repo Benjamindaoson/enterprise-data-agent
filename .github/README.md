@@ -171,6 +171,22 @@ flowchart TD
     TS --> RT[Trace / Checkpoint / Resume]
 ```
 
+### Why the architecture is designed this way
+
+The architecture deliberately separates **coordination, state, context, business semantics, analytical decision-making, data execution, and verification** because they fail in different ways. A monolithic Agent that tries to plan, remember the entire history, interpret business definitions, generate SQL, analyze results, and validate its own conclusions inside one prompt becomes increasingly difficult to control as tasks get longer. The system therefore treats the LLM as one decision-making component inside a larger runtime rather than as the runtime itself.
+
+The **Supervisor + Shared Task State** pattern exists to prevent multi-agent collaboration from degenerating into a group chat. The Supervisor owns global task progress, while executors receive bounded responsibilities and return structured outputs. The shared state is the source of truth for what has already been attempted, what evidence has been collected, which hypotheses remain active, and what should happen next. This reduces duplicate work and state divergence, and it also makes routing and replanning explicit enough to inspect after the fact.
+
+The separation between **durable state and model context** is equally important. A long investigation may contain dozens of tool calls, intermediate tables, failed attempts, observations, and validations. Keeping all of that inside the prompt would continuously expand context, repeat tokens, and eventually bury the information needed for the current decision. Instead, the complete task history remains outside the model, while Context Assembly selects only the goal, confirmed facts, relevant observations, and role-specific information needed for the next step. Checkpoint / Resume then operates on the durable task state, so a failed step does not require restarting the entire investigation.
+
+The **Semantic Layer** sits beside both Context Assembly and Governed Data Tools because business meaning must constrain both reasoning and execution. A metric such as sales, margin, active product, or new item can have different definitions across regions or business units. If those definitions live only in prompts or handwritten Agent logic, every business change becomes an Agent-code change. By versioning metrics, dimensions, time semantics, and business rules separately from the Agent Core, the same runtime can be reused while business-specific definitions evolve through configuration.
+
+The architecture also separates **analytical choice from data execution**. The model decides whether the next useful step is a comparison, breakdown, contribution analysis, anomaly drill-down, or another bounded analytical action; the deterministic tool layer decides how that action is executed against data. This boundary narrows the model's action space and prevents low-level query generation from becoming the primary reasoning mechanism. It also makes analytical steps easier to test, cache, replay, and validate independently of the model that selected them.
+
+Finally, **Verification is a separate feedback path rather than the last sentence of the same Agent response**. A correct query can still support an incorrect interpretation, an over-strong causal claim, or a conclusion that ignores conflicting evidence. By representing observations, claims, evidence, and validation separately, verification can reject a conclusion, request clarification, or send the task back to the Supervisor for another analytical step. The result is a closed-loop analytical system in which new evidence can change the plan instead of being forced into a predetermined answer.
+
+Taken together, these boundaries are what make the architecture suitable for long-horizon enterprise analysis: **LLMs handle judgment and analytical direction; deterministic services handle governed computation; durable state preserves continuity; the Semantic Layer preserves business meaning; and verification prevents unsupported conclusions from becoming final output.**
+
 ---
 
 ## Public reference implementation
