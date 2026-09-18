@@ -1,338 +1,414 @@
-"""Physical table boundaries for durable state, evidence, audit, and evaluation.
+"""Persistence tables for phase-zero durable contracts.
 
-JSON payloads preserve contract evolution while query-critical IDs, states, versions,
-and timestamps remain first-class columns. PostgreSQL is the authoritative runtime
-state store; a queue or tracing vendor is never a second source of truth.
+These tables implement the persistence mapping for domain objects.
+The Domain layer owns the business logic; these tables only handle storage.
 """
 
-from uuid import uuid4
+from __future__ import annotations
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, MetaData, String, Table, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
 
-metadata = MetaData(naming_convention={"ix": "ix_%(column_0_label)s", "pk": "pk_%(table_name)s"})
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from eiw.domain.enums import (
+    HypothesisState,
+    TaskState,
+)
+
+# Standard SQLAlchemy metadata for all tables
+metadata = MetaData()
 
 
-def id_column() -> object:
-    return __import__("sqlalchemy").Column(
-        "id", UUID(as_uuid=True), primary_key=True, default=uuid4
+class Base(DeclarativeBase):
+    """SQLAlchemy declarative base for all tables."""
+
+    metadata = metadata
+
+    type_annotation_map = {
+        dict[str, Any]: JSON,
+        list[str]: ARRAY(String),
+        Decimal: Numeric(20, 4),
+    }
+
+
+# =============================================================================
+# Task and Runtime
+# =============================================================================
+
+
+class AnalysisTaskTable(Base):
+    """Persistence record for AnalysisTask."""
+
+    __tablename__ = "analysis_task"
+
+    task_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), unique=True)
+    user_id: Mapped[str] = mapped_column(String(200))
+    tenant_id: Mapped[str] = mapped_column(String(200))
+    policy_version: Mapped[str] = mapped_column(String(100))
+    domain_id: Mapped[str] = mapped_column(String(200))
+    business_question: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(50), default=TaskState.CREATED.value)
+    semantic_package_version: Mapped[str | None] = mapped_column(String(100))
+    dataset_snapshot_identifier: Mapped[str | None] = mapped_column(String(200))
+    dataset_snapshot_version: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    # JSON fields for complex data
+    user_context_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    scope_hint_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    lineage_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    clarification_requests_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    clarification_responses_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    runtime_checkpoint_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+    __table_args__ = (
+        Index("ix_analysis_task_tenant_state", "tenant_id", "state"),
+        Index("ix_analysis_task_created_at", "created_at"),
     )
 
 
-def timestamps(table_name: str) -> list[object]:
-    sqlalchemy = __import__("sqlalchemy")
-    return [
-        sqlalchemy.Column(
-            "created_at", DateTime(timezone=True), nullable=False, server_default=func.now()
-        ),
-        sqlalchemy.Column(
-            "updated_at",
-            DateTime(timezone=True),
-            nullable=False,
-            server_default=func.now(),
-            onupdate=func.now(),
-        ),
-    ]
+# =============================================================================
+# Context and Plan
+# =============================================================================
 
 
-analysis_task = Table(
-    "analysis_task",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column("tenant_id", String(200), nullable=False, index=True),
-    __import__("sqlalchemy").Column("user_id", String(200), nullable=False, index=True),
-    __import__("sqlalchemy").Column("domain_id", String(200), nullable=False),
-    __import__("sqlalchemy").Column("business_question", Text, nullable=False),
-    __import__("sqlalchemy").Column("state", String(40), nullable=False, index=True),
-    __import__("sqlalchemy").Column(
-        "parent_task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id")
-    ),
-    __import__("sqlalchemy").Column("context_version", String(100)),
-    __import__("sqlalchemy").Column("semantic_package_version", String(100)),
-    __import__("sqlalchemy").Column("dataset_snapshot_id", String(200)),
-    __import__("sqlalchemy").Column("idempotency_key", String(200)),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("analysis_task"),
-)
+class AnalysisContextTable(Base):
+    """Persistence record for AnalysisContext."""
 
-task_state = Table(
-    "task_state",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("from_state", String(40)),
-    __import__("sqlalchemy").Column("to_state", String(40), nullable=False),
-    __import__("sqlalchemy").Column("reason", Text),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False, server_default="{}"),
-    *timestamps("task_state"),
-)
+    __tablename__ = "analysis_context"
 
-runtime_checkpoint = Table(
-    "runtime_checkpoint",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("state_version", Integer, nullable=False),
-    __import__("sqlalchemy").Column("storage_uri", Text, nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("runtime_checkpoint"),
-)
+    context_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    context_version: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-analysis_context = Table(
-    "analysis_context",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("context_version", String(100), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("analysis_context"),
-)
+    # Resolved intent
+    intent_objective: Mapped[str] = mapped_column(Text)
+    intent_metrics_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    intent_filters_json: Mapped[dict[str, list[str]]] = mapped_column(JSON)
+    intent_periods_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    intent_requires_clarification: Mapped[bool] = mapped_column(Boolean)
 
-context_source_ref = Table(
-    "context_source_ref",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "context_id",
-        UUID(as_uuid=True),
-        ForeignKey("analysis_context.id"),
-        nullable=False,
-        index=True,
-    ),
-    __import__("sqlalchemy").Column("source_type", String(80), nullable=False),
-    __import__("sqlalchemy").Column("identifier", String(300), nullable=False),
-    __import__("sqlalchemy").Column("version", String(100), nullable=False),
-    __import__("sqlalchemy").Column("content_hash", String(128), nullable=False),
-    *timestamps("context_source_ref"),
-)
+    # Data availability
+    source_refs_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    semantic_assets_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    allowed_data_objects: Mapped[list[str]] = mapped_column(ARRAY(String))
+    quality_warnings: Mapped[list[str]] = mapped_column(ARRAY(String))
 
-semantic_asset_ref = Table(
-    "semantic_asset_ref",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "context_id",
-        UUID(as_uuid=True),
-        ForeignKey("analysis_context.id"),
-        nullable=False,
-        index=True,
-    ),
-    __import__("sqlalchemy").Column("asset_type", String(80), nullable=False),
-    __import__("sqlalchemy").Column("asset_id", String(300), nullable=False),
-    __import__("sqlalchemy").Column("version", String(100), nullable=False),
-    *timestamps("semantic_asset_ref"),
-)
+    __table_args__ = (
+        Index("ix_analysis_context_task_id", "task_id"),
+    )
 
-analysis_plan = Table(
-    "analysis_plan",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("context_version", String(100), nullable=False),
-    __import__("sqlalchemy").Column("version", Integer, nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("analysis_plan"),
-)
 
-analysis_step = Table(
-    "analysis_step",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "plan_id", UUID(as_uuid=True), ForeignKey("analysis_plan.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("ordinal", Integer, nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("analysis_step"),
-)
+class AnalysisPlanTable(Base):
+    """Persistence record for AnalysisPlan."""
 
-hypothesis = Table(
-    "hypothesis",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("state", String(40), nullable=False),
-    __import__("sqlalchemy").Column("priority", Integer, nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("hypothesis"),
-)
+    __tablename__ = "analysis_plan"
 
-execution_record = Table(
-    "execution_record",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("tool_name", String(200), nullable=False),
-    __import__("sqlalchemy").Column("status", String(40), nullable=False),
-    __import__("sqlalchemy").Column("result_hash", String(128)),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("execution_record"),
-)
+    plan_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    context_version: Mapped[str] = mapped_column(String(100))
+    business_objective: Mapped[str] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-observation = Table(
-    "observation",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column(
-        "execution_id", UUID(as_uuid=True), ForeignKey("execution_record.id"), nullable=False
-    ),
-    __import__("sqlalchemy").Column("result_hash", String(128), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("observation"),
-)
+    steps_json: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    completion_criteria: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    stop_conditions: Mapped[list[str]] = mapped_column(ARRAY(Text))
 
-validation_result = Table(
-    "validation_result",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("rule_id", String(200), nullable=False),
-    __import__("sqlalchemy").Column("status", String(40), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("validation_result"),
-)
+    __table_args__ = (
+        Index("ix_analysis_plan_task_id", "task_id"),
+    )
 
-claim = Table(
-    "claim",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("claim_type", String(40), nullable=False),
-    __import__("sqlalchemy").Column("status", String(40), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("claim"),
-)
 
-evidence = Table(
-    "evidence",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column(
-        "observation_id", UUID(as_uuid=True), ForeignKey("observation.id"), nullable=False
-    ),
-    __import__("sqlalchemy").Column(
-        "execution_id", UUID(as_uuid=True), ForeignKey("execution_record.id"), nullable=False
-    ),
-    __import__("sqlalchemy").Column("result_hash", String(128), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("evidence"),
-)
+class HypothesisTable(Base):
+    """Persistence record for Hypothesis."""
 
-claim_evidence_link = Table(
-    "claim_evidence_link",
-    metadata,
-    __import__("sqlalchemy").Column(
-        "claim_id", UUID(as_uuid=True), ForeignKey("claim.id"), primary_key=True
-    ),
-    __import__("sqlalchemy").Column(
-        "evidence_id", UUID(as_uuid=True), ForeignKey("evidence.id"), primary_key=True
-    ),
-    __import__("sqlalchemy").Column("relation", String(40), nullable=False),
-    __import__("sqlalchemy").Column("rationale", Text, nullable=False),
-    __import__("sqlalchemy").Column(
-        "created_at", DateTime(timezone=True), nullable=False, server_default=func.now()
-    ),
-)
+    __tablename__ = "hypothesis"
 
-artifact = Table(
-    "artifact",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("artifact_type", String(50), nullable=False),
-    __import__("sqlalchemy").Column("content_hash", String(128), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("artifact"),
-)
+    hypothesis_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    statement: Mapped[str] = mapped_column(Text)
+    rationale: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(50), default=HypothesisState.PROPOSED.value)
+    priority: Mapped[int] = mapped_column(Integer)
+    evidence_ids: Mapped[list[str]] = mapped_column(ARRAY(String))
+    limitations: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-domain_event = Table(
-    "domain_event",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), nullable=False, index=True
-    ),
-    __import__("sqlalchemy").Column("event_type", String(80), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    __import__("sqlalchemy").Column(
-        "occurred_at", DateTime(timezone=True), nullable=False, server_default=func.now()
-    ),
-)
+    __table_args__ = (
+        Index("ix_hypothesis_task_id", "task_id"),
+        Index("ix_hypothesis_state", "state"),
+    )
 
-audit_event = Table(
-    "audit_event",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "task_id", UUID(as_uuid=True), ForeignKey("analysis_task.id"), index=True
-    ),
-    __import__("sqlalchemy").Column("actor_id", String(200), nullable=False),
-    __import__("sqlalchemy").Column("action", String(200), nullable=False),
-    __import__("sqlalchemy").Column("outcome", String(40), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False, server_default="{}"),
-    __import__("sqlalchemy").Column(
-        "occurred_at", DateTime(timezone=True), nullable=False, server_default=func.now()
-    ),
-)
 
-evaluation_case = Table(
-    "evaluation_case",
-    metadata,
-    __import__("sqlalchemy").Column("case_id", String(20), primary_key=True),
-    __import__("sqlalchemy").Column("suite_version", String(100), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("evaluation_case"),
-)
+# =============================================================================
+# Execution and Evidence
+# =============================================================================
 
-evaluation_run = Table(
-    "evaluation_run",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column("suite_version", String(100), nullable=False),
-    __import__("sqlalchemy").Column("model_provider_version", String(200), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False, server_default="{}"),
-    *timestamps("evaluation_run"),
-)
 
-evaluation_result = Table(
-    "evaluation_result",
-    metadata,
-    id_column(),
-    __import__("sqlalchemy").Column(
-        "evaluation_run_id",
-        UUID(as_uuid=True),
-        ForeignKey("evaluation_run.id"),
-        nullable=False,
-        index=True,
-    ),
-    __import__("sqlalchemy").Column(
-        "case_id", String(20), ForeignKey("evaluation_case.case_id"), nullable=False
-    ),
-    __import__("sqlalchemy").Column("passed", String(10), nullable=False),
-    __import__("sqlalchemy").Column("payload", JSON, nullable=False),
-    *timestamps("evaluation_result"),
-)
+class ExecutionRecordTable(Base):
+    """Persistence record for ExecutionRecord."""
+
+    __tablename__ = "execution_record"
+
+    execution_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36))
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    tool_name: Mapped[str] = mapped_column(String(100))
+    tool_version: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(50))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    result_row_count: Mapped[int | None] = mapped_column(Integer)
+    result_hash: Mapped[str | None] = mapped_column(String(64))
+    error_category: Mapped[str | None] = mapped_column(String(50))
+    error_summary: Mapped[str | None] = mapped_column(Text)
+
+    input_parameters_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    policy_checks: Mapped[list[str]] = mapped_column(ARRAY(String))
+
+    __table_args__ = (
+        Index("ix_execution_record_task_id", "task_id"),
+    )
+
+
+class ObservationTable(Base):
+    """Persistence record for Observation."""
+
+    __tablename__ = "observation"
+
+    observation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    execution_id: Mapped[str] = mapped_column(String(36), ForeignKey("execution_record.execution_id"))
+    observation_type: Mapped[str] = mapped_column(String(100))
+    statement: Mapped[str] = mapped_column(Text)
+    result_snapshot_uri: Mapped[str] = mapped_column(String(500))
+    result_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    numeric_values_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    dimensions_json: Mapped[dict[str, str]] = mapped_column(JSON)
+
+    __table_args__ = (
+        Index("ix_observation_task_id", "task_id"),
+    )
+
+
+class ValidationResultTable(Base):
+    """Persistence record for ValidationResult."""
+
+    __tablename__ = "validation_result"
+
+    validation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    rule_id: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(50))
+    subject_type: Mapped[str] = mapped_column(String(100))
+    subject_id: Mapped[str | None] = mapped_column(String(36))
+    details: Mapped[str] = mapped_column(Text)
+    expected: Mapped[str | None] = mapped_column(Text)
+    actual: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_validation_result_task_id", "task_id"),
+    )
+
+
+class ClaimTable(Base):
+    """Persistence record for Claim."""
+
+    __tablename__ = "claim"
+
+    claim_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    claim_type: Mapped[str] = mapped_column(String(50))
+    statement: Mapped[str] = mapped_column(Text)
+    confidence: Mapped[float | None] = mapped_column(Numeric(5, 4))
+    status: Mapped[str] = mapped_column(String(50), default="DRAFT")
+    limitations: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_claim_task_id", "task_id"),
+    )
+
+
+class EvidenceTable(Base):
+    """Persistence record for Evidence."""
+
+    __tablename__ = "evidence"
+
+    evidence_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    observation_id: Mapped[str] = mapped_column(String(36), ForeignKey("observation.observation_id"))
+    execution_id: Mapped[str] = mapped_column(String(36), ForeignKey("execution_record.execution_id"))
+    tool_name: Mapped[str] = mapped_column(String(100))
+    tool_version: Mapped[str] = mapped_column(String(100))
+    computation_identifier: Mapped[str] = mapped_column(String(200))
+    result_snapshot_uri: Mapped[str] = mapped_column(String(500))
+    result_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    parameters_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    dataset_snapshot_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    validation_ids: Mapped[list[str]] = mapped_column(ARRAY(String))
+
+    __table_args__ = (
+        Index("ix_evidence_task_id", "task_id"),
+    )
+
+
+class ClaimEvidenceTable(Base):
+    """Link table for Claim-Evidence relationships."""
+
+    __tablename__ = "claim_evidence"
+
+    claim_id: Mapped[str] = mapped_column(String(36), ForeignKey("claim.claim_id"), primary_key=True)
+    evidence_id: Mapped[str] = mapped_column(String(36), ForeignKey("evidence.evidence_id"), primary_key=True)
+    relation: Mapped[str] = mapped_column(String(50))
+    rationale: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ArtifactTable(Base):
+    """Persistence record for Artifact."""
+
+    __tablename__ = "artifact"
+
+    artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    artifact_type: Mapped[str] = mapped_column(String(50))
+    uri: Mapped[str] = mapped_column(String(500))
+    content_hash: Mapped[str] = mapped_column(String(64))
+    classification: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    claim_ids: Mapped[list[str]] = mapped_column(ARRAY(String))
+    evidence_ids: Mapped[list[str]] = mapped_column(ARRAY(String))
+
+    __table_args__ = (
+        Index("ix_artifact_task_id", "task_id"),
+    )
+
+
+# =============================================================================
+# Events and Evaluation
+# =============================================================================
+
+
+class DomainEventTable(Base):
+    """Persistence record for DomainEvent."""
+
+    __tablename__ = "domain_event"
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    event_type: Mapped[str] = mapped_column(String(100))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    trace_ref_json: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+
+    __table_args__ = (
+        Index("ix_domain_event_task_id", "task_id"),
+        Index("ix_domain_event_occurred_at", "occurred_at"),
+    )
+
+
+class AuditEventTable(Base):
+    """Persistence record for AuditEvent."""
+
+    __tablename__ = "audit_event"
+
+    audit_event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("analysis_task.task_id"))
+    actor_id: Mapped[str] = mapped_column(String(200))
+    action: Mapped[str] = mapped_column(String(100))
+    resource_type: Mapped[str] = mapped_column(String(100))
+    resource_id: Mapped[str] = mapped_column(String(200))
+    policy_version: Mapped[str] = mapped_column(String(100))
+    outcome: Mapped[str] = mapped_column(String(50))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_audit_event_actor_id", "actor_id"),
+        Index("ix_audit_event_occurred_at", "occurred_at"),
+    )
+
+
+class EvaluationCaseTable(Base):
+    """Persistence record for EvaluationCase."""
+
+    __tablename__ = "evaluation_case"
+
+    case_id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    title: Mapped[str] = mapped_column(String(500))
+    business_question: Mapped[str] = mapped_column(Text)
+    suite_version: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    user_context_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    expected_semantics_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    allowed_data_objects: Mapped[list[str]] = mapped_column(ARRAY(String))
+    forbidden_data_objects: Mapped[list[str]] = mapped_column(ARRAY(String))
+    expected_numeric_values_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    numeric_tolerance: Mapped[Decimal] = mapped_column(Numeric(20, 4))
+    required_hypothesis_topics: Mapped[list[str]] = mapped_column(ARRAY(String))
+    required_claim_types: Mapped[list[str]] = mapped_column(ARRAY(String))
+    acceptable_outcomes: Mapped[list[str]] = mapped_column(ARRAY(String))
+    tags: Mapped[list[str]] = mapped_column(ARRAY(String))
+
+
+class EvaluationRunTable(Base):
+    """Persistence record for EvaluationRun."""
+
+    __tablename__ = "evaluation_run"
+
+    evaluation_run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    suite_version: Mapped[str] = mapped_column(String(100))
+    git_revision: Mapped[str | None] = mapped_column(String(40))
+    model_provider_version: Mapped[str] = mapped_column(String(100))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class EvaluationResultTable(Base):
+    """Persistence record for EvaluationResult."""
+
+    __tablename__ = "evaluation_result"
+
+    result_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    evaluation_run_id: Mapped[str] = mapped_column(String(36), ForeignKey("evaluation_run.evaluation_run_id"))
+    case_id: Mapped[str] = mapped_column(String(20), ForeignKey("evaluation_case.case_id"))
+    passed: Mapped[bool] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    failure_categories: Mapped[list[str]] = mapped_column(ARRAY(String))
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+    __table_args__ = (
+        Index("ix_evaluation_result_run_id", "evaluation_run_id"),
+    )

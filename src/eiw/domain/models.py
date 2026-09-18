@@ -466,3 +466,226 @@ class DatasetManifest(DomainModel):
         if isinstance(start, date) and value < start:
             raise ValueError("business_date_max cannot precede business_date_min")
         return value
+
+
+class DatasetReference(DomainModel):
+    """Reference to a table within a dataset snapshot."""
+
+    table_name: str
+    schema_hash: str
+    row_count: int = Field(ge=0)
+    columns: list[str] = Field(default_factory=list)
+    partition_columns: list[str] = Field(default_factory=list)
+
+
+class MetricDefinition(DomainModel):
+    """Definition of a metric in the semantic package."""
+
+    metric_id: str
+    name: str
+    description: str = ""
+    unit: str | None = None
+    aggregation: str = "sum"
+    semantic_type: str = "numeric"
+    formula: str | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+# =============================================================================
+# API Request/Response Models
+# =============================================================================
+
+
+class AnalysisTaskCreate(DomainModel):
+    """Request model for creating an analysis task."""
+
+    business_question: str = Field(min_length=3, max_length=5000)
+    user_context: dict[str, Any] = Field(default_factory=dict)
+    scope_hint: dict[str, Any] = Field(default_factory=dict)
+    policy_version: str = Field(default="1.0.0")
+    domain_id: str = Field(default="default")
+    dataset_snapshot_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "AnalysisTaskCreate":
+        """Create from plain dictionary."""
+        return cls(**data)
+
+
+class AnalysisTaskResponse(DomainModel):
+    """Response model for analysis task."""
+
+    task_id: str
+    business_question: str
+    state: TaskState
+    user_id: str
+    tenant_id: str
+    policy_version: str
+    domain_id: str
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+    version: int = 1
+
+    @classmethod
+    def from_task(cls, task: AnalysisTask) -> "AnalysisTaskResponse":
+        """Create from domain model."""
+        return cls(
+            task_id=str(task.task_id),
+            business_question=task.business_question,
+            state=task.state,
+            user_id=task.user_context.user_id,
+            tenant_id=task.user_context.tenant_id,
+            policy_version=task.user_context.policy_version,
+            domain_id=task.domain_id,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+            completed_at=task.completed_at,
+        )
+
+
+class AnalysisTaskStateUpdate(DomainModel):
+    """Request model for updating task state."""
+
+    state: TaskState
+    reason: str | None = None
+
+
+class HypothesisCreate(DomainModel):
+    """Request model for creating a hypothesis."""
+
+    statement: str = Field(min_length=1, max_length=2000)
+    rationale: str = Field(min_length=1, max_length=2000)
+    priority: int = Field(default=50, ge=1, le=100)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "HypothesisCreate":
+        """Create from plain dictionary."""
+        return cls(**data)
+
+
+class HypothesisResponse(DomainModel):
+    """Response model for hypothesis."""
+
+    hypothesis_id: str
+    task_id: str
+    statement: str
+    rationale: str
+    state: HypothesisState
+    priority: int
+    evidence_ids: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_hypothesis(cls, hypothesis: Hypothesis) -> "HypothesisResponse":
+        """Create from domain model."""
+        return cls(
+            hypothesis_id=str(hypothesis.hypothesis_id),
+            task_id=str(hypothesis.task_id),
+            statement=hypothesis.statement,
+            rationale=hypothesis.rationale,
+            state=hypothesis.state,
+            priority=hypothesis.priority,
+            evidence_ids=[str(e) for e in hypothesis.evidence_ids],
+            limitations=hypothesis.limitations,
+            created_at=hypothesis.created_at,
+            updated_at=hypothesis.updated_at,
+        )
+
+
+class ClaimCreate(DomainModel):
+    """Request model for creating a claim."""
+
+    claim_type: ClaimType
+    statement: str = Field(min_length=1, max_length=5000)
+    evidence_ids: list[str] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ClaimCreate":
+        """Create from plain dictionary."""
+        return cls(**data)
+
+
+class ClaimResponse(DomainModel):
+    """Response model for claim."""
+
+    claim_id: str
+    task_id: str
+    claim_type: ClaimType
+    statement: str
+    confidence: float | None = None
+    status: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+    @classmethod
+    def from_claim(cls, claim: Claim) -> "ClaimResponse":
+        """Create from domain model."""
+        return cls(
+            claim_id=str(claim.claim_id),
+            task_id=str(claim.task_id),
+            claim_type=claim.claim_type,
+            statement=claim.statement,
+            confidence=claim.confidence,
+            status=claim.status,
+            evidence_ids=[str(e) for e in cls._get_evidence_ids(claim)],
+            created_at=claim.created_at,
+        )
+
+    @staticmethod
+    def _get_evidence_ids(claim: Claim) -> list[EntityId]:
+        """Get evidence IDs from claim."""
+        return []  # Would be populated from ClaimEvidenceLink
+
+
+class EvidenceCreate(DomainModel):
+    """Request model for creating evidence."""
+
+    observation_id: str
+    execution_id: str
+    tool_name: str
+    tool_version: str
+    computation_identifier: str
+    result_snapshot_uri: str
+    result_hash: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "EvidenceCreate":
+        """Create from plain dictionary."""
+        return cls(**data)
+
+
+class EvidenceResponse(DomainModel):
+    """Response model for evidence."""
+
+    evidence_id: str
+    observation_id: str
+    execution_id: str
+    tool_name: str
+    tool_version: str
+    computation_identifier: str
+    result_snapshot_uri: str
+    result_hash: str
+    validation_ids: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+    @classmethod
+    def from_evidence(cls, evidence: Evidence) -> "EvidenceResponse":
+        """Create from domain model."""
+        return cls(
+            evidence_id=str(evidence.evidence_id),
+            observation_id=str(evidence.observation_id),
+            execution_id=str(evidence.execution_id),
+            tool_name=evidence.tool_name,
+            tool_version=evidence.tool_version,
+            computation_identifier=evidence.computation_identifier,
+            result_snapshot_uri=evidence.result_snapshot_uri,
+            result_hash=evidence.result_hash,
+            validation_ids=[str(v) for v in evidence.validation_ids],
+            created_at=evidence.created_at,
+        )

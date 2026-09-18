@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime
 
 import pytest
+from pydantic import HttpUrl
 
 from eiw.data.snapshot import MetricCoverageError, SnapshotRegistry
 from eiw.domain.models import DatasetManifest
@@ -9,7 +10,7 @@ from eiw.domain.models import DatasetManifest
 def ready_manifest() -> DatasetManifest:
     return DatasetManifest(
         snapshot_id="iowa_liquor_snapshot_2026_07_v1",
-        source_url="https://data.iowa.gov/catalog/dataset/1051",
+        source_url=HttpUrl("https://data.iowa.gov/catalog/dataset/1051"),
         extracted_at=datetime(2026, 9, 1, tzinfo=UTC),
         business_date_min=date(2024, 1, 1),
         business_date_max=date(2026, 7, 31),
