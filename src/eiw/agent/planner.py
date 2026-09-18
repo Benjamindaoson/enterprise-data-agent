@@ -1,329 +1,525 @@
-"""Analysis Planner for Enterprise Data Agent.
+"""Analysis Planner - Creates structured analysis plans.
 
-Creates structured analysis plans based on:
-- Resolved business intent
-- Available metrics/dimensions
-- User permissions
-- Budget constraints
+This module provides:
+- Multi-step analysis planning
+- Tool selection
+- Dependency management
+- Budget estimation
 """
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
+from enum import Enum
 from typing import Any
 
-from eiw.agent.intent_resolver import IntentResult, IntentType
+from pydantic import BaseModel, Field, ConfigDict
+
+from eiw.agent.provider import ModelProvider, DeterministicProvider, ProviderConfig
+from eiw.observability.otel import trace_span
+from eiw.observability.logging import get_structured_logger
+
+
+logger = get_structured_logger(__name__, "planner")
+
+
+# =============================================================================
+# Tool Types
+# =============================================================================
+
+
+class ToolType(str, Enum):
+    """Available analysis tools."""
+
+    # Data access
+    METRIC_QUERY = "metric_query"
+    NL2SQL_QUERY = "nl2sql_query"
+    METRIC_EXPLAIN = "metric_explain"
+
+    # Analytical
+    TREND_ANALYSIS = "trend_analysis"
+    PERIOD_COMPARE = "period_compare"
+    CONTRIBUTION_ANALYSIS = "contribution_analysis"
+    PVM_ANALYSIS = "pvm_analysis"
+    VARIANCE_ANALYSIS = "variance_analysis"
+    DRILLDOWN_ANALYSIS = "drilldown_analysis"
+    ANOMALY_ANALYSIS = "anomaly_analysis"
+
+    # Knowledge
+    KNOWLEDGE_SEARCH = "knowledge_search"
+
+    # Computation
+    PYTHON_ANALYSIS = "python_analysis"
+
+    # Output
+    CHART_GENERATE = "chart_generate"
+    REPORT_GENERATE = "report_generate"
+
+
+# =============================================================================
+# Plan Step Model
+# =============================================================================
+
+
+class StepStatus(str, Enum):
+    """Status of a plan step."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
 
 
 @dataclass
-class PlanStep:
+class AnalysisStep:
     """A single step in an analysis plan."""
 
     step_id: str
-    ordinal: int
-    title: str
     purpose: str
-    tool: str
-    inputs: dict[str, Any] = field(default_factory=dict)
-    expected_outputs: list[str] = field(default_factory=list)
-    stop_conditions: list[str] = field(default_factory=list)
-    depends_on: list[str] = field(default_factory=list)
-    estimated_duration_seconds: int = 30
-
-
-@dataclass
-class AnalysisPlan:
-    """A structured analysis plan."""
-
-    plan_id: str
-    task_id: str
-    intent_type: str
-    steps: list[PlanStep] = field(default_factory=list)
-    max_steps: int = 10
-    max_duration_seconds: int = 300
-    version: int = 1
-    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    tool: ToolType
+    required_inputs: dict[str, Any] = field(default_factory=dict)
+    expected_output: str = ""
+    verification_requirement: str = ""
+    dependencies: list[str] = field(default_factory=list)
+    budget_estimate_ms: int = 5000
+    status: StepStatus = StepStatus.PENDING
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            "plan_id": self.plan_id,
-            "task_id": self.task_id,
-            "intent_type": self.intent_type,
-            "steps": [
-                {
-                    "step_id": s.step_id,
-                    "ordinal": s.ordinal,
-                    "title": s.title,
-                    "purpose": s.purpose,
-                    "tool": s.tool,
-                    "inputs": s.inputs,
-                    "expected_outputs": s.expected_outputs,
-                    "stop_conditions": s.stop_conditions,
-                    "depends_on": s.depends_on,
-                    "estimated_duration_seconds": s.estimated_duration_seconds,
-                }
-                for s in self.steps
-            ],
-            "max_steps": self.max_steps,
-            "max_duration_seconds": self.max_duration_seconds,
-            "version": self.version,
-            "created_at": self.created_at.isoformat(),
+            "step_id": self.step_id,
+            "purpose": self.purpose,
+            "tool": self.tool.value,
+            "required_inputs": self.required_inputs,
+            "expected_output": self.expected_output,
+            "verification_requirement": self.verification_requirement,
+            "dependencies": self.dependencies,
+            "budget_estimate_ms": self.budget_estimate_ms,
+            "status": self.status.value,
         }
+
+
+class AnalysisPlan(BaseModel):
+    """Structured analysis plan."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    plan_id: str = Field(description="Unique plan identifier")
+    intent_summary: str = Field(description="Summary of the resolved intent")
+
+    steps: list[AnalysisStep] = Field(
+        default_factory=list,
+        description="Ordered list of analysis steps"
+    )
+
+    total_budget_ms: int = Field(
+        default=60000,
+        description="Total budget for all steps in milliseconds"
+    )
+    estimated_steps: int = Field(
+        default=0,
+        description="Estimated number of steps"
+    )
+
+    created_at: datetime = Field(
+        default_factory=datetime.now,
+        description="When the plan was created"
+    )
+
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional plan metadata"
+    )
+
+    def get_next_step(self) -> AnalysisStep | None:
+        """Get the next pending step."""
+        for step in self.steps:
+            if step.status == StepStatus.PENDING:
+                deps_complete = all(
+                    self._get_step(sid).status == StepStatus.COMPLETED
+                    for sid in step.dependencies
+                    if self._get_step(sid)
+                )
+                if deps_complete:
+                    return step
+        return None
+
+    def get_step(self, step_id: str) -> AnalysisStep | None:
+        """Get a step by ID."""
+        return self._get_step(step_id)
+
+    def _get_step(self, step_id: str) -> AnalysisStep | None:
+        """Internal method to get step by ID."""
+        for step in self.steps:
+            if step.step_id == step_id:
+                return step
+        return None
+
+    def mark_step_complete(self, step_id: str) -> None:
+        """Mark a step as complete."""
+        step = self._get_step(step_id)
+        if step:
+            step.status = StepStatus.COMPLETED
+
+    def mark_step_failed(self, step_id: str) -> None:
+        """Mark a step as failed."""
+        step = self._get_step(step_id)
+        if step:
+            step.status = StepStatus.FAILED
+
+    def is_complete(self) -> bool:
+        """Check if all steps are complete."""
+        return all(
+            s.status in (StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED)
+            for s in self.steps
+        )
+
+    def remaining_budget_ms(self, elapsed_ms: int = 0) -> int:
+        """Calculate remaining budget."""
+        return max(0, self.total_budget_ms - elapsed_ms)
+
+    def to_trace_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for tracing."""
+        return {
+            "plan_id": self.plan_id,
+            "step_count": len(self.steps),
+            "total_budget_ms": self.total_budget_ms,
+            "steps": [s.to_dict() for s in self.steps],
+        }
+
+
+# =============================================================================
+# Planner
+# =============================================================================
 
 
 class AnalysisPlanner:
-    """Creates analysis plans for business questions.
+    """Creates structured analysis plans from resolved intent."""
 
-    The planner takes a resolved intent and creates a structured
-    sequence of analytical steps to answer the question.
-    """
-
-    # Step templates for different intents
-    INTENT_STEPS: dict[IntentType, list[dict[str, str]]] = {
-        IntentType.METRIC_QUERY: [
-            {"title": "Establish baseline", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
+    TOOL_SELECTION_RULES: dict[str, list[ToolType]] = {
+        "descriptive": [ToolType.METRIC_QUERY, ToolType.PERIOD_COMPARE],
+        "diagnostic": [
+            ToolType.METRIC_QUERY,
+            ToolType.CONTRIBUTION_ANALYSIS,
+            ToolType.VARIANCE_ANALYSIS,
+            ToolType.DRILLDOWN_ANALYSIS,
         ],
-        IntentType.TREND_ANALYSIS: [
-            {"title": "Calculate trend", "purpose": "trend_analysis", "tool": "trend_analysis"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.COMPARISON: [
-            {"title": "Calculate current period", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Calculate comparison period", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Compare periods", "purpose": "period_compare", "tool": "period_compare"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.CONTRIBUTION: [
-            {"title": "Calculate total change", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Rank contributors", "purpose": "contribution", "tool": "contribution_analysis"},
-            {"title": "Verify contributions", "purpose": "verify", "tool": "nl2sql_explain"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.ATTRIBUTION: [
-            {"title": "Establish baseline", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Rank contributions", "purpose": "contribution", "tool": "contribution_analysis"},
-            {"title": "Investigate top drivers", "purpose": "investigation", "tool": "nl2sql_query"},
-            {"title": "Verify causality", "purpose": "verify", "tool": "nl2sql_explain"},
-            {"title": "Synthesize findings", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.ANOMALY_DETECTION: [
-            {"title": "Establish baseline", "purpose": "trend_analysis", "tool": "trend_analysis"},
-            {"title": "Detect anomalies", "purpose": "anomaly", "tool": "anomaly_detection"},
-            {"title": "Investigate anomaly", "purpose": "investigation", "tool": "nl2sql_query"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.EXPLAIN: [
-            {"title": "Retrieve definition", "purpose": "explain", "tool": "metric_explain"},
-            {"title": "Provide explanation", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.BUDGET_VARIANCE: [
-            {"title": "Calculate actuals", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Compare to budget", "purpose": "variance", "tool": "variance_analysis"},
-            {"title": "Investigate variances", "purpose": "investigation", "tool": "nl2sql_query"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
-        ],
-        IntentType.drilldown: [
-            {"title": "Establish baseline", "purpose": "metric_query", "tool": "metric_query"},
-            {"title": "Drill down by dimension", "purpose": "drilldown", "tool": "drilldown_analysis"},
-            {"title": "Continue drilldown", "purpose": "drilldown", "tool": "drilldown_analysis"},
-            {"title": "Present findings", "purpose": "report", "tool": "report_generate"},
-        ],
+        "comparison": [ToolType.PERIOD_COMPARE, ToolType.CONTRIBUTION_ANALYSIS],
+        "trend": [ToolType.TREND_ANALYSIS, ToolType.METRIC_QUERY],
+        "contribution": [ToolType.CONTRIBUTION_ANALYSIS, ToolType.PVM_ANALYSIS],
+        "variance": [ToolType.VARIANCE_ANALYSIS, ToolType.PERIOD_COMPARE],
+        "anomaly": [ToolType.ANOMALY_ANALYSIS, ToolType.DRILLDOWN_ANALYSIS],
+        "drilldown": [ToolType.DRILLDOWN_ANALYSIS, ToolType.METRIC_QUERY],
     }
 
-    def create_plan(
+    TOOL_BUDGETS: dict[ToolType, int] = {
+        ToolType.METRIC_QUERY: 3000,
+        ToolType.NL2SQL_QUERY: 10000,
+        ToolType.METRIC_EXPLAIN: 2000,
+        ToolType.TREND_ANALYSIS: 5000,
+        ToolType.PERIOD_COMPARE: 5000,
+        ToolType.CONTRIBUTION_ANALYSIS: 8000,
+        ToolType.PVM_ANALYSIS: 8000,
+        ToolType.VARIANCE_ANALYSIS: 6000,
+        ToolType.DRILLDOWN_ANALYSIS: 5000,
+        ToolType.ANOMALY_ANALYSIS: 6000,
+        ToolType.KNOWLEDGE_SEARCH: 3000,
+        ToolType.PYTHON_ANALYSIS: 15000,
+        ToolType.CHART_GENERATE: 3000,
+        ToolType.REPORT_GENERATE: 5000,
+    }
+
+    def __init__(
         self,
-        task_id: str,
-        intent: IntentResult,
-        user_context: dict[str, Any] | None = None,
+        provider: ModelProvider | None = None,
+        max_budget_ms: int = 60000,
+    ):
+        """Initialize planner."""
+        self._provider = provider or DeterministicProvider(ProviderConfig())
+        self._max_budget_ms = max_budget_ms
+        self._plan_count = 0
+
+    @property
+    def plan_count(self) -> int:
+        """Number of plans created."""
+        return self._plan_count
+
+    async def create_plan(
+        self,
+        intent: Any,
+        question: str = "",
+        domain: str = "general",
     ) -> AnalysisPlan:
-        """Create an analysis plan for the given intent.
+        """Create an analysis plan from resolved intent."""
+        with trace_span("plan.create", {
+            "analysis_type": intent.analysis_type.value if hasattr(intent, 'analysis_type') else "unknown",
+            "domain": domain,
+        }):
+            self._plan_count += 1
+            plan_id = f"plan_{self._plan_count}_{int(datetime.now().timestamp())}"
 
-        Args:
-            task_id: Task identifier
-            intent: Resolved business intent
-            user_context: User context for budget limits
+            if self._should_use_model_planning(intent):
+                plan = await self._create_model_plan(plan_id, intent, question, domain)
+            else:
+                plan = self._create_rule_based_plan(plan_id, intent, question, domain)
 
-        Returns:
-            AnalysisPlan with ordered steps
-        """
-        plan_id = str(uuid.uuid4())
-        intent_type = intent.intent_type
+            if not self._validate_plan(plan):
+                logger.warning(f"Plan validation failed for {plan_id}")
 
-        # Get step templates for this intent type
-        templates = self.INTENT_STEPS.get(
-            intent_type,
-            self.INTENT_STEPS(IntentType.METRIC_QUERY),
-        )
+            return plan
 
-        # Create steps
-        steps: list[PlanStep] = []
-        for i, template in enumerate(templates, 1):
-            step = PlanStep(
-                step_id=str(uuid.uuid4()),
-                ordinal=i,
-                title=template["title"],
-                purpose=template["purpose"],
-                tool=template["tool"],
-                inputs=self._prepare_step_inputs(intent, template),
-                expected_outputs=self._get_expected_outputs(template["purpose"]),
-                stop_conditions=self._get_stop_conditions(template["purpose"]),
-                estimated_duration_seconds=self._estimate_duration(template["tool"]),
-            )
-            steps.append(step)
+    def _should_use_model_planning(self, intent: Any) -> bool:
+        """Determine if model-based planning is needed."""
+        analysis_type = intent.analysis_type
+        # Handle both enum and string comparisons
+        if hasattr(analysis_type, 'value'):
+            analysis_type = analysis_type.value
+        if analysis_type in ("diagnostic", "drilldown"):
+            return True
+        if len(intent.metric_candidates) > 2:
+            return True
+        return False
 
-        # Create plan
-        plan = AnalysisPlan(
+    async def _create_model_plan(
+        self,
+        plan_id: str,
+        intent: Any,
+        question: str,
+        domain: str,
+    ) -> AnalysisPlan:
+        """Create plan using model."""
+        prompt = self._build_planning_prompt(intent, question, domain)
+
+        response = await self._provider.complete(prompt)
+        if response.error:
+            return self._create_rule_based_plan(plan_id, intent, question, domain)
+
+        return self._parse_model_plan(plan_id, response.content, intent)
+
+    def _create_rule_based_plan(
+        self,
+        plan_id: str,
+        intent: Any,
+        question: str,
+        domain: str,
+    ) -> AnalysisPlan:
+        """Create plan using rules."""
+        steps: list[AnalysisStep] = []
+        step_num = 0
+
+        # Normalize analysis_type for comparisons
+        analysis_type = intent.analysis_type
+        if hasattr(analysis_type, 'value'):
+            analysis_type = analysis_type.value
+
+        primary_metric = intent.selected_metrics[0] if intent.selected_metrics else intent.metric_candidates[0] if intent.metric_candidates else "unknown"
+
+        step_num += 1
+        steps.append(AnalysisStep(
+            step_id=f"{plan_id}_step_{step_num}",
+            purpose=f"Retrieve {primary_metric} data",
+            tool=ToolType.METRIC_QUERY,
+            required_inputs={
+                "metrics": [primary_metric],
+                "dimensions": intent.selected_dimensions,
+            },
+            expected_output="Metric data with specified dimensions",
+            verification_requirement="Data retrieved successfully",
+            budget_estimate_ms=self.TOOL_BUDGETS[ToolType.METRIC_QUERY],
+        ))
+
+        if analysis_type in ("comparison", "diagnostic"):
+            if intent.comparison_baseline:
+                step_num += 1
+                steps.append(AnalysisStep(
+                    step_id=f"{plan_id}_step_{step_num}",
+                    purpose="Compare with baseline period",
+                    tool=ToolType.PERIOD_COMPARE,
+                    expected_output="Period comparison with variance",
+                    verification_requirement="Comparison computed",
+                    dependencies=[f"{plan_id}_step_1"],
+                    budget_estimate_ms=self.TOOL_BUDGETS[ToolType.PERIOD_COMPARE],
+                ))
+
+            if analysis_type == "diagnostic" and intent.selected_dimensions:
+                step_num += 1
+                steps.append(AnalysisStep(
+                    step_id=f"{plan_id}_step_{step_num}",
+                    purpose="Identify key drivers",
+                    tool=ToolType.CONTRIBUTION_ANALYSIS,
+                    required_inputs={"breakdown_by": intent.selected_dimensions[0]},
+                    expected_output="Contribution breakdown by dimension",
+                    verification_requirement="Contributions sum to 100%",
+                    dependencies=[f"{plan_id}_step_1"],
+                    budget_estimate_ms=self.TOOL_BUDGETS[ToolType.CONTRIBUTION_ANALYSIS],
+                ))
+
+        elif analysis_type == "trend":
+            step_num += 1
+            steps.append(AnalysisStep(
+                step_id=f"{plan_id}_step_{step_num}",
+                purpose="Analyze trend",
+                tool=ToolType.TREND_ANALYSIS,
+                required_inputs={"granularity": intent.time_granularity or "monthly"},
+                expected_output="Trend analysis with direction and magnitude",
+                verification_requirement="Trend direction identified",
+                dependencies=[f"{plan_id}_step_1"],
+                budget_estimate_ms=self.TOOL_BUDGETS[ToolType.TREND_ANALYSIS],
+            ))
+
+        elif analysis_type == "variance":
+            step_num += 1
+            steps.append(AnalysisStep(
+                step_id=f"{plan_id}_step_{step_num}",
+                purpose="Analyze variance",
+                tool=ToolType.VARIANCE_ANALYSIS,
+                required_inputs={"baseline": "budget"},
+                expected_output="Variance breakdown",
+                verification_requirement="Variance reconciled",
+                dependencies=[f"{plan_id}_step_1"],
+                budget_estimate_ms=self.TOOL_BUDGETS[ToolType.VARIANCE_ANALYSIS],
+            ))
+
+        step_num += 1
+        output_tool = ToolType.CHART_GENERATE if hasattr(intent, 'requested_output') and intent.requested_output.value == "chart" else ToolType.REPORT_GENERATE
+
+        steps.append(AnalysisStep(
+            step_id=f"{plan_id}_step_{step_num}",
+            purpose="Generate output",
+            tool=output_tool,
+            expected_output="Output generated successfully",
+            dependencies=[f"{plan_id}_step_{step_num - 1}"] if step_num > 1 else [],
+            budget_estimate_ms=self.TOOL_BUDGETS[output_tool],
+        ))
+
+        total_budget = sum(s.budget_estimate_ms for s in steps)
+
+        return AnalysisPlan(
             plan_id=plan_id,
-            task_id=task_id,
-            intent_type=intent_type.value,
+            intent_summary=intent.objective if hasattr(intent, 'objective') else question,
             steps=steps,
-            max_steps=len(steps),
-            max_duration_seconds=sum(s.estimated_duration_seconds for s in steps) + 60,
+            total_budget_ms=min(total_budget, self._max_budget_ms),
+            estimated_steps=len(steps),
+            metadata={
+                "analysis_type": intent.analysis_type.value if hasattr(intent, 'analysis_type') else "unknown",
+                "domain": domain,
+                "planning_method": "rule_based",
+            },
         )
 
-        return plan
-
-    def _prepare_step_inputs(
+    def _build_planning_prompt(
         self,
-        intent: IntentResult,
-        template: dict[str, str],
-    ) -> dict[str, Any]:
-        """Prepare inputs for a step based on template."""
-        inputs: dict[str, Any] = {}
+        intent: Any,
+        question: str,
+        domain: str,
+    ) -> str:
+        """Build prompt for model-based planning."""
+        return f"""Create an analysis plan for this business question.
 
-        if template["purpose"] in ("metric_query", "trend_analysis", "period_compare"):
-            inputs["metric_ids"] = intent.primary_metrics
-            inputs["dimensions"] = intent.dimensions
-            inputs["filters"] = intent.filters
-            if intent.primary_period_start and intent.primary_period_end:
-                inputs["period"] = {
-                    "start": intent.primary_period_start.isoformat(),
-                    "end": intent.primary_period_end.isoformat(),
-                }
-            if intent.comparison_period_start and intent.comparison_period_end:
-                inputs["comparison_period"] = {
-                    "start": intent.comparison_period_start.isoformat(),
-                    "end": intent.comparison_period_end.isoformat(),
-                }
+Intent:
+- Objective: {intent.objective if hasattr(intent, 'objective') else question}
+- Analysis type: {intent.analysis_type.value if hasattr(intent, 'analysis_type') else 'unknown'}
+- Metrics: {intent.selected_metrics or intent.metric_candidates}
+- Dimensions: {intent.selected_dimensions or intent.dimension_candidates}
+- Time range: {intent.time_range_start} to {intent.time_range_end}
+- Output: {intent.requested_output.value if hasattr(intent, 'requested_output') else 'text'}
 
-        elif template["purpose"] == "contribution":
-            inputs["metric_id"] = intent.primary_metrics[0] if intent.primary_metrics else "revenue"
-            inputs["dimension"] = intent.dimensions[0] if intent.dimensions else "category"
-            inputs["granularity"] = intent.granularity
+Available tools: metric_query, period_compare, trend_analysis, contribution_analysis, pvm_analysis, variance_analysis, drilldown_analysis, anomaly_analysis, python_analysis, chart_generate, report_generate
 
-        elif template["purpose"] == "investigation":
-            inputs["question"] = intent.raw_components.get("question", "")
-            inputs["metrics"] = intent.primary_metrics
+Create 3-5 steps. Each step needs:
+- step_id (e.g., plan_1_step_1)
+- purpose (what this step accomplishes)
+- tool (which tool to use)
+- required_inputs (what inputs are needed)
+- expected_output (what this step produces)
+- dependencies (which step_ids must complete first)
+- budget_estimate_ms (time budget for this step)
 
-        return inputs
+Respond with JSON array of steps."""
 
-    def _get_expected_outputs(self, purpose: str) -> list[str]:
-        """Get expected outputs for a step purpose."""
-        output_map: dict[str, list[str]] = {
-            "metric_query": ["metric_values", "row_count", "execution_time_ms"],
-            "trend_analysis": ["data_points", "trend_direction", "growth_rate"],
-            "period_compare": ["changes", "change_pct", "direction"],
-            "contribution": ["ranked_contributors", "total_change", "contribution_pct"],
-            "investigation": ["sql_query", "results", "explanation"],
-            "anomaly": ["anomalies", "threshold", "severity"],
-            "variance": ["variance", "variance_pct", "favorable"],
-            "drilldown": ["level_data", "next_dimensions"],
-            "verify": ["verified", "confidence", "evidence"],
-            "report": ["report_uri", "claims", "summary"],
-            "explain": ["definition", "formula", "examples"],
-        }
-        return output_map.get(purpose, ["result"])
-
-    def _get_stop_conditions(self, purpose: str) -> list[str]:
-        """Get stop conditions for a step purpose."""
-        stop_map: dict[str, list[str]] = {
-            "metric_query": ["no_data_returned", "timeout_exceeded"],
-            "contribution": ["no_significant_contributors", "too_many_dimensions"],
-            "investigation": ["no_clear_findings", "max_retries_exceeded"],
-            "anomaly": ["no_anomalies_found", "all_anomalies_explained"],
-            "drilldown": ["max_depth_reached", "no_variance_at_level"],
-        }
-        return stop_map.get(purpose, [])
-
-    def _estimate_duration(self, tool: str) -> int:
-        """Estimate step duration in seconds."""
-        duration_map: dict[str, int] = {
-            "metric_query": 5,
-            "trend_analysis": 10,
-            "period_compare": 8,
-            "contribution_analysis": 15,
-            "nl2sql_query": 30,
-            "nl2sql_explain": 10,
-            "anomaly_detection": 20,
-            "variance_analysis": 15,
-            "drilldown_analysis": 20,
-            "metric_explain": 5,
-            "report_generate": 10,
-            "python_analysis": 30,
-        }
-        return duration_map.get(tool, 15)
-
-    def extend_plan(
+    def _parse_model_plan(
         self,
-        plan: AnalysisPlan,
-        additional_steps: list[dict[str, str]],
+        plan_id: str,
+        content: str,
+        intent: Any,
     ) -> AnalysisPlan:
-        """Extend an existing plan with additional steps.
+        """Parse model response into plan."""
+        import json
 
-        Args:
-            plan: Existing plan to extend
-            additional_steps: List of step templates to add
+        steps: list[AnalysisStep] = []
 
-        Returns:
-            Extended plan with new steps
-        """
-        base_ordinal = len(plan.steps)
+        try:
+            json_str = self._extract_json(content)
+            data = json.loads(json_str)
 
-        for i, template in enumerate(additional_steps, 1):
-            step = PlanStep(
-                step_id=str(uuid.uuid4()),
-                ordinal=base_ordinal + i,
-                title=template["title"],
-                purpose=template["purpose"],
-                tool=template["tool"],
-                inputs={},
-                expected_outputs=self._get_expected_outputs(template["purpose"]),
-                stop_conditions=self._get_stop_conditions(template["purpose"]),
-                estimated_duration_seconds=self._estimate_duration(template["tool"]),
-            )
-            plan.steps.append(step)
+            for step_data in data if isinstance(data, list) else data.get("steps", []):
+                steps.append(AnalysisStep(
+                    step_id=step_data.get("step_id", f"{plan_id}_step_{len(steps) + 1}"),
+                    purpose=step_data.get("purpose", ""),
+                    tool=ToolType(step_data.get("tool", "metric_query")),
+                    required_inputs=step_data.get("required_inputs", {}),
+                    expected_output=step_data.get("expected_output", ""),
+                    dependencies=step_data.get("dependencies", []),
+                    budget_estimate_ms=step_data.get("budget_estimate_ms", 5000),
+                ))
 
-        plan.max_steps = len(plan.steps)
-        plan.version += 1
-        return plan
+        except Exception as e:
+            logger.warning(f"Failed to parse model plan: {e}, using rule-based")
+            return self._create_rule_based_plan(plan_id, intent, "", "general")
 
-    def validate_plan(self, plan: AnalysisPlan) -> tuple[bool, list[str]]:
-        """Validate a plan for correctness.
+        total_budget = sum(s.budget_estimate_ms for s in steps) if steps else 0
 
-        Returns:
-            Tuple of (is_valid, error_messages)
-        """
-        errors: list[str] = []
+        return AnalysisPlan(
+            plan_id=plan_id,
+            intent_summary=intent.objective if hasattr(intent, 'objective') else "",
+            steps=steps,
+            total_budget_ms=min(total_budget, self._max_budget_ms),
+            estimated_steps=len(steps),
+            metadata={
+                "analysis_type": intent.analysis_type.value if hasattr(intent, 'analysis_type') else "unknown",
+                "domain": intent.domain if hasattr(intent, 'domain') else "general",
+                "planning_method": "model_based",
+            },
+        )
 
-        # Check step ordinals are sequential
-        ordinals = [s.ordinal for s in plan.steps]
-        if ordinals != list(range(1, len(ordinals) + 1)):
-            errors.append("Step ordinals must be sequential starting from 1")
+    def _extract_json(self, content: str) -> str:
+        """Extract JSON from content."""
+        content = content.strip()
 
-        # Check dependencies are valid
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+
+        if content.endswith("```"):
+            content = content[:-3]
+
+        return content.strip()
+
+    def _validate_plan(self, plan: AnalysisPlan) -> bool:
+        """Validate plan feasibility."""
+        if not plan.steps:
+            return False
+
+        total_budget = sum(s.budget_estimate_ms for s in plan.steps)
+        if total_budget > self._max_budget_ms:
+            return False
+
         all_step_ids = {s.step_id for s in plan.steps}
         for step in plan.steps:
-            for dep_id in step.depends_on:
-                if dep_id not in all_step_ids:
-                    errors.append(f"Step {step.step_id} depends on unknown step {dep_id}")
+            for dep in step.dependencies:
+                if dep not in all_step_ids:
+                    logger.warning(f"Invalid dependency: {dep} in step {step.step_id}")
+                    return False
 
-        # Check tool is specified
-        for step in plan.steps:
-            if not step.tool:
-                errors.append(f"Step {step.step_id} has no tool specified")
+        return True
 
-        return len(errors) == 0, errors
+
+def create_analysis_planner(
+    provider: ModelProvider | None = None,
+    max_budget_ms: int = 60000,
+) -> AnalysisPlanner:
+    """Create an analysis planner."""
+    return AnalysisPlanner(provider=provider, max_budget_ms=max_budget_ms)
