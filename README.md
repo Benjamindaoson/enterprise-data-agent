@@ -2,17 +2,44 @@
 
 # Enterprise Data Agent
 
-### 企业自主数据分析智能体平台
+**Governed Autonomous Analytics Platform**
+**企业级自主数据分析智能体平台**
 
-**Autonomous multi-agent analytics for long-horizon business investigation.**
+*Autonomous multi-agent analytics for long-horizon business investigation.*
 
-`Agent Systems` · `Multi-Agent Orchestration` · `Context Engineering` · `Semantic Layer` · `Agent Runtime`
+`Agent Systems` · `Multi-Agent Orchestration` · `Semantic Layer` · `Governed NL2SQL` · `Agent Runtime` · `OpenTelemetry`
 
-</div>
+---
 
-Enterprise Data Agent is designed for multi-store business analysis where a useful answer requires more than generating one SQL query. It turns an ambiguous business question into a durable analysis task, then coordinates planning, data investigation, hypothesis updates, verification, and reporting over governed enterprise data.
+## P0 Implementation Status
 
-Typical use cases include product, category, store, supplier, trend, anomaly, and contribution analysis.
+| Capability | Status | Notes |
+|------------|--------|-------|
+| **VERIFIED** | | |
+| Agent Runtime | ✅ VERIFIED | Supervisor + checkpoint/resume |
+| 13 P0 Tools | ✅ VERIFIED | All tools implemented + tested |
+| NL2SQL Pipeline | ✅ VERIFIED | SQLGlot, repair, security |
+| Semantic Layer | ✅ VERIFIED | 4 domain packages |
+| RBAC/Governance | ✅ VERIFIED | 22 security tests pass |
+| Python Sandbox | ✅ VERIFIED | Blocked imports enforced |
+| OpenTelemetry | ✅ VERIFIED | Full tracing |
+| Intent Resolution | ✅ VERIFIED | 7 tests pass |
+| **IMPLEMENTED** | | |
+| Real Provider | ⚠️ IMPLEMENTED | Code exists, needs API key |
+| PostgreSQL Adapter | ⚠️ IMPLEMENTED | Needs Docker |
+| Regression Runner | ⚠️ IMPLEMENTED | Infrastructure ready |
+| UI Surfaces | ⚠️ PARTIAL | Basic structure exists |
+| **BLOCKED** | | |
+| Real API Verification | 🔒 BLOCKED | No ANTHROPIC_API_KEY |
+| PostgreSQL E2E | 🔒 BLOCKED | Docker not running |
+| Flagship E2E (real) | 🔒 BLOCKED | No real provider |
+
+**Total Tests: 511 passing** (including 24 retrieval, 46 paraphrase, 14 evidence)
+**Evaluation Cases: 245+** (221 base + 24 retrieval)
+
+---
+
+## Why this is not another NL2SQL demo
 
 ```text
 Business Question
