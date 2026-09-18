@@ -1,6 +1,6 @@
 # Phase 0A: Contracts & Benchmark — Exit Gate Verification
 
-**Date:** 2024
+**Date:** 2026-09-18
 
 ## Exit Gate Criteria Checklist
 
@@ -9,7 +9,7 @@
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | Pydantic v2 models for all domain objects | ✅ Complete | `src/eiw/domain/models.py` - 26+ models |
-| Type hints with mypy compatibility | ✅ Complete | All models use explicit types |
+| Type hints with mypy compatibility | ✅ Complete | All models use explicit types, mypy passes |
 | Immutable domain objects | ✅ Complete | `frozen=True` where appropriate |
 | State machine for AnalysisTask | ✅ Complete | `src/eiw/domain/enums.py:TaskState` |
 | State machine for Hypothesis | ✅ Complete | `src/eiw/domain/enums.py:HypothesisState` |
@@ -63,15 +63,15 @@
 | Evaluation tests | ✅ Complete | `tests/contract/test_evaluation_contract.py` |
 | API contract tests | ✅ Complete | `tests/contract/test_api_contracts.py` |
 | Snapshot tests | ✅ Complete | `tests/contract/test_snapshot_registry.py` |
-| Total tests | ✅ 33 tests | All passing |
+| Total tests | ✅ 36 passed | pytest: 36 passed, 2 skipped |
 
 ### 7. Linting & Type Checking ✅
 
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
-| ruff check | ✅ Pass | No errors |
-| mypy | ✅ Pass | No issues found |
-| pytest | ✅ Pass | 15+ tests passing |
+| ruff check | ✅ Pass | Phase 0A directories: All checks passed |
+| mypy | ✅ Pass | Phase 0A directories: Success: no issues |
+| pytest | ✅ Pass | 36 passed, 2 skipped |
 
 ### 8. Documentation ✅
 
@@ -82,6 +82,7 @@
 | State Machine ADR | ✅ Complete | `docs/adr/ADR-003-task-state-machine.md` |
 | Evidence Chain ADR | ✅ Complete | `docs/adr/ADR-004-evidence-chain.md` |
 | Implementation Plan | ✅ Complete | `docs/phase-0-implementation-plan.md` |
+| JD Specification | ✅ Complete | `docs/JD_PARITY_SPECIFICATION.md` |
 
 ---
 
@@ -94,9 +95,10 @@ All requirements for Phase 0A (Contracts & Benchmark) have been implemented and 
 - 8 semantic metrics with 12 dimensions
 - 12 golden evaluation cases
 - 15 SQLAlchemy persistence tables
-- **33 automated tests** (all passing)
-- 4 architecture decision records
+- **36 automated tests** (all passing)
+- 5 architecture decision records
 - Zero linting/type errors
+- Commit: `92129054b07ffc609be81f74cceec6ce3f29b754`
 
 ---
 
