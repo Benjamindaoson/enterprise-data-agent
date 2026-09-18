@@ -933,6 +933,470 @@ class PythonAnalysisTool:
 
 
 # =============================================================================
+# Metric Explain Tool
+# =============================================================================
+
+
+class MetricExplainTool:
+    """Tool for explaining metric definitions and calculations."""
+
+    SIGNATURE = ToolSignature(
+        name="metric_explain",
+        description="Explain a metric's definition, formula, and business rules",
+        category=ToolCategory.SYNTHESIS,
+        parameters={
+            "type": "object",
+            "properties": {
+                "metric_id": {"type": "string", "description": "Metric identifier"},
+                "include_formula": {"type": "boolean", "description": "Include calculation formula", "default": True},
+                "include_examples": {"type": "boolean", "description": "Include SQL examples", "default": True},
+            },
+            "required": ["metric_id"],
+        },
+        returns={
+            "type": "object",
+            "properties": {
+                "metric_id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "formula": {"type": "string"},
+                "unit": {"type": "string"},
+                "valid_grains": {"type": "array"},
+                "supported_dimensions": {"type": "array"},
+                "examples": {"type": "array"},
+            },
+        },
+    )
+
+    def __init__(self, semantic_package: dict[str, Any] | None = None):
+        self._semantic_package = semantic_package or {}
+
+    async def execute(
+        self,
+        params: dict[str, Any],
+        context: ToolExecutionContext,
+    ) -> dict[str, Any]:
+        """Execute metric explain.
+
+        Args:
+            params: Tool parameters
+            context: Execution context
+
+        Returns:
+            Metric explanation
+        """
+        metric_id = params.get("metric_id")
+        include_formula = params.get("include_formula", True)
+        include_examples = params.get("include_examples", True)
+
+        # Get metric from semantic package
+        metric = self._get_metric(metric_id)
+        if not metric:
+            return {"error": f"Metric not found: {metric_id}"}
+
+        result = {
+            "metric_id": metric.get("id", metric_id),
+            "name": metric.get("name", metric_id),
+            "description": metric.get("description", ""),
+        }
+
+        if include_formula:
+            result["formula"] = metric.get("formula", metric.get("semantic_expression", ""))
+            result["unit"] = metric.get("unit", "count")
+
+        if "valid_grains" in metric:
+            result["valid_grains"] = metric["valid_grains"]
+        if "supported_dimensions" in metric or "dimensions" in metric:
+            result["supported_dimensions"] = metric.get("supported_dimensions", metric.get("dimensions", []))
+
+        if include_examples and "examples" in metric:
+            result["examples"] = metric["examples"]
+
+        return result
+
+    def _get_metric(self, metric_id: str) -> dict[str, Any] | None:
+        """Get metric definition from semantic package."""
+        metrics = self._semantic_package.get("metrics", [])
+        for metric in metrics:
+            if metric.get("id") == metric_id:
+                return metric
+        return None
+
+
+# =============================================================================
+# Knowledge Search Tool
+# =============================================================================
+
+
+class KnowledgeSearchTool:
+    """Tool for searching the knowledge base."""
+
+    SIGNATURE = ToolSignature(
+        name="knowledge_search",
+        description="Search the knowledge base for metric definitions, business rules, and SQL examples",
+        category=ToolCategory.SYNTHESIS,
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"},
+                "source_type": {
+                    "type": "string",
+                    "description": "Filter by source type",
+                    "enum": ["glossary", "metric_definition", "schema", "sql_example", "all"],
+                    "default": "all",
+                },
+                "limit": {"type": "integer", "description": "Max results", "default": 5},
+            },
+            "required": ["query"],
+        },
+        returns={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "results": {"type": "array"},
+                "total": {"type": "integer"},
+            },
+        },
+    )
+
+    def __init__(self, knowledge_base: dict[str, Any] | None = None):
+        self._knowledge_base = knowledge_base or {}
+
+    async def execute(
+        self,
+        params: dict[str, Any],
+        context: ToolExecutionContext,
+    ) -> dict[str, Any]:
+        """Execute knowledge search.
+
+        Args:
+            params: Tool parameters
+            context: Execution context
+
+        Returns:
+            Search results
+        """
+        query = params.get("query", "")
+        source_type = params.get("source_type", "all")
+        limit = params.get("limit", 5)
+
+        # Search through knowledge base
+        results = []
+        search_sources = self._get_search_sources(source_type)
+
+        for source_name, source_data in search_sources.items():
+            matches = self._search_source(query, source_data)
+            for match in matches[:limit]:
+                results.append({
+                    "source": source_name,
+                    "source_type": source_data.get("type", "unknown"),
+                    "title": match.get("title", ""),
+                    "content": match.get("content", ""),
+                    "relevance": match.get("relevance", 0.5),
+                })
+
+        # Sort by relevance
+        results.sort(key=lambda x: x.get("relevance", 0), reverse=True)
+
+        return {
+            "query": query,
+            "results": results[:limit],
+            "total": len(results),
+        }
+
+    def _get_search_sources(self, source_type: str) -> dict[str, Any]:
+        """Get knowledge sources to search."""
+        if source_type == "all":
+            return self._knowledge_base
+        # Filter by type
+        return {k: v for k, v in self._knowledge_base.items() if v.get("type") == source_type}
+
+    def _search_source(self, query: str, source_data: dict[str, Any]) -> list[dict[str, Any]]:
+        """Search a single source."""
+        query_lower = query.lower()
+        results = []
+
+        items = source_data.get("items", [])
+        for item in items:
+            # Simple text matching
+            content = str(item.get("content", "")).lower()
+            title = str(item.get("title", "")).lower()
+            if query_lower in content or query_lower in title:
+                results.append({
+                    **item,
+                    "relevance": 0.8 if query_lower in title else 0.6,
+                })
+
+        return results
+
+
+# =============================================================================
+# Chart Generate Tool
+# =============================================================================
+
+
+class ChartGenerateTool:
+    """Tool for generating chart specifications from observations."""
+
+    SIGNATURE = ToolSignature(
+        name="chart_generate",
+        description="Generate chart specifications from analysis observations",
+        category=ToolCategory.SYNTHESIS,
+        parameters={
+            "type": "object",
+            "properties": {
+                "observations": {
+                    "type": "array",
+                    "description": "Observations to visualize",
+                    "items": {"type": "object"},
+                },
+                "chart_type": {
+                    "type": "string",
+                    "description": "Chart type",
+                    "enum": ["line", "bar", "pie", "scatter", "area", "auto"],
+                    "default": "auto",
+                },
+                "title": {"type": "string", "description": "Chart title"},
+            },
+            "required": ["observations"],
+        },
+        returns={
+            "type": "object",
+            "properties": {
+                "chart_spec": {"type": "object"},
+                "chart_type": {"type": "string"},
+                "data_points": {"type": "integer"},
+            },
+        },
+    )
+
+    async def execute(
+        self,
+        params: dict[str, Any],
+        context: ToolExecutionContext,
+    ) -> dict[str, Any]:
+        """Execute chart generation.
+
+        Args:
+            params: Tool parameters
+            context: Execution context
+
+        Returns:
+            Chart specification
+        """
+        observations = params.get("observations", [])
+        chart_type = params.get("chart_type", "auto")
+        title = params.get("title", "Analysis Chart")
+
+        # Validate observations
+        if not observations:
+            return {"error": "No observations provided for chart"}
+
+        # Determine chart type from data if auto
+        if chart_type == "auto":
+            chart_type = self._infer_chart_type(observations)
+
+        # Build chart spec
+        chart_spec = self._build_chart_spec(observations, chart_type, title)
+
+        return {
+            "chart_spec": chart_spec,
+            "chart_type": chart_type,
+            "data_points": len(observations),
+        }
+
+    def _infer_chart_type(self, observations: list[dict[str, Any]]) -> str:
+        """Infer chart type from observation structure."""
+        if len(observations) > 1 and "period" in str(observations[0]):
+            return "line"
+        if len(observations) > 0 and "category" in observations[0]:
+            return "bar"
+        return "bar"
+
+    def _build_chart_spec(
+        self,
+        observations: list[dict[str, Any]],
+        chart_type: str,
+        title: str,
+    ) -> dict[str, Any]:
+        """Build chart specification."""
+        return {
+            "type": chart_type,
+            "title": title,
+            "data": observations,
+            "encoding": {
+                "x": {"field": self._get_x_field(observations)},
+                "y": {"field": self._get_y_field(observations)},
+            },
+            "options": {
+                "responsive": True,
+                "maintainAspectRatio": True,
+            },
+        }
+
+    def _get_x_field(self, observations: list[dict[str, Any]]) -> str:
+        """Get x-axis field from observations."""
+        for field in ["period", "date", "category", "dimension", "name"]:
+            if field in observations[0]:
+                return field
+        return "label"
+
+    def _get_y_field(self, observations: list[dict[str, Any]]) -> str:
+        """Get y-axis field from observations."""
+        for field in ["value", "amount", "count", "result"]:
+            if field in observations[0]:
+                return field
+        return "value"
+
+
+# =============================================================================
+# Report Generate Tool
+# =============================================================================
+
+
+class ReportGenerateTool:
+    """Tool for generating structured analysis reports."""
+
+    SIGNATURE = ToolSignature(
+        name="report_generate",
+        description="Generate a structured analysis report from observations and claims",
+        category=ToolCategory.SYNTHESIS,
+        parameters={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "Original business question"},
+                "observations": {"type": "array", "description": "Analysis observations"},
+                "claims": {"type": "array", "description": "Verified claims"},
+                "limitations": {"type": "array", "description": "Known limitations"},
+                "recommendations": {"type": "array", "description": "Recommended next steps"},
+            },
+            "required": ["question", "observations"],
+        },
+        returns={
+            "type": "object",
+            "properties": {
+                "report": {"type": "object"},
+                "sections": {"type": "array"},
+            },
+        },
+    )
+
+    async def execute(
+        self,
+        params: dict[str, Any],
+        context: ToolExecutionContext,
+    ) -> dict[str, Any]:
+        """Execute report generation.
+
+        Args:
+            params: Tool parameters
+            context: Execution context
+
+        Returns:
+            Generated report
+        """
+        question = params.get("question", "")
+        observations = params.get("observations", [])
+        claims = params.get("claims", [])
+        limitations = params.get("limitations", [])
+        recommendations = params.get("recommendations", [])
+
+        # Build report sections
+        sections = []
+
+        # Executive Summary
+        sections.append({
+            "type": "executive_summary",
+            "title": "Executive Summary",
+            "content": self._generate_summary(observations, claims),
+        })
+
+        # Metrics
+        sections.append({
+            "type": "metrics",
+            "title": "Key Metrics",
+            "content": self._generate_metrics(observations),
+        })
+
+        # Findings
+        if claims:
+            sections.append({
+                "type": "findings",
+                "title": "Key Findings",
+                "content": self._generate_findings(claims),
+            })
+
+        # Evidence
+        sections.append({
+            "type": "evidence",
+            "title": "Evidence",
+            "content": self._generate_evidence(observations),
+        })
+
+        # Limitations
+        if limitations:
+            sections.append({
+                "type": "limitations",
+                "title": "Limitations",
+                "content": limitations,
+            })
+
+        # Recommendations
+        if recommendations:
+            sections.append({
+                "type": "recommendations",
+                "title": "Recommendations",
+                "content": recommendations,
+            })
+
+        report = {
+            "question": question,
+            "sections": sections,
+            "metadata": {
+                "generated_at": datetime.now().isoformat(),
+                "observation_count": len(observations),
+                "claim_count": len(claims),
+            },
+        }
+
+        return {
+            "report": report,
+            "sections": [s["type"] for s in sections],
+        }
+
+    def _generate_summary(self, observations: list[dict], claims: list[dict]) -> str:
+        """Generate executive summary."""
+        if not observations:
+            return "No observations available."
+        return f"Analysis of {len(observations)} observations yielded {len(claims)} verified claims."
+
+    def _generate_metrics(self, observations: list[dict]) -> list[dict]:
+        """Generate metrics section."""
+        metrics = []
+        for obs in observations:
+            if "value" in obs or "result" in obs:
+                metrics.append({
+                    "name": obs.get("name", obs.get("observation_id", "metric")),
+                    "value": obs.get("value", obs.get("result", "N/A")),
+                })
+        return metrics
+
+    def _generate_findings(self, claims: list[dict]) -> list[str]:
+        """Generate findings from claims."""
+        return [claim.get("statement", claim.get("content", "")) for claim in claims if claim]
+
+    def _generate_evidence(self, observations: list[dict]) -> list[dict]:
+        """Generate evidence section."""
+        return [
+            {
+                "observation_id": obs.get("observation_id", f"obs_{i}"),
+                "content": obs.get("content", obs.get("result", "")),
+            }
+            for i, obs in enumerate(observations)
+        ]
+
+
+# =============================================================================
 # Tool Registry Factory
 # =============================================================================
 
@@ -1004,6 +1468,33 @@ def create_tool_registry(nl2sql_service: Any | None = None) -> ToolRegistry:
         PythonAnalysisTool.SIGNATURE.name,
         PythonAnalysisTool.SIGNATURE,
         lambda p, c: python_tool.execute(p, c),
+    )
+
+    # Register new tools
+    metric_explain_tool = MetricExplainTool()
+    knowledge_search_tool = KnowledgeSearchTool()
+    chart_generate_tool = ChartGenerateTool()
+    report_generate_tool = ReportGenerateTool()
+
+    registry.register(
+        MetricExplainTool.SIGNATURE.name,
+        MetricExplainTool.SIGNATURE,
+        lambda p, c: metric_explain_tool.execute(p, c),
+    )
+    registry.register(
+        KnowledgeSearchTool.SIGNATURE.name,
+        KnowledgeSearchTool.SIGNATURE,
+        lambda p, c: knowledge_search_tool.execute(p, c),
+    )
+    registry.register(
+        ChartGenerateTool.SIGNATURE.name,
+        ChartGenerateTool.SIGNATURE,
+        lambda p, c: chart_generate_tool.execute(p, c),
+    )
+    registry.register(
+        ReportGenerateTool.SIGNATURE.name,
+        ReportGenerateTool.SIGNATURE,
+        lambda p, c: report_generate_tool.execute(p, c),
     )
 
     return registry

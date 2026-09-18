@@ -76,10 +76,10 @@ class ExecutionStatus(str, Enum):
 class TableInfo(BaseModel):
     """Information about a database table."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     name: str = Field(description="Table name")
-    schema: str = Field(default="public", description="Schema name")
+    schema: str = Field(default="public", description="Schema name", validation_alias="schema")
     description: str = Field(default="", description="Business description")
     columns: list[ColumnInfo] = Field(default_factory=list)
     primary_key: str | None = Field(default=None, description="Primary key column")

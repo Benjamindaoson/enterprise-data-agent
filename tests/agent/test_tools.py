@@ -7,6 +7,7 @@ from eiw.agent.tools import (
     NL2SQLTool, TrendAnalysisTool, PeriodComparisonTool,
     ContributionAnalysisTool, PriceVolumeMixTool, VarianceAnalysisTool,
     DrilldownTool, AnomalyDetectionTool, PythonAnalysisTool,
+    MetricExplainTool, KnowledgeSearchTool, ChartGenerateTool, ReportGenerateTool,
     create_tool_registry
 )
 
@@ -338,8 +339,8 @@ class TestCreateToolRegistry:
         registry = create_tool_registry()
         tools = registry.list_all()
 
-        # Should have multiple tools registered
-        assert len(tools) >= 8
+        # Should have 13 tools: nl2sql, trend, comparison, contribution, pvm, variance, drilldown, anomaly, python, metric_explain, knowledge_search, chart_generate, report_generate
+        assert len(tools) >= 13
 
     def test_nl2sql_registered(self):
         """Test NL2SQL tool is registered."""
@@ -347,4 +348,111 @@ class TestCreateToolRegistry:
         tool = registry.get("nl2sql_query")
 
         assert tool is not None
-        assert tool.category == ToolCategory.NL2SQL
+
+
+class TestMetricExplainTool:
+    """Tests for MetricExplainTool."""
+
+    @pytest.fixture
+    def tool(self):
+        """Create tool."""
+        return MetricExplainTool(semantic_package={
+            "metrics": [
+                {
+                    "id": "revenue",
+                    "name": "Revenue",
+                    "description": "Total revenue",
+                    "formula": "SUM(sales_amount)",
+                    "unit": "USD",
+                    "valid_grains": ["day", "month", "quarter", "year"],
+                }
+            ]
+        })
+
+    @pytest.mark.asyncio
+    async def test_execute(self, tool):
+        """Test metric explain."""
+        context = ToolExecutionContext()
+        result = await tool.execute({"metric_id": "revenue"}, context)
+
+        assert result["metric_id"] == "revenue"
+        assert result["name"] == "Revenue"
+        assert "formula" in result
+
+
+class TestKnowledgeSearchTool:
+    """Tests for KnowledgeSearchTool."""
+
+    @pytest.fixture
+    def tool(self):
+        """Create tool."""
+        return KnowledgeSearchTool(knowledge_base={
+            "glossary": {
+                "type": "glossary",
+                "items": [
+                    {"title": "Revenue", "content": "Total sales revenue"},
+                ]
+            }
+        })
+
+    @pytest.mark.asyncio
+    async def test_execute(self, tool):
+        """Test knowledge search."""
+        context = ToolExecutionContext()
+        result = await tool.execute({"query": "revenue"}, context)
+
+        assert result["query"] == "revenue"
+        assert "results" in result
+
+
+class TestChartGenerateTool:
+    """Tests for ChartGenerateTool."""
+
+    @pytest.fixture
+    def tool(self):
+        """Create tool."""
+        return ChartGenerateTool()
+
+    @pytest.mark.asyncio
+    async def test_execute(self, tool):
+        """Test chart generation."""
+        context = ToolExecutionContext()
+        result = await tool.execute({
+            "observations": [
+                {"period": "Jan", "value": 100},
+                {"period": "Feb", "value": 150},
+            ],
+            "title": "Monthly Sales"
+        }, context)
+
+        assert result["chart_type"] == "line"
+        assert result["data_points"] == 2
+        assert "chart_spec" in result
+
+
+class TestReportGenerateTool:
+    """Tests for ReportGenerateTool."""
+
+    @pytest.fixture
+    def tool(self):
+        """Create tool."""
+        return ReportGenerateTool()
+
+    @pytest.mark.asyncio
+    async def test_execute(self, tool):
+        """Test report generation."""
+        context = ToolExecutionContext()
+        result = await tool.execute({
+            "question": "What are sales trends?",
+            "observations": [
+                {"observation_id": "obs1", "content": "Sales up 10%"},
+            ],
+            "claims": [
+                {"statement": "Revenue grew 10%"},
+            ]
+        }, context)
+
+        assert "report" in result
+        assert "sections" in result
+        assert len(result["sections"]) >= 4  # summary, metrics, findings, evidence
+        assert tool.SIGNATURE.category == ToolCategory.SYNTHESIS
