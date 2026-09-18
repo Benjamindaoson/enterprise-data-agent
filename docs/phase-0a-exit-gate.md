@@ -96,9 +96,9 @@ All requirements for Phase 0A (Contracts & Benchmark) have been implemented and 
 - 12 golden evaluation cases
 - 15 SQLAlchemy persistence tables
 - **36 automated tests** (all passing)
-- 5 architecture decision records
+- 4 architecture decision records (Phase 0A)
 - Zero linting/type errors
-- Commit: `92129054b07ffc609be81f74cceec6ce3f29b754`
+- Commit: `be7f6ee0edfb6a1afbb64524270b49ccd4143578`
 
 ---
 
