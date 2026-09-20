@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feature/business-intelligence-autonomous-ops
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Lint
+        run: python -m ruff check src tests scripts
+      - name: Tests
+        run: python -m pytest -q
+
+  post-training-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install training stack
+        run: python -m pip install -e '.[dev,training]'
+      - name: Generate trajectories
+        run: python scripts/generate_agent_trajectories.py --episodes-per-scenario 2
+      - name: SFT smoke
+        run: python scripts/train_agent_sft.py --epochs 8
+      - name: GRPO smoke
+        run: python scripts/train_agent_grpo.py --iterations 2 --group-size 3
+      - name: Training unit tests
+        run: python -m pytest tests/unit/test_flywheel_simulator.py tests/unit/test_training_pipeline.py -q
