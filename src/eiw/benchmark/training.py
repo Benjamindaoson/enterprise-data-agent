@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -173,27 +174,51 @@ def train_hard_grpo(
     *,
     iterations: int = 10,
     group_size: int = 5,
-    learning_rate: float = 5e-4,
-    temperature: float = 1.15,
+    learning_rate: float = 1e-4,
+    temperature: float = 0.70,
     clip_epsilon: float = 0.2,
-    trust_beta: float = 0.015,
+    kl_beta: float = 0.06,
+    bc_beta: float = 0.12,
+    entropy_beta: float = 0.003,
     seed: int = 41,
 ) -> dict[str, float | int]:
+    """Continue an SFT policy with stable group-relative policy optimization.
+
+    The update keeps a frozen SFT reference for full-distribution KL control and
+    a small expert behavior-cloning anchor. Cases that the current greedy policy
+    fails are prioritized, but only from the training split.
+    """
     torch.manual_seed(seed)
     random.seed(seed)
     model = load_policy(sft_checkpoint)
+    reference = copy.deepcopy(model).eval()
+    for parameter in reference.parameters():
+        parameter.requires_grad_(False)
+
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    expert = HardExpertPolicy()
     mean_rewards: list[float] = []
     success_rates: list[float] = []
 
     for iteration in range(iterations):
-        selected = [
-            train_cases[(iteration * 5 + offset) % len(train_cases)]
-            for offset in range(min(5, len(train_cases)))
+        # Failure-focused curriculum using only train cases.
+        greedy_policy = HardTransformerPolicy(model)
+        failed_cases = [
+            case
+            for case in train_cases
+            if not run_hard_episode(greedy_policy, case, seed=seed + iteration).success
         ]
+        pool = failed_cases if failed_cases else train_cases
+        selected = [
+            pool[(iteration * 5 + offset) % len(pool)]
+            for offset in range(min(6, len(pool)))
+        ]
+
+        # Collect all rollouts before the optimizer update so old_log_prob comes
+        # from one behavior policy rather than a moving target.
+        grouped: list[tuple[list[_Rollout], torch.Tensor]] = []
         rewards_for_iteration: list[float] = []
         successes_for_iteration: list[float] = []
-
         for case_index, case in enumerate(selected):
             group = [
                 _sample_rollout(
@@ -206,27 +231,56 @@ def train_hard_grpo(
             ]
             rewards = torch.tensor([rollout.reward for rollout in group], dtype=torch.float32)
             advantages = (rewards - rewards.mean()) / rewards.std(unbiased=False).clamp(min=1e-6)
-            losses: list[torch.Tensor] = []
+            grouped.append((group, advantages))
+            rewards_for_iteration.extend(rollout.reward for rollout in group)
+            successes_for_iteration.extend(float(rollout.success) for rollout in group)
+
+        losses: list[torch.Tensor] = []
+        for group, advantages in grouped:
             for rollout, advantage in zip(group, advantages, strict=True):
                 for step in rollout.steps:
                     tokens, mask = collate_texts([step.state_text], model.config)
                     logits = model(tokens, mask)[0] / temperature
                     log_probs = torch.log_softmax(logits, dim=-1)
+                    probs = torch.softmax(logits, dim=-1)
                     new_log_prob = log_probs[step.action_id]
                     old_log_prob = torch.tensor(step.old_log_prob)
                     ratio = torch.exp(new_log_prob - old_log_prob)
                     clipped = torch.clamp(ratio, 1 - clip_epsilon, 1 + clip_epsilon)
                     surrogate = torch.minimum(ratio * advantage, clipped * advantage)
-                    trust_penalty = (new_log_prob - old_log_prob).pow(2)
-                    losses.append(-surrogate + trust_beta * trust_penalty)
-                rewards_for_iteration.append(rollout.reward)
-                successes_for_iteration.append(float(rollout.success))
 
-            if losses:
-                optimizer.zero_grad()
-                torch.stack(losses).mean().backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
+                    with torch.no_grad():
+                        ref_logits = reference(tokens, mask)[0] / temperature
+                        ref_log_probs = torch.log_softmax(ref_logits, dim=-1)
+                    kl = torch.sum(probs * (log_probs - ref_log_probs))
+                    entropy = -(probs * log_probs).sum()
+                    losses.append(-surrogate + kl_beta * kl - entropy_beta * entropy)
+
+        # Small supervised anchor prevents safety/recovery behavior learned by
+        # SFT from being catastrophically forgotten during sparse-reward RL.
+        anchor_examples: list[tuple[str, int]] = []
+        for case in selected:
+            env = HardBusinessEnvironment(case, seed=seed)
+            while not env.state.done:
+                features = env.state.policy_features()
+                action = expert.choose_action(env.state)
+                anchor_examples.append((features, ACTION_TO_ID[action]))
+                env.step(action)
+        if anchor_examples:
+            anchor_texts = [item[0] for item in anchor_examples]
+            anchor_labels = torch.tensor([item[1] for item in anchor_examples], dtype=torch.long)
+            anchor_tokens, anchor_mask = collate_texts(anchor_texts, model.config)
+            anchor_loss = nn.functional.cross_entropy(
+                model(anchor_tokens, anchor_mask),
+                anchor_labels,
+            )
+            losses.append(bc_beta * anchor_loss)
+
+        if losses:
+            optimizer.zero_grad()
+            torch.stack(losses).mean().backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            optimizer.step()
 
         mean_rewards.append(sum(rewards_for_iteration) / max(len(rewards_for_iteration), 1))
         success_rates.append(sum(successes_for_iteration) / max(len(successes_for_iteration), 1))
@@ -238,6 +292,8 @@ def train_hard_grpo(
             "stage": "hard-grpo",
             "iterations": iterations,
             "group_size": group_size,
+            "kl_beta": kl_beta,
+            "bc_beta": bc_beta,
         },
     )
     return {
