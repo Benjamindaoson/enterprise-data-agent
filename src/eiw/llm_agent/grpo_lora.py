@@ -13,7 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from eiw.benchmark.hard_env import HARD_ACTION_SPACE, HardBusinessEnvironment, HardCase, generate_cases
+from eiw.benchmark.hard_env import (
+    HARD_ACTION_SPACE,
+    HardBusinessEnvironment,
+    HardCase,
+    generate_cases,
+)
 from eiw.llm_agent.prompts import build_action_prompt
 
 
@@ -84,25 +89,7 @@ def train_lora_grpo(
             totals.append(total)
         return torch.stack(totals)
 
-    def collect(case: HardCase, rollout_seed: int) -> LLMRollout:
-        env = HardBusinessEnvironment(case, seed=rollout_seed)
-        steps: list[LLMRolloutStep] = []
-        while not env.state.done:
-            state_text = env.state.visible_text()
-            with torch.no_grad():
-                scores = action_log_probs(state_text)
-                dist = torch.distributions.Categorical(logits=scores / temperature)
-                action_id = int(dist.sample().item())
-                old_log_prob = float(dist.log_prob(torch.tensor(action_id, device=device)).cpu())
-            action = HARD_ACTION_SPACE[action_id]
-            result = env.step(action)
-            steps.append(LLMRolloutStep(state_text, action, old_log_prob))
-        return LLMRollout(steps=steps, reward=sum(
-            0.0 for _ in []
-        ) + 0.0, success=env.state.success)
-
-    # Replace the placeholder reward above with an explicit environment replay so
-    # every optimization reward remains inspectable and reproducible.
+    # Collect rewards directly from the environment so optimization remains auditable.
     def collect_with_reward(case: HardCase, rollout_seed: int) -> LLMRollout:
         env = HardBusinessEnvironment(case, seed=rollout_seed)
         steps: list[LLMRolloutStep] = []
