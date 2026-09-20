@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 
 from eiw.business.models import BusinessScenario
-from eiw.business.simulator import ACTION_SPACE, BusinessOperationsSimulator
+from eiw.business.simulator import BusinessOperationsSimulator
 from eiw.training.policy import ID_TO_ACTION, TinyAgentTransformer, collate_texts, load_policy, save_policy
 
 
