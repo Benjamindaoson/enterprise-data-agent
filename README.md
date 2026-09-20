@@ -2,240 +2,281 @@
 
 # Enterprise Business Intelligence & Autonomous Operations Agent
 
-**Governed Autonomous Analytics + Business Operations Platform**
-**企业级商业智能与自主经营智能体平台**
+**企业级商业智能与自主经营智能体**
 
-*Autonomous multi-agent analytics for long-horizon business investigation.*
+A governed long-horizon Agent system for **business analysis, marketing budget planning, sales expansion, and monetization** — with durable state, reusable skills, evidence verification, safety controls, evaluation, post-training, and production runtime.
 
-`Agent Systems` · `Business Intelligence` · `Autonomous Operations` · `Skill Runtime` · `Long-Term Memory` · `Multi-Agent` · `Semantic Layer` · `Governed NL2SQL` · `OpenTelemetry`
+`Agent Harness` · `Business Intelligence` · `Autonomous Operations` · `Skill Runtime` · `Long-Term Memory` · `Multi-Agent` · `Semantic Layer` · `SFT` · `GRPO / AgentRL` · `OpenTelemetry`
 
----
-
-## Business operations upgrade
-
-The analytical core now also exposes a governed business-operations layer for:
-
-- **Business Analytics** — self-service metrics, multi-dimensional analysis, attribution and evidence-backed reporting;
-- **Marketing Budget** — constrained allocation proposals and scenario simulation, with approval required before financial commitment;
-- **Sales Expansion** — merchant/account opportunity ranking and governed CRM handoff proposals;
-- **Monetization** — opportunity discovery, product matching and revenue simulation.
-
-New runtime primitives include a typed **Skill Registry**, layered
-**working/episodic/semantic/procedural memory**, explicit tool/token budgets,
-permission checks, idempotent action contracts and **Human-in-the-loop** gates.
-
-Public integrations remain honest by design: campaign/CRM/monetization writes
-are proposal/dry-run only until real external systems are connected.
-
-See [Business Intelligence & Autonomous Operations Upgrade](docs/business-intelligence-autonomous-operations.md).
-
-## P9–P12: hard benchmark, real data, real LLM and production runtime
-
-The project now has a second evaluation layer beyond the original deterministic
-analytics suite:
-
-- **BusinessAgentBench-Hard-v1** — partial observability, noisy/conflicting
-  evidence, tool failure, delayed reward, memory dependence, context drift,
-  unsafe writes, multiple valid paths and replanning;
-- **BusinessAgentBench-RealData-v1** — official UCI Bank Marketing and Online
-  Retail sources plus the existing pinned Iowa analytics snapshot;
-- **Real open-weight LLM path** — causal-LM action selection, held-out
-  evaluation, LoRA SFT and action-level GRPO-style optimization;
-- **Production hardening** — PostgreSQL trajectories/checkpoints/approvals,
-  Redis queue, async worker, model routing, token/dollar cost accounting,
-  OpenTelemetry metrics, Prometheus/Grafana and regression gates.
-
-The real-data benchmark explicitly covers **Analytics, Attribution, Marketing
-Budget, Sales Expansion, Monetization, Tool Use, Recovery and Safety**.
-
-The normal CI verifies the hard environment, small-policy SFT/GRPO, the full
-official Bank Marketing + Online Retail benchmark, and PostgreSQL/Redis
-integration. Real Qwen/Llama-class training lives in a separate manual
-self-hosted workflow so the repository does not pretend a large-model
-experiment ran when GPU compute was unavailable.
-
-Measured held-out Hard-v1 results (12 cases) are:
-
-| Policy | Success | Avg reward | Invalid action | Policy violation |
-| --- | ---: | ---: | ---: | ---: |
-| Direct | 0.0% | -3.7627 | 90.63% | 75.0% |
-| Random | 0.0% | -3.8506 | 72.0% | 91.67% |
-| Prompt heuristic | 58.33% | 0.0115 | 19.54% | 0.0% |
-| SFT | 66.67% | 0.5926 | 11.63% | 8.33% |
-| SFT + GRPO | 66.67% | 0.6395 | 10.59% | 8.33% |
-
-GRPO therefore shows a **measured reward / action-validity improvement without
-a task-success uplift** on this run; the repository does not claim otherwise.
-
-The RealData-v1 CI build parses **45,211 Bank Marketing rows** and **541,909
-Online Retail rows** and generates nine grounded benchmark tasks.
-
-See [P9–P12 Execution Report](docs/P9_P12_EXECUTION_REPORT.md).
+</div>
 
 ---
 
-## Implementation Status
+## What this project is
 
-| Capability | Status | Notes |
-|------------|--------|-------|
-| Agent Runtime / Harness | ✅ VERIFIED | Supervisor, durable state, checkpoint/resume, recovery |
-| Governed NL2SQL + Semantic Layer | ✅ VERIFIED | SQLGlot, versioned business semantics, evidence |
-| Skill + Layered Memory | ✅ VERIFIED | Typed skill registry; working/episodic/semantic/procedural memory |
-| Business Operations | ✅ VERIFIED | Analytics, marketing budget, sales expansion, monetization |
-| BusinessAgentBench-Hard-v1 | ✅ VERIFIED | Long-horizon faults, memory, safety, replanning |
-| BusinessAgentBench-RealData-v1 | ✅ VERIFIED | Bank Marketing + Online Retail + Iowa analytics |
-| Trajectory / Eval Flywheel | ✅ VERIFIED | Replay, failure mining, SFT export, policy metrics |
-| Small-policy SFT | ✅ VERIFIED | Held-out success 66.67% vs prompt 58.33% |
-| Small-policy GRPO | ✅ VERIFIED | Reward 0.5926 → 0.6395; invalid actions 11.63% → 10.59% |
-| PostgreSQL Durable Runtime | ✅ VERIFIED | Trajectory, checkpoint, approval round trips in CI |
-| Redis Async Queue | ✅ VERIFIED | Queue round trip and worker retry in CI |
-| OTel / Prometheus / Grafana | ✅ IMPLEMENTED | Metrics + provisioned local observability stack |
-| Canary / Regression Gate | ✅ VERIFIED | Success, safety, invalid-action and cost thresholds |
-| Real open-weight LLM evaluation | ⚠️ IMPLEMENTED | Qwen causal-LM policy + held-out evaluator; GPU run not yet measured |
-| Real LLM LoRA SFT / GRPO | ⚠️ IMPLEMENTED | Manual self-hosted workflow; no fabricated gain claim |
-| Proprietary CRM / campaign writes | 🔒 NOT CONNECTED | Public version remains dry-run / approval-gated |
+Most data agents stop at:
 
-**Core CI:** 535 passed / 2 skipped  
-**Training CI:** 7 passed  
-**Production integration:** 6 passed  
-**RealData-v1:** 45,211 Bank Marketing rows + 541,909 Online Retail rows  
-**Evaluation Cases:** existing 245+ deterministic cases + BusinessAgentBench suites
+```text
+Question → SQL → Answer
+```
 
----
-
-## Why this is not another NL2SQL demo
+This project targets a harder problem:
 
 ```text
 Business Question
       ↓
-Resolve Business Semantics
+Understand Business Semantics
       ↓
 Plan Investigation
       ↓
-Choose Analytical Action
+Acquire Evidence
       ↓
-Execute Governed Data Tool
+Analyze / Attribute / Verify
       ↓
-Observation → Hypothesis Update
+Make a Business Decision
       ↓
-Claim → Evidence → Verification
+Propose or Execute an Action
       ↓
-Replan / Drill Down / Clarify / Finish
+Observe Outcome
+      ↓
+Evaluate / Learn / Improve
 ```
 
-The core idea is simple:
+The system is designed around one principle:
 
-> **The model decides what to analyze next; deterministic tools decide how the data is executed.**
+> **The model decides what to do next; governed deterministic services decide how data and actions are executed.**
+
+The result is not a single-call NL2SQL demo, but a **stateful, recoverable, auditable business Agent runtime**.
 
 ---
 
-## Why this is not another NL2SQL demo
+## Verified results
 
-| | Typical NL2SQL / ChatBI | Enterprise Data Agent |
-| --- | --- | --- |
-| Unit of work | One query | Durable analysis task |
-| Reasoning | Generate SQL and summarize | Plan, observe, replan, verify |
-| State | Prompt / chat history | Persistent task state |
-| Business semantics | Schema hints in prompt | Versioned Semantic Layer |
-| Data execution | Model-generated query logic | Bounded analytical operators + governed tools |
-| Multi-agent coordination | Free-form conversation | Supervisor + structured handoff + shared state |
-| Verification | Usually implicit | Claim → Evidence → Verification |
-| Failure handling | Retry from the beginning | Trace, checkpoint, recovery, replay |
+### Engineering
+
+| Area | Verified status |
+| --- | ---: |
+| Core CI | **536 passed / 2 skipped** |
+| Post-training tests | **7 passed** |
+| PostgreSQL + Redis integration | **6 passed** |
+| Hard benchmark acceptance gate | **PASS** |
+| Official public business datasets | **596,?** |
+
+The real-data benchmark currently parses:
+
+- **45,211** UCI Bank Marketing rows;
+- **541,909** UCI Online Retail rows;
+- the existing pinned Iowa wholesale analytical snapshot with **6,484,227** curated fact rows.
+
+### BusinessAgentBench-Hard-v1
+
+Held-out evaluation on 12 long-horizon cases:
+
+| Policy | Success | Avg. reward | Invalid action | Policy violation |
+| --- | ---: | ---: | ---: | ---: |
+| Direct | 0.00% | -3.7627 | 90.63% | 75.00% |
+| Random | 0.00% | -3.8506 | 72.00% | 91.67% |
+| Prompt heuristic | 58.33% | 0.0115 | 19.54% | 0.00% |
+| **SFT** | **66.67%** | 0.5926 | 11.63% | 8.33% |
+| **SFT + GRPO** | **66.67%** | **0.6395** | **10.59%** | 8.33% |
+
+The current result is intentionally reported as:
+
+> **SFT improves task success over the prompt baseline; GRPO further improves reward and action validity, but does not improve task success on this run.**
+
+The CI acceptance gate enforces this result class instead of allowing a training change to silently regress reliability.
 
 ---
 
-## Core design
+## Business scenarios
 
-### 1. Controlled multi-agent coordination
+The same runtime supports four business-operation families.
 
-Long-running analysis becomes unstable when agents coordinate through unrestricted conversation: tasks are repeated, context drifts, and different agents may hold conflicting state.
+### 1. Business Intelligence
 
-Enterprise Data Agent uses a **Supervisor–Executor architecture**, **shared task state**, and **structured handoffs**.
+Typical tasks:
 
-- the **Supervisor** owns decomposition, routing, replanning, and stop decisions;
-- specialized executors work inside bounded responsibilities;
-- agents exchange structured observations through shared state instead of maintaining independent conversational memory;
-- every meaningful step is traceable back to the task state.
+- self-service data analysis;
+- multi-dimensional drill-down;
+- contribution analysis;
+- Price / Volume / Mix decomposition;
+- anomaly investigation;
+- evidence-backed attribution;
+- business reporting and visualization.
 
-```text
-                    ┌───────────────┐
-Business Question → │  Supervisor   │
-                    └───────┬───────┘
-                            ↓
-                    ┌───────────────┐
-                    │ Shared State  │
-                    └───────┬───────┘
-                            ↓
-                 Specialized Executors
-                            ↓
-              Observation / Evidence / Status
-                            ↓
-                    Supervisor replans
+Example:
+
+> Why did a region's sales decline, which segments contributed most, and what evidence supports the conclusion?
+
+### 2. Marketing Budget
+
+Typical tasks:
+
+- historical campaign performance analysis;
+- channel / segment comparison;
+- constrained budget allocation;
+- scenario simulation;
+- ROI-oriented recommendations;
+- approval-gated campaign actions.
+
+Example:
+
+> How should the remaining marketing budget be allocated across eligible segments under a fixed budget and risk limit?
+
+### 3. Sales Expansion
+
+Typical tasks:
+
+- merchant / account segmentation;
+- opportunity ranking;
+- capacity-constrained lead prioritization;
+- evidence-backed CRM handoff.
+
+Example:
+
+> Which merchants should the sales team prioritize when only a limited number of accounts can be contacted?
+
+### 4. Monetization
+
+Typical tasks:
+
+- opportunity discovery;
+- product / offer matching;
+- customer-value analysis;
+- revenue simulation;
+- retention and cancellation-risk-aware recommendations.
+
+---
+
+## System architecture
+
+```mermaid
+flowchart TD
+    U[Business User / API] --> S[Supervisor]
+
+    S --> TS[(Durable Task State)]
+    TS --> C[Context Manager]
+    C --> M[(Layered Memory)]
+
+    S --> SK[Skill Runtime]
+    SK --> A1[Analytics Skill]
+    SK --> A2[Attribution Skill]
+    SK --> A3[Marketing Budget Skill]
+    SK --> A4[Sales Expansion Skill]
+    SK --> A5[Monetization Skill]
+
+    A1 --> T[Governed Tool Layer]
+    A2 --> T
+    A3 --> T
+    A4 --> T
+    A5 --> T
+
+    SL[Semantic Layer] --> T
+    T --> D[(Business Data)]
+    T --> X[External Action Adapters]
+
+    D --> O[Observation / Evidence]
+    O --> V[Claim-Evidence Verification]
+    V --> S
+
+    X --> G[Policy / Budget / HITL Gate]
+    G --> X
+
+    TS --> CP[Checkpoint / Resume]
+    TS --> TR[Trajectory / Replay]
+
+    TR --> E[Evaluation]
+    E --> FM[Failure Mining]
+    FM --> PT[SFT / GRPO]
+    PT --> E
+
+    S --> OT[OpenTelemetry]
+    OT --> P[Prometheus / Grafana]
 ```
 
-### 2. Long-horizon runtime and context engineering
+---
 
-A long analysis task may accumulate plans, tool calls, query results, intermediate findings, failed attempts, and verification records. Replaying the entire trajectory into every model call increases cost and degrades context quality.
+## Core capabilities
 
-The runtime separates **durable task state** from **model context**:
+### Agent Runtime / Harness
 
-- plans, actions, tool outputs, observations, claims, and validation results live outside the prompt;
-- checkpoint and trace records preserve execution progress;
-- context is assembled dynamically for the current role and subtask;
-- retry, timeout, recovery, and replay are runtime concerns rather than prompt tricks.
+The runtime treats long-running work as a durable task rather than a chat transcript.
 
-This keeps the model context focused on the information required for the current decision while preserving the full task history externally.
+Implemented capabilities include:
 
-### 3. Versioned Semantic Layer
+- Supervisor–Executor orchestration;
+- structured handoff;
+- persistent Task State;
+- `Plan → Act → Observe → Verify → Replan`;
+- checkpoint / resume;
+- failure recovery;
+- trajectory replay;
+- context compression;
+- role- and task-scoped context assembly;
+- tool-call and token budgets;
+- idempotent action contracts;
+- async execution and retry.
 
-Enterprise analytics is difficult because business meaning changes across regions, categories, and business units. The same term may map to different formulas, time rules, filters, joins, or availability windows.
+This separates **runtime state** from **model context**, preventing every model call from replaying the full task history.
 
-Enterprise Data Agent separates business semantics from the Agent Core through a versioned **Semantic Layer**.
+---
 
-A semantic package can define:
+### Versioned Semantic Layer
 
-- metrics and calculation rules;
-- dimensions and allowed relationships;
-- time semantics and data availability;
-- business and quality rules;
-- access policies and supported analytical capabilities.
+Business questions are resolved against governed semantic contracts instead of raw schemas.
 
-The Agent Runtime therefore reasons against a stable semantic contract while business-specific definitions can evolve independently.
+Semantic packages can define:
 
-### 4. Typed analytical operators instead of unconstrained query generation
+- metrics and formulas;
+- dimensions;
+- allowed joins;
+- time semantics;
+- data-availability windows;
+- business rules;
+- quality rules;
+- access policy.
 
-The agent is not asked to invent arbitrary SQL as its primary reasoning interface. Its action space is expressed through **typed analytical operators** such as:
+The Agent therefore reasons about concepts such as revenue, volume, conversion, merchant segment, or campaign ROI through stable business definitions rather than prompt-only schema hints.
+
+---
+
+### Governed analytics and NL2SQL
+
+The model is not given unrestricted authority to invent arbitrary execution logic.
+
+It can choose typed analytical operations such as:
 
 - compare periods;
 - inspect trends;
 - break down by dimension;
 - rank contributors;
 - drill into anomalies;
-- test a working hypothesis.
+- test hypotheses;
+- run bounded code analysis.
 
-The agent selects the next analytical action from the current **Observation + Hypothesis + Task State**. A deterministic data layer executes the bounded operation and returns a structured result.
+Execution remains inside governed tools with:
 
-```text
-Observation + Hypothesis
-          ↓
-Choose Next Analysis
-          ↓
-Typed Analytical Operator
-          ↓
-Deterministic Data Tool
-          ↓
-Structured Observation
-          ↓
-Update State / Replan / Finish
-```
+- SQL parsing and validation;
+- access control;
+- row / result budgets;
+- sandboxed Python;
+- deterministic analytical operators;
+- evidence snapshots.
 
-This moves the model's responsibility from **"write the query"** to **"decide the next useful analytical step."**
+---
 
-### 5. Evidence-backed verification
+### Claim → Evidence → Verification
 
-A correct query does not guarantee a correct business conclusion. An agent can still over-attribute a cause, ignore conflicting evidence, or turn an observation into a claim that the data does not support.
+A correct query does not guarantee a correct conclusion.
 
-Enterprise Data Agent therefore treats claims and evidence as first-class objects.
+Important business claims are therefore linked to:
+
+- source data snapshot;
+- metric / semantic version;
+- query or computation;
+- parameters;
+- observation;
+- validation result.
 
 ```text
 Observation
@@ -246,96 +287,469 @@ Evidence
     ↓
 Verification
     ↓
-Accept / Replan / Clarify / Reject
+Accept / Qualify / Reject / Replan
 ```
 
-Important claims can be linked to the metric definition, query result, intermediate computation, dataset snapshot, semantic version, and validation result. Verification writes back into task state and can trigger additional investigation rather than allowing an unsupported conclusion into the final report.
+The Agent cannot treat an observed contribution as causal evidence unless the available data supports that claim.
 
 ---
 
-## Architecture
+## Skill Runtime
 
-```mermaid
-flowchart TD
-    Q[Business Question] --> S[Supervisor]
-    S --> TS[(Shared Task State)]
+Reusable business capabilities are represented as typed Skills.
 
-    TS --> C[Context Assembly]
-    SL[Versioned Semantic Layer] --> C
-    C --> A[Analyst / Executor]
+A Skill contains:
 
-    A --> OP{Typed Analytical Operator}
-    OP --> T[Governed Data Tools]
-    SL --> T
-    T --> D[(Business Data)]
-    T --> O[Observation]
+```text
+skill_id
+version
+description
+input schema
+output schema
+tool dependencies
+permissions
+tags
+```
 
-    O --> TS
-    O --> H[Hypothesis Update]
-    H --> S
+Current reference skills include:
 
-    O --> CL[Claim]
-    CL --> E[Evidence]
-    E --> V[Verification]
+```text
+business.metric_analysis
+business.attribution
+business.marketing_budget
+business.sales_expansion
+business.monetization
+runtime.verify_action
+```
 
-    V -->|needs more analysis| S
-    V -->|needs clarification| U[Business User]
-    V -->|verified| R[Findings / Report]
+The runtime supports deterministic registration, lookup, routing, and permission-aware execution.
 
-    TS --> RT[Trace / Checkpoint / Replay]
+Future skill evolution is gated by offline evaluation rather than allowing production trajectories to directly rewrite executable behavior.
+
+---
+
+## Long-term memory
+
+The project deliberately does not call chat history "long-term memory."
+
+Memory is separated into:
+
+| Memory type | Purpose |
+| --- | --- |
+| **Working** | Current task facts and intermediate state |
+| **Episodic** | Previous trajectories and outcomes |
+| **Semantic** | Stable business knowledge and definitions |
+| **Procedural** | Reusable skills and verified procedures |
+
+Memory records are versioned, task-aware, queryable, and can expire.
+
+---
+
+## Safety and Human-in-the-loop
+
+Business Agents should not turn an LLM suggestion directly into an irreversible write.
+
+The action path is:
+
+```text
+Agent Decision
+      ↓
+Typed Proposed Action
+      ↓
+Permission Check
+      ↓
+Tool / Token / Cost Budget
+      ↓
+Risk Classification
+      ↓
+Human Approval if Required
+      ↓
+Idempotent External Action
+      ↓
+Audit Trail
+```
+
+Financial actions are approval-gated.
+
+The public repository intentionally keeps proprietary CRM / campaign writes in **dry-run / proposal mode**.
+
+Implemented safety controls include:
+
+- permission checks;
+- read / write separation;
+- tool allowlists;
+- budget limits;
+- HITL approval;
+- idempotency keys;
+- SQL guardrails;
+- sandbox execution;
+- persistent approval records;
+- regression gates.
+
+---
+
+# BusinessAgentBench
+
+The project includes two complementary benchmark layers.
+
+## Hard-v1: long-horizon reliability
+
+`BusinessAgentBench-Hard-v1` introduces controlled failure modes that a fixed four-step workflow cannot solve reliably.
+
+It tests:
+
+- partial observability;
+- noisy evidence;
+- conflicting evidence;
+- tool failure / timeout;
+- delayed reward;
+- token and tool budget trade-offs;
+- memory dependence;
+- context drift;
+- unsafe actions;
+- multiple valid solution paths;
+- retry and replanning.
+
+Run:
+
+```bash
+make setup-training
+make benchmark-hard
+```
+
+Train the small reproducible policy:
+
+```bash
+make train-hard
+```
+
+The training chain is:
+
+```text
+Expert Trajectory
+      ↓
+Supervised Dataset
+      ↓
+SFT
+      ↓
+Held-out Evaluation
+      ↓
+Failure-focused Rollouts
+      ↓
+Group-relative Policy Optimization
+      ↓
+Acceptance Gate
 ```
 
 ---
 
-## Example analysis loop
+## RealData-v1: real public business data
 
-A question such as:
+`BusinessAgentBench-RealData-v1` uses official public business datasets.
 
-> **Why did Category A sales decline last month?**
+### UCI Bank Marketing
 
-is not treated as a single SQL request. A typical investigation may become:
+Used for:
 
-1. resolve the metric, period, category, and comparison baseline;
-2. compare current vs. prior period;
-3. break the change down by store, product, or supplier;
-4. rank the largest contributors;
-5. inspect abnormal segments;
-6. update or reject the working hypothesis;
-7. verify the final claim against the underlying evidence;
-8. produce findings with traceable support.
+- campaign conversion;
+- marketing budget reasoning;
+- sales prioritization;
+- funnel analysis;
+- recovery and safety cases.
 
-The exact path is determined by intermediate observations rather than fixed in advance.
+Verified rows:
+
+**45,211**
+
+### UCI Online Retail
+
+Used for:
+
+- transaction analytics;
+- retention;
+- customer value;
+- monetization;
+- cancellation-aware reasoning.
+
+Verified rows:
+
+**541,909**
+
+### Iowa wholesale snapshot
+
+Used for:
+
+- governed analytics;
+- multi-dimensional breakdown;
+- contribution analysis;
+- Price / Volume / Mix analysis;
+- evidence and semantic-layer evaluation.
+
+Curated fact rows:
+
+**6,484,227**
+
+RealData-v1 explicitly covers:
+
+```text
+Analytics
+Attribution
+Marketing Budget
+Sales Expansion
+Monetization
+Tool Use
+Recovery
+Safety
+```
+
+Build the full real-data benchmark:
+
+```bash
+pip install -e '.[benchmark]'
+python scripts/build_real_business_benchmark.py
+```
+
+Raw public records are downloaded to the artifact directory and are not committed to Git.
 
 ---
 
-## Public reference implementation
+# Post-training and AgentRL
 
-This repository is the publishable reference implementation of the architecture above. Proprietary business data, internal rules, and private integrations are replaced with reproducible public data and controlled fixtures.
+## Reproducible small-policy experiments
 
-The current public dataset uses **Iowa Class E wholesale order activity** and contains **6,484,227 curated fact rows** covering **2024-01-01 through 2026-07-31**. It is used to exercise the analytical contracts and runtime without exposing private business information.
+A small PyTorch Transformer policy is used to make the entire training and RL pipeline reproducible in normal CI.
 
-The public implementation currently includes:
+It predicts the next governed Skill / Action from canonical observable task state.
 
-- versioned semantic packages;
-- durable task and domain contracts;
-- plans, hypotheses, observations, claims, evidence, and validation models;
-- deterministic aggregate, trend, comparison, contribution, and PVM-style analysis paths;
-- governed analytical execution;
-- checkpoint artifacts, trace events, SSE task events, and replay surfaces;
-- task history, investigation views, evidence inspection, and Markdown / HTML reports;
-- reproducible data curation and validation commands.
+This allows the repository to automatically test:
 
-The public codebase intentionally does **not** claim to reproduce every proprietary production integration. Full Supervisor–Executor orchestration, richer role-scoped context assembly, and complete multi-step resume are being rebuilt on top of the public contracts.
+- trajectory collection;
+- SFT data construction;
+- supervised action learning;
+- policy rollouts;
+- grouped relative advantages;
+- clipped policy updates;
+- KL control;
+- safety-preserving supervised anchors;
+- held-out evaluation.
+
+This model is an **experimental policy head**, not a claim that a tiny Transformer replaces an LLM.
 
 ---
 
-## Quick start
+## Real open-weight LLM path
 
-Requirements: **Python 3.12+**
+The repository also implements a real causal-language-model policy.
+
+Current default smoke configuration:
+
+```text
+Qwen/Qwen3-0.6B
+```
+
+The same interface can be used with larger Qwen / Llama-class models.
+
+The evaluation path is:
+
+```text
+BusinessAgentBench State
+        ↓
+Governed Action Prompt
+        ↓
+Causal-LM Action Log Probabilities
+        ↓
+Tool / Skill Selection
+        ↓
+Environment Transition
+```
+
+Implemented:
+
+- base-model evaluation;
+- prompted evaluation;
+- expert trajectory export;
+- LoRA SFT;
+- held-out evaluation;
+- action-level GRPO-style optimization;
+- post-GRPO evaluation.
+
+Commands:
+
+```bash
+make setup-llm
+make llm-dataset
+
+python scripts/evaluate_llm_agent.py   --model Qwen/Qwen3-0.6B
+
+make llm-sft
+
+python scripts/evaluate_llm_agent.py   --model Qwen/Qwen3-0.6B   --adapter artifacts/models/qwen3-agent-sft
+
+make llm-grpo
+```
+
+A separate manual self-hosted workflow is provided:
+
+```text
+.github/workflows/llm-agent.yml
+```
+
+Real open-weight LLM gain numbers are **not reported yet** because the GPU/self-hosted run has not been completed and retained.
+
+---
+
+# Production runtime
+
+## PostgreSQL durable state
+
+The production adapter persists:
+
+- trajectory events;
+- checkpoints;
+- HITL approval records.
+
+Verified in CI with a real PostgreSQL service.
+
+Runtime APIs include:
+
+```text
+PUT  /api/v1/runtime/checkpoints/{task_id}
+GET  /api/v1/runtime/checkpoints/{task_id}
+
+POST /api/v1/approvals
+GET  /api/v1/approvals/{approval_id}
+POST /api/v1/approvals/{approval_id}/decision
+```
+
+---
+
+## Redis queue and async worker
+
+Implemented:
+
+- Redis-backed task queue;
+- in-process async queue;
+- async worker;
+- retry scheduling;
+- bounded attempts.
+
+Redis round trips and retry behavior are integration-tested in CI.
+
+---
+
+## Model routing and cost control
+
+The runtime supports three routing tiers:
+
+```text
+FAST
+STANDARD
+REASONING
+```
+
+Routing can depend on:
+
+- task complexity;
+- execution risk;
+- verification requirements;
+- remaining token budget.
+
+A provider-neutral Cost Ledger records:
+
+- input tokens;
+- output tokens;
+- model calls;
+- configured dollar cost.
+
+No model price is silently invented: prices must be configured explicitly.
+
+---
+
+## Observability
+
+Runtime metrics are emitted through OpenTelemetry.
+
+Tracked signals include:
+
+- task success;
+- tool calls;
+- policy violations;
+- token usage;
+- dollar cost;
+- step latency.
+
+A local stack is provided for:
+
+```text
+OpenTelemetry Collector
+        ↓
+Prometheus
+        ↓
+Grafana
+```
+
+Start it with:
+
+```bash
+docker compose up -d redis otel-collector prometheus grafana
+```
+
+Grafana:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## Canary and regression gates
+
+Candidate policies can be blocked when they regress on:
+
+- task success;
+- policy violation rate;
+- invalid action rate;
+- cost.
+
+Hard-v1 also has a dedicated acceptance gate requiring:
+
+```text
+Direct / Random remain weak
+Prompt > Direct
+SFT > Prompt on success
+GRPO does not regress SFT success
+GRPO improves average reward
+GRPO reduces invalid actions
+GRPO does not worsen policy violations
+```
+
+This turns Agent evaluation into a release criterion rather than a dashboard-only metric.
+
+---
+
+# Quick start
+
+## Requirements
+
+- Python **3.12+**
+- Docker / Docker Compose for PostgreSQL, Redis, and observability
+- GPU only for real open-weight LLM training
+
+Install:
 
 ```bash
 make setup
+```
+
+Build the existing Iowa analytical snapshot:
+
+```bash
 make data
+```
+
+Start the API:
+
+```bash
 make dev
 ```
 
@@ -345,64 +759,239 @@ Open:
 http://127.0.0.1:8000
 ```
 
-Optional PostgreSQL persistence:
+---
+
+## Core API examples
+
+### Discover capabilities
 
 ```bash
-docker compose up -d postgres
+curl http://127.0.0.1:8000/api/v1/capabilities
 ```
 
-Run checks:
+### Create an analytical task
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/analysis-tasks   -H "Content-Type: application/json"   -d '{
+    "question": "Compare July 2026 wholesale sales with June 2026 by vendor."
+  }'
+```
+
+### Plan a marketing-budget task
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/business-tasks   -H "Content-Type: application/json"   -d '{
+    "scenario": "MARKETING_BUDGET",
+    "question": "Allocate the remaining budget across eligible segments.",
+    "success_metrics": ["roi", "incremental_revenue"],
+    "constraints": [
+      {
+        "name": "budget",
+        "operator": "<=",
+        "value": 1000000,
+        "unit": "CNY"
+      }
+    ],
+    "dry_run": true
+  }'
+```
+
+---
+
+# Development and verification
+
+Run core tests:
 
 ```bash
 make test
+```
+
+Lint:
+
+```bash
 make lint
+```
+
+Run deterministic evaluation:
+
+```bash
 make evaluation
 ```
 
----
+Run the original trajectory flywheel:
 
-## Public implementation stack
+```bash
+make flywheel-smoke
+```
 
-- **Python 3.12**
-- **FastAPI / Pydantic**
-- **SQLAlchemy / Alembic**
-- **PostgreSQL** persistence contracts
-- **OpenTelemetry** instrumentation
-- **SQLGlot** SQL parsing / validation support
-- **DuckDB + Parquet** only for the reproducible local analytical reference path
+Run Hard-v1:
 
-DuckDB is used here as an embedded public-data execution engine for reproducibility; it is not presented as the production data-warehouse architecture.
+```bash
+make benchmark-hard
+make train-hard
+```
 
----
+Run RealData-v1:
 
-## Project structure
+```bash
+make benchmark-real
+```
 
-```text
-src/eiw/domain/          Domain contracts and task-state models
-src/eiw/semantic/        Versioned semantic packages
-src/eiw/workspace/       Analysis workflow and data execution
-src/eiw/persistence/     Durable relational persistence contracts
-src/eiw/app.py           FastAPI application and task APIs
-src/eiw/web/static/      Analysis workspace UI
-semantic_packages/       Business semantics and rules
-scripts/                 Ingestion, curation, validation
-validation/              Independent data validation
-evaluation/              Golden tasks and deterministic evaluation
-data/fixtures/           Controlled failure-mode fixtures
-docs/                    Architecture, ADRs, progress, gap analysis
+Run production integration locally:
+
+```bash
+docker compose up -d postgres redis
+make setup-production
+make production-test
 ```
 
 ---
 
-## Design documentation
+# CI
 
-- [`Architecture Development Baseline`](docs/architecture-development-baseline.md)
-- [`Core Module Design`](docs/core-module-design.md)
-- [`Full Product Progress`](docs/FULL_PRODUCT_PROGRESS.md)
-- [`Full Product Gap Analysis`](docs/FULL_PRODUCT_GAP_ANALYSIS.md)
+The normal GitHub Actions workflow contains four independent jobs:
+
+| Job | What it verifies |
+| --- | --- |
+| **core** | lint, core tests, hard reference policies |
+| **post-training-smoke** | trajectory, SFT, GRPO, Hard-v1 acceptance |
+| **real-data-benchmark** | official Bank Marketing + Online Retail ingestion |
+| **production-integration** | PostgreSQL + Redis round trips |
+
+Current verified snapshot:
+
+```text
+Core CI                536 passed / 2 skipped
+Training CI              7 passed
+Production integration   6 passed
+Hard-v1 acceptance       PASS
+RealData-v1              PASS
+```
 
 ---
 
-## Design principle
+# Repository structure
 
-> **Autonomous analysis should be stateful, semantically grounded, recoverable, and verifiable — not just fluent.**
+```text
+src/eiw/
+├── domain/          persisted domain contracts
+├── semantic/        versioned Semantic Layer
+├── workspace/       analytical workflow and public data execution
+├── business/        business scenarios and operations planner
+├── runtime/         skills, memory, governance
+├── benchmark/       BusinessAgentBench environments and real-data adapters
+├── flywheel/        trajectory, evaluation, failure mining
+├── training/        reproducible small-policy SFT / GRPO
+├── llm_agent/       real causal-LM evaluation and LoRA / GRPO
+├── production/      PostgreSQL, Redis, routing, cost, metrics, canary
+└── app.py           FastAPI application
+
+evaluation/
+└── business_agent_bench/
+
+semantic_packages/   versioned business semantics
+scripts/             ingestion, benchmark, training, regression scripts
+ops/                 OTel, Prometheus, Grafana configuration
+tests/               unit, contract, integration tests
+docs/                architecture and execution reports
+```
+
+---
+
+# Technology stack
+
+### Agent / application
+
+- Python 3.12
+- FastAPI
+- Pydantic
+- Supervisor–Executor runtime
+- typed Skills and Tool contracts
+
+### Data
+
+- PostgreSQL
+- DuckDB / Parquet for reproducible public-data analytics
+- SQLAlchemy / Alembic
+- SQLGlot
+- versioned Semantic Layer
+
+### Runtime
+
+- Redis
+- async workers
+- checkpoint / resume
+- sandbox execution
+- RBAC / policy gates
+- HITL approvals
+
+### Evaluation / training
+
+- PyTorch
+- trajectory replay
+- failure mining
+- SFT
+- GRPO-style AgentRL
+- Transformers / PEFT for open-weight LLM path
+
+### Observability
+
+- OpenTelemetry
+- Prometheus
+- Grafana
+
+---
+
+# What is deliberately not claimed
+
+This repository is designed to make the boundary between **implemented**, **verified**, and **not available publicly** explicit.
+
+It does **not** claim:
+
+- access to proprietary Meituan, CRM, advertising, or merchant production APIs;
+- production-scale marketing-budget execution;
+- causal marketing lift from observational public datasets;
+- real Qwen/Llama SFT or GRPO gains before the external GPU workflow is actually run;
+- production-scale throughput from CI smoke tests.
+
+External writes in the public implementation remain dry-run or approval-gated.
+
+---
+
+# Design principles
+
+1. **State over chat history**  
+   Durable task state is the source of truth; prompts are temporary views.
+
+2. **Model decides, deterministic systems execute**  
+   The model selects analytical or operational actions; governed tools enforce execution boundaries.
+
+3. **Evidence before claims**  
+   Important business conclusions must be traceable to data, semantics, computations, and validation.
+
+4. **Recovery is part of the runtime**  
+   Retry, checkpoint, resume, replay, and replanning are not prompt tricks.
+
+5. **Safety before autonomy**  
+   High-risk writes require explicit permissions, budgets, idempotency, and human approval.
+
+6. **Evaluation before self-improvement**  
+   Prompt changes, Skills, SFT, or RL are promoted only after reproducible offline evaluation.
+
+7. **Report measured results, not hoped-for results**  
+   GRPO is reported as a reward/action-validity improvement because that is what the current experiment actually shows.
+
+---
+
+## Documentation
+
+- [Business Intelligence & Autonomous Operations Architecture](docs/business-intelligence-autonomous-operations.md)
+- [P9–P12 Execution Report](docs/P9_P12_EXECUTION_REPORT.md)
+- [Architecture Development Baseline](docs/architecture-development-baseline.md)
+- [Core Module Design](docs/core-module-design.md)
+
+---
+
+## License
+
+Apache-2.0
