@@ -66,12 +66,22 @@ def download(url: str, target: Path, timeout: int = 60) -> Path:
 
 
 def _find_zip_member(blob: bytes, suffix: str) -> bytes:
+    """Find a target file in a ZIP, descending into nested ZIP members when needed."""
     with zipfile.ZipFile(io.BytesIO(blob)) as archive:
-        names = [name for name in archive.namelist() if name.lower().endswith(suffix.lower())]
-        if not names:
-            raise ValueError(f"no {suffix} member found in dataset archive")
-        preferred = sorted(names, key=lambda name: (len(name), name))[0]
-        return archive.read(preferred)
+        names = archive.namelist()
+        matches = [name for name in names if name.lower().endswith(suffix.lower())]
+        if matches:
+            preferred = sorted(matches, key=lambda name: (len(name), name))[0]
+            return archive.read(preferred)
+
+        nested_archives = [name for name in names if name.lower().endswith(".zip")]
+        for nested_name in sorted(nested_archives):
+            try:
+                return _find_zip_member(archive.read(nested_name), suffix)
+            except (ValueError, zipfile.BadZipFile):
+                continue
+
+    raise ValueError(f"no {suffix} member found in dataset archive")
 
 
 def profile_bank_marketing(zip_path: Path) -> dict[str, Any]:
