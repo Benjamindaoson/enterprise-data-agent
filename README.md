@@ -1,13 +1,33 @@
 <div align="center">
 
-# Enterprise Data Agent
+# Enterprise Business Intelligence & Autonomous Operations Agent
 
-**Governed Autonomous Analytics Platform**
-**企业级自主数据分析智能体平台**
+**Governed Autonomous Analytics + Business Operations Platform**
+**企业级商业智能与自主经营智能体平台**
 
 *Autonomous multi-agent analytics for long-horizon business investigation.*
 
-`Agent Systems` · `Multi-Agent Orchestration` · `Semantic Layer` · `Governed NL2SQL` · `Agent Runtime` · `OpenTelemetry`
+`Agent Systems` · `Business Intelligence` · `Autonomous Operations` · `Skill Runtime` · `Long-Term Memory` · `Multi-Agent` · `Semantic Layer` · `Governed NL2SQL` · `OpenTelemetry`
+
+---
+
+## Business operations upgrade
+
+The analytical core now also exposes a governed business-operations layer for:
+
+- **Business Analytics** — self-service metrics, multi-dimensional analysis, attribution and evidence-backed reporting;
+- **Marketing Budget** — constrained allocation proposals and scenario simulation, with approval required before financial commitment;
+- **Sales Expansion** — merchant/account opportunity ranking and governed CRM handoff proposals;
+- **Monetization** — opportunity discovery, product matching and revenue simulation.
+
+New runtime primitives include a typed **Skill Registry**, layered
+**working/episodic/semantic/procedural memory**, explicit tool/token budgets,
+permission checks, idempotent action contracts and **Human-in-the-loop** gates.
+
+Public integrations remain honest by design: campaign/CRM/monetization writes
+are proposal/dry-run only until real external systems are connected.
+
+See [Business Intelligence & Autonomous Operations Upgrade](docs/business-intelligence-autonomous-operations.md).
 
 ---
 
