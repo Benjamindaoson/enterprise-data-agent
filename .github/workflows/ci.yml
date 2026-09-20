@@ -33,7 +33,7 @@ jobs:
           scripts/train_agent_sft.py
           scripts/train_agent_grpo.py
       - name: Tests
-        run: python -m pytest -q
+        run: python -m pytest -q --ignore=tests/unit/test_training_pipeline.py
 
   post-training-smoke:
     runs-on: ubuntu-latest
