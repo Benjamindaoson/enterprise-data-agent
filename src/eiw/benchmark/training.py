@@ -25,7 +25,6 @@ from eiw.training.policy import (
     save_policy,
 )
 
-
 ACTION_TO_ID = {action: index for index, action in enumerate(HARD_ACTION_SPACE)}
 
 
@@ -36,7 +35,7 @@ class HardTransformerPolicy:
     def choose_action(self, state: HardState) -> str:
         self.model.eval()
         with torch.no_grad():
-            tokens, mask = collate_texts([state.visible_text()], self.model.config)
+            tokens, mask = collate_texts([state.policy_features()], self.model.config)
             logits = self.model(tokens, mask)
             return self.model.config.action_space[int(logits.argmax(dim=-1).item())]
 
@@ -51,10 +50,13 @@ def collect_expert_examples(
     examples: list[tuple[str, int]] = []
     policy = HardExpertPolicy()
     for index, case in enumerate(cases):
-        trajectory = run_hard_episode(policy, case, seed=index)
-        for step in trajectory.steps:
+        env = HardBusinessEnvironment(case, seed=index)
+        while not env.state.done:
+            state_text = env.state.policy_features()
+            action = policy.choose_action(env.state)
             if rng.random() <= keep_fraction:
-                examples.append((step.state_text, ACTION_TO_ID[step.action]))
+                examples.append((state_text, ACTION_TO_ID[action]))
+            env.step(action)
     if not examples:
         raise ValueError("hard SFT examples are empty")
     return examples
@@ -149,7 +151,7 @@ def _sample_rollout(
     steps: list[_RolloutStep] = []
     total_reward = 0.0
     while not env.state.done:
-        state_text = env.state.visible_text()
+        state_text = env.state.policy_features()
         tokens, mask = collate_texts([state_text], model.config)
         with torch.no_grad():
             logits = model(tokens, mask)[0] / temperature
