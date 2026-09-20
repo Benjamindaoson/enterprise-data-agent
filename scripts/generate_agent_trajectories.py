@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 
 from eiw.business.models import BusinessScenario
+from eiw.business.simulator import BusinessOperationsSimulator
 from eiw.flywheel.evaluation import evaluate_policy
 from eiw.flywheel.policies import ExpertPolicy, RandomPolicy
-from eiw.business.simulator import BusinessOperationsSimulator
 from eiw.flywheel.trajectory import TrajectoryStore, run_episode
 from eiw.workspace.data import IowaData
 
