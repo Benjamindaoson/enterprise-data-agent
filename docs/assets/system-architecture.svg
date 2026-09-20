@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1"><stop offset="0" stop-color="#08111a"/><stop offset="1" stop-color="#0d1722"/></linearGradient>
+    <linearGradient id="accent" x1="0" x2="1"><stop offset="0" stop-color="#67e8f9"/><stop offset="1" stop-color="#60a5fa"/></linearGradient>
+    <style>
+      .title{font:700 38px Inter,Arial,sans-serif;fill:#f3f7fb}.sub{font:400 17px Inter,Arial,sans-serif;fill:#8fa1b3}
+      .layer{font:700 14px Inter,Arial,sans-serif;fill:#67e8f9;letter-spacing:1.8px}
+      .box{fill:#101b27;stroke:#274158;stroke-width:2;rx:16}.box2{fill:#122234;stroke:#31516d;stroke-width:2;rx:16}
+      .h{font:700 19px Inter,Arial,sans-serif;fill:#ecf5fb}.t{font:400 14px Inter,Arial,sans-serif;fill:#9eb0bf}
+      .arrow{stroke:#48667f;stroke-width:3;fill:none;marker-end:url(#m)}.dash{stroke:#3d566b;stroke-width:2;stroke-dasharray:8 8;fill:none}
+      .pill{fill:#0f2a28;stroke:#2d6e61;stroke-width:1.5;rx:12}.pillt{font:700 12px Inter,Arial,sans-serif;fill:#7ee7c1}
+    </style>
+    <marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#48667f"/></marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <text x="80" y="70" class="title">Enterprise Business Intelligence &amp; Autonomous Operations Agent</text>
+  <text x="80" y="104" class="sub">Business analysis → decision → governed action → verification → feedback → post-training</text>
+
+  <text x="80" y="150" class="layer">EXPERIENCE</text>
+  <rect x="80" y="170" width="1440" height="92" class="box"/>
+  <rect x="110" y="194" width="250" height="45" class="box2"/><text x="235" y="222" text-anchor="middle" class="h">Business User / API</text>
+  <rect x="390" y="194" width="250" height="45" class="box2"/><text x="515" y="222" text-anchor="middle" class="h">Autonomous Ops Console</text>
+  <rect x="670" y="194" width="250" height="45" class="box2"/><text x="795" y="222" text-anchor="middle" class="h">Approval Surface</text>
+  <rect x="950" y="194" width="250" height="45" class="box2"/><text x="1075" y="222" text-anchor="middle" class="h">Benchmark Console</text>
+  <rect x="1230" y="194" width="250" height="45" class="box2"/><text x="1355" y="222" text-anchor="middle" class="h">Reports / Evidence</text>
+
+  <text x="80" y="310" class="layer">AGENT RUNTIME / HARNESS</text>
+  <rect x="80" y="330" width="1440" height="160" class="box"/>
+  <rect x="110" y="360" width="245" height="90" class="box2"/><text x="232" y="393" text-anchor="middle" class="h">Supervisor</text><text x="232" y="420" text-anchor="middle" class="t">Plan · Route · Replan · Stop</text>
+  <rect x="380" y="360" width="245" height="90" class="box2"/><text x="502" y="393" text-anchor="middle" class="h">Durable Task State</text><text x="502" y="420" text-anchor="middle" class="t">Checkpoint · Resume · Replay</text>
+  <rect x="650" y="360" width="245" height="90" class="box2"/><text x="772" y="393" text-anchor="middle" class="h">Context &amp; Memory</text><text x="772" y="420" text-anchor="middle" class="t">Working · Episodic · Semantic · Procedural</text>
+  <rect x="920" y="360" width="245" height="90" class="box2"/><text x="1042" y="393" text-anchor="middle" class="h">Skill Runtime</text><text x="1042" y="420" text-anchor="middle" class="t">Registry · Routing · Permissions</text>
+  <rect x="1190" y="360" width="290" height="90" class="box2"/><text x="1335" y="393" text-anchor="middle" class="h">Governance</text><text x="1335" y="420" text-anchor="middle" class="t">Budget · Safety · HITL · Idempotency</text>
+
+  <text x="80" y="540" class="layer">BUSINESS CAPABILITIES &amp; GOVERNED EXECUTION</text>
+  <rect x="80" y="560" width="1440" height="150" class="box"/>
+  <rect x="110" y="590" width="210" height="88" class="box2"/><text x="215" y="623" text-anchor="middle" class="h">Analytics</text><text x="215" y="649" text-anchor="middle" class="t">NL2SQL · Drill-down</text>
+  <rect x="340" y="590" width="210" height="88" class="box2"/><text x="445" y="623" text-anchor="middle" class="h">Attribution</text><text x="445" y="649" text-anchor="middle" class="t">PVM · Evidence</text>
+  <rect x="570" y="590" width="210" height="88" class="box2"/><text x="675" y="623" text-anchor="middle" class="h">Marketing</text><text x="675" y="649" text-anchor="middle" class="t">Budget · Campaign</text>
+  <rect x="800" y="590" width="210" height="88" class="box2"/><text x="905" y="623" text-anchor="middle" class="h">Sales Expansion</text><text x="905" y="649" text-anchor="middle" class="t">Lead prioritization</text>
+  <rect x="1030" y="590" width="210" height="88" class="box2"/><text x="1135" y="623" text-anchor="middle" class="h">Monetization</text><text x="1135" y="649" text-anchor="middle" class="t">Value · Retention</text>
+  <rect x="1260" y="590" width="220" height="88" class="box2"/><text x="1370" y="623" text-anchor="middle" class="h">Tool Layer</text><text x="1370" y="649" text-anchor="middle" class="t">SQL · Python · CRM · APIs</text>
+
+  <text x="80" y="760" class="layer">EVALUATION, LEARNING &amp; PRODUCTION</text>
+  <rect x="80" y="780" width="1440" height="92" class="box"/>
+  <rect x="110" y="804" width="235" height="44" class="pill"/><text x="227" y="832" text-anchor="middle" class="pillt">Claim → Evidence → Verify</text>
+  <rect x="370" y="804" width="235" height="44" class="pill"/><text x="487" y="832" text-anchor="middle" class="pillt">Trajectory + Eval</text>
+  <rect x="630" y="804" width="235" height="44" class="pill"/><text x="747" y="832" text-anchor="middle" class="pillt">SFT + GRPO / AgentRL</text>
+  <rect x="890" y="804" width="235" height="44" class="pill"/><text x="1007" y="832" text-anchor="middle" class="pillt">PostgreSQL + Redis</text>
+  <rect x="1150" y="804" width="330" height="44" class="pill"/><text x="1315" y="832" text-anchor="middle" class="pillt">OpenTelemetry · Prometheus · Grafana</text>
+
+  <path d="M800 262 L800 330" class="arrow"/>
+  <path d="M800 490 L800 560" class="arrow"/>
+  <path d="M800 710 L800 780" class="arrow"/>
+  <path d="M232 450 L232 560" class="dash"/><path d="M1335 450 L1335 560" class="dash"/>
+</svg>

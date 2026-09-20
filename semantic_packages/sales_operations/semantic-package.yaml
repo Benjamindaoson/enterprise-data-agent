@@ -1,0 +1,554 @@
+# Sales Operations Domain Semantic Package
+# Version: 1.0.0
+# Domain: Sales Operations
+# Status: SYNTHETIC_PUBLIC_DEMO - For demonstration purposes only
+
+package:
+  id: sales_operations
+  version: "1.0.0"
+  title: "Sales Operations Semantic Package"
+  description: "Standard sales metrics and dimensions for demo purposes"
+  domain: sales_operations
+
+  timezone: "UTC"
+  currency: "USD"
+  fiscal_year_start_month: 1
+
+  source_snapshot_alias: "sales_demo"
+  default_snapshot: "sales_snapshot_2026_q2"
+
+# Dimensions
+dimensions:
+  - id: region
+    name: "Sales Region"
+    aliases: ["area", "territory", "geo_region", "location"]
+    description: "Geographic sales region"
+    source_table: "fact_sales"
+    source_column: "region"
+    grain: null
+    join_paths: ["fact_sales"]
+    cardinality: medium
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: channel
+    name: "Sales Channel"
+    aliases: ["distribution_channel", "sales_method", "sales_type"]
+    description: "Sales distribution channel"
+    source_table: "fact_sales"
+    source_column: "channel"
+    grain: null
+    join_paths: ["fact_sales"]
+    cardinality: low
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: product
+    name: "Product"
+    aliases: ["item", "sku", "product_name"]
+    description: "Product or SKU"
+    source_table: "fact_sales"
+    source_column: "product_id"
+    grain: null
+    join_paths: ["fact_sales"]
+    cardinality: high
+    cardinality_estimate: 10000
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: product_category
+    name: "Product Category"
+    aliases: ["category", "product_line", "segment", "product_type"]
+    description: "Product category classification"
+    source_table: "fact_sales"
+    source_column: "product_category"
+    grain: null
+    join_paths: ["fact_sales"]
+    cardinality: medium
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: customer
+    name: "Customer"
+    aliases: ["account", "client", "customer_name"]
+    description: "Customer account"
+    source_table: "fact_sales"
+    source_column: "customer_id"
+    grain: null
+    join_paths: ["fact_sales"]
+    cardinality: high
+    cardinality_estimate: 50000
+    policy_tags: []
+    classification: CONFIDENTIAL
+
+  - id: customer_segment
+    name: "Customer Segment"
+    aliases: ["segment", "customer_type", "account_type"]
+    description: "Customer segment classification"
+    source_table: "fact_sales"
+    source_column: "customer_segment"
+    grain: null
+    join_paths: ["fact_sales"]
+    cardinality: low
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: sales_date
+    name: "Sales Date"
+    aliases: ["date", "order_date", "transaction_date"]
+    description: "Date of sale"
+    source_table: "dim_date"
+    source_column: "date"
+    grain: DAILY
+    hierarchy:
+      - level: 1
+        name: "Day"
+        parent_level: null
+      - level: 2
+        name: "Week"
+        parent_level: 1
+      - level: 3
+        name: "Month"
+        parent_level: 2
+      - level: 4
+        name: "Quarter"
+        parent_level: 3
+      - level: 5
+        name: "Year"
+        parent_level: 4
+    join_paths: ["fact_sales"]
+    cardinality: high
+    policy_tags: []
+    classification: PUBLIC
+
+# Metrics
+metrics:
+  - id: sales
+    version: "1.0.0"
+    name: "Sales"
+    aliases:
+      - "sales amount"
+      - "total sales"
+      - "sales revenue"
+      - "net sales"
+    description: "Total sales amount"
+    business_context: "Primary sales performance metric"
+    interpretation_guide: "Sum of all sales amounts in reporting period"
+    formula:
+      type: column
+      expression: "sales_amount"
+      source_table: "fact_sales"
+      source_columns: ["sales_amount"]
+      required_dimensions: []
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: DAILY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - channel
+      - product
+      - product_category
+      - customer_segment
+      - sales_date
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_sales"
+    source_columns: ["sales_amount"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    freshness:
+      typical_delay_hours: 4
+      max_delay_hours: 24
+      update_frequency: realtime
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+
+  - id: orders
+    version: "1.0.0"
+    name: "Orders"
+    aliases:
+      - "order count"
+      - "number of orders"
+      - "total orders"
+      - "order volume"
+    description: "Count of orders"
+    business_context: "Order volume metric"
+    interpretation_guide: "Count of distinct orders in reporting period"
+    formula:
+      type: aggregation
+      expression: "COUNT(DISTINCT order_id)"
+      source_table: "fact_sales"
+      source_columns: ["order_id"]
+      required_dimensions: []
+    unit: "count"
+    aggregation: COUNT
+    semantic_type: COUNT
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: DAILY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - channel
+      - product_category
+      - customer_segment
+    incompatible_dimensions: []
+    source_table: "fact_sales"
+    source_columns: ["order_id"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+
+  - id: average_selling_price
+    version: "1.0.0"
+    name: "Average Selling Price"
+    aliases:
+      - "asp"
+      - "avg price"
+      - "average price"
+      - "mean price"
+    description: "Average price per unit sold"
+    business_context: "Pricing performance metric"
+    interpretation_guide: "Total sales divided by total quantity sold"
+    formula:
+      type: expression
+      expression: "SUM(sales_amount) / SUM(quantity)"
+      source_table: "fact_sales"
+      source_columns: ["sales_amount", "quantity"]
+      required_dimensions: []
+    unit: "USD"
+    aggregation: AVG
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - product
+      - product_category
+      - channel
+    incompatible_dimensions: []
+    source_table: "fact_sales"
+    source_columns: ["sales_amount", "quantity"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+    caution: "Sensitive to product mix; interpret with volume metrics"
+
+  - id: customer_count
+    version: "1.0.0"
+    name: "Customer Count"
+    aliases:
+      - "unique customers"
+      - "distinct customers"
+      - "active customers"
+      - "buying customers"
+    description: "Count of unique customers"
+    business_context: "Customer acquisition and retention metric"
+    interpretation_guide: "Count of distinct customers with orders in period"
+    formula:
+      type: aggregation
+      expression: "COUNT(DISTINCT customer_id)"
+      source_table: "fact_sales"
+      source_columns: ["customer_id"]
+      required_dimensions: []
+    unit: "count"
+    aggregation: COUNT_DISTINCT
+    semantic_type: COUNT
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - channel
+      - customer_segment
+    incompatible_dimensions: []
+    source_table: "fact_sales"
+    source_columns: ["customer_id"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: CONFIDENTIAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+
+  - id: region_sales
+    version: "1.0.0"
+    name: "Regional Sales"
+    aliases:
+      - "sales by region"
+      - "regional sales amount"
+    description: "Sales amount by region"
+    business_context: "Regional performance tracking"
+    interpretation_guide: "Sales aggregated by geographic region"
+    formula:
+      type: expression
+      expression: "SUM(sales_amount)"
+      source_table: "fact_sales"
+      source_columns: ["sales_amount"]
+      required_dimensions:
+        - region
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: DAILY
+    required_dimensions:
+      - region
+    optional_dimensions:
+      - channel
+      - product_category
+      - customer_segment
+    incompatible_dimensions: []
+    source_table: "fact_sales"
+    source_columns: ["sales_amount"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+
+  - id: channel_sales
+    version: "1.0.0"
+    name: "Channel Sales"
+    aliases:
+      - "sales by channel"
+      - "channel revenue"
+    description: "Sales amount by distribution channel"
+    business_context: "Channel performance and mix analysis"
+    interpretation_guide: "Sales aggregated by sales channel"
+    formula:
+      type: expression
+      expression: "SUM(sales_amount)"
+      source_table: "fact_sales"
+      source_columns: ["sales_amount"]
+      required_dimensions:
+        - channel
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: DAILY
+    required_dimensions:
+      - channel
+    optional_dimensions:
+      - region
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_sales"
+    source_columns: ["sales_amount"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+
+  - id: product_sales
+    version: "1.0.0"
+    name: "Product Sales"
+    aliases:
+      - "sales by product"
+      - "product revenue"
+    description: "Sales amount by product"
+    business_context: "Product performance analysis"
+    interpretation_guide: "Sales aggregated by product"
+    formula:
+      type: expression
+      expression: "SUM(sales_amount)"
+      source_table: "fact_sales"
+      source_columns: ["sales_amount"]
+      required_dimensions:
+        - product
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: DAILY
+    required_dimensions:
+      - product
+    optional_dimensions:
+      - product_category
+      - channel
+      - region
+    incompatible_dimensions: []
+    source_table: "fact_sales"
+    source_columns: ["sales_amount"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Sales Operations"
+    lineage: []
+
+# Join policies
+join_policies:
+  - name: "standard_sales_joins"
+    description: "Standard join paths for sales metrics"
+    paths:
+      - from: "fact_sales"
+        to: "dim_date"
+        type: "many_to_one"
+        join_column: "sales_date"
+
+# Business rules
+business_rules:
+  - id: "sales_non_negative"
+    description: "Sales amount must be non-negative"
+    expression: "sales_amount >= 0"
+    severity: error
+
+  - id: "quantity_positive"
+    description: "Order quantity must be positive"
+    expression: "quantity > 0"
+    severity: error
+
+# Quality rules
+quality_rules:
+  - id: "no_null_customers"
+    description: "Every order must have a customer"
+    check: "customer_id IS NOT NULL"
+
+  - id: "no_null_amounts"
+    description: "No null sales amounts"
+    check: "sales_amount IS NOT NULL"
+
+# Access policies
+access_policies:
+  CFO:
+    metrics:
+      - sales
+      - orders
+      - average_selling_price
+      - customer_count
+      - region_sales
+      - channel_sales
+      - product_sales
+    dimensions:
+      - region
+      - channel
+      - product
+      - product_category
+      - customer_segment
+  Sales_Manager:
+    metrics:
+      - sales
+      - orders
+      - region_sales
+      - channel_sales
+    dimensions:
+      - region
+      - channel
+      - sales_date
+  Regional_Manager:
+    metrics:
+      - sales
+      - orders
+      - region_sales
+    dimensions:
+      - region
+      - product_category
+      - sales_date
+  Finance_Analyst:
+    metrics:
+      - sales
+      - average_selling_price
+      - region_sales
+      - channel_sales
+    dimensions:
+      - region
+      - channel
+      - product_category

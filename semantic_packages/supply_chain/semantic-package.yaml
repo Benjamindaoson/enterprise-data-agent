@@ -1,0 +1,587 @@
+# Supply Chain Domain Semantic Package
+# Version: 1.0.0
+# Domain: Supply Chain
+# Status: SYNTHETIC_PUBLIC_DEMO - For demonstration purposes only
+
+package:
+  id: supply_chain
+  version: "1.0.0"
+  title: "Supply Chain Semantic Package"
+  description: "Standard supply chain metrics and dimensions for demo purposes"
+  domain: supply_chain
+
+  timezone: "UTC"
+  currency: "USD"
+  fiscal_year_start_month: 1
+
+  source_snapshot_alias: "supply_chain_demo"
+  default_snapshot: "supply_chain_snapshot_2026_q2"
+
+# Dimensions
+dimensions:
+  - id: warehouse
+    name: "Warehouse"
+    aliases: ["distribution_center", "dc", "fulfillment_center"]
+    description: "Warehouse or distribution center"
+    source_table: "fact_inventory"
+    source_column: "warehouse_id"
+    grain: null
+    join_paths: ["fact_inventory"]
+    cardinality: medium
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: product
+    name: "Product"
+    aliases: ["item", "sku", "product_name"]
+    description: "Product or SKU"
+    source_table: "fact_inventory"
+    source_column: "product_id"
+    grain: null
+    join_paths: ["fact_inventory"]
+    cardinality: high
+    cardinality_estimate: 10000
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: supplier
+    name: "Supplier"
+    aliases: ["vendor", "supplier_name"]
+    description: "Supplier or vendor"
+    source_table: "fact_orders"
+    source_column: "supplier_id"
+    grain: null
+    join_paths: ["fact_orders"]
+    cardinality: medium
+    policy_tags: []
+    classification: CONFIDENTIAL
+
+  - id: product_category
+    name: "Product Category"
+    aliases: ["category", "product_line", "segment"]
+    description: "Product category"
+    source_table: "fact_inventory"
+    source_column: "product_category"
+    grain: null
+    join_paths: ["fact_inventory"]
+    cardinality: medium
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: inventory_date
+    name: "Inventory Date"
+    aliases: ["date", "snapshot_date", "as_of_date"]
+    description: "Date of inventory snapshot"
+    source_table: "dim_date"
+    source_column: "date"
+    grain: DAILY
+    hierarchy:
+      - level: 1
+        name: "Day"
+        parent_level: null
+      - level: 2
+        name: "Week"
+        parent_level: 1
+      - level: 3
+        name: "Month"
+        parent_level: 2
+    join_paths: ["fact_inventory"]
+    cardinality: high
+    policy_tags: []
+    classification: PUBLIC
+
+  - id: order_date
+    name: "Order Date"
+    aliases: ["date", "po_date", "purchase_date"]
+    description: "Date of purchase order"
+    source_table: "fact_orders"
+    source_column: "order_date"
+    grain: DAILY
+    hierarchy:
+      - level: 1
+        name: "Day"
+        parent_level: null
+      - level: 2
+        name: "Week"
+        parent_level: 1
+      - level: 3
+        name: "Month"
+        parent_level: 2
+    join_paths: ["fact_orders"]
+    cardinality: high
+    policy_tags: []
+    classification: PUBLIC
+
+# Metrics
+metrics:
+  - id: inventory
+    version: "1.0.0"
+    name: "Inventory"
+    aliases:
+      - "inventory level"
+      - "stock level"
+      - "on_hand"
+      - "current inventory"
+      - "inventory quantity"
+    description: "Current inventory quantity or value"
+    business_context: "Inventory position tracking"
+    interpretation_guide: "Current stock level at a point in time"
+    formula:
+      type: column
+      expression: "inventory_quantity"
+      source_table: "fact_inventory"
+      source_columns: ["inventory_quantity"]
+      required_dimensions: []
+    unit: "units"
+    aggregation: SUM
+    semantic_type: QUANTITY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+    default_grain: DAILY
+    required_dimensions: []
+    optional_dimensions:
+      - warehouse
+      - product
+      - product_category
+      - inventory_date
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_inventory"
+    source_columns: ["inventory_quantity"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    freshness:
+      typical_delay_hours: 2
+      max_delay_hours: 4
+      update_frequency: realtime
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+
+  - id: inventory_turnover
+    version: "1.0.0"
+    name: "Inventory Turnover"
+    aliases:
+      - "turnover"
+      - "stock turnover"
+      - "inventory turnover rate"
+    description: "Number of times inventory is replaced in a period"
+    business_context: "Inventory efficiency metric"
+    interpretation_guide: "COGS / Average Inventory; higher indicates faster turnover"
+    formula:
+      type: expression
+      expression: "SUM(cogs) / AVG(inventory_value)"
+      source_table: "fact_inventory"
+      source_columns: ["cogs", "inventory_value"]
+      required_dimensions: []
+    unit: "ratio"
+    aggregation: AVG
+    semantic_type: RATIO
+    supported_grains:
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: QUARTERLY
+    required_dimensions: []
+    optional_dimensions:
+      - warehouse
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_inventory"
+    source_columns: ["cogs", "inventory_value"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+    caution: "Compare within same industry; rates vary significantly by sector"
+
+  - id: stockout
+    version: "1.0.0"
+    name: "Stockout"
+    aliases:
+      - "stockout event"
+      - "stock out"
+      - "out of stock"
+      - "oos"
+    description: "Number of stockout events"
+    business_context: "Service level tracking"
+    interpretation_guide: "Count of events where demand could not be fulfilled"
+    formula:
+      type: aggregation
+      expression: "COUNT(*) WHERE inventory_quantity = 0"
+      source_table: "fact_inventory"
+      source_columns: []
+      required_dimensions: []
+    unit: "count"
+    aggregation: COUNT
+    semantic_type: COUNT
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+    default_grain: DAILY
+    required_dimensions: []
+    optional_dimensions:
+      - warehouse
+      - product
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_inventory"
+    source_columns: []
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+
+  - id: stockout_rate
+    version: "1.0.0"
+    name: "Stockout Rate"
+    aliases:
+      - "out of stock rate"
+      - "oos rate"
+      - "service level failure"
+    description: "Percentage of demand that resulted in stockout"
+    business_context: "Service level measurement"
+    interpretation_guide: "Stockout events / Total demand events * 100"
+    formula:
+      type: expression
+      expression: "COUNT(stockout) / COUNT(total_demand) * 100"
+      source_table: "fact_inventory"
+      source_columns: []
+      required_dimensions: []
+    unit: "%"
+    aggregation: AVG
+    semantic_type: PERCENTAGE
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+    default_grain: WEEKLY
+    required_dimensions: []
+    optional_dimensions:
+      - warehouse
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_inventory"
+    source_columns: []
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+    caution: "Target typically 1-5% depending on industry"
+
+  - id: lead_time
+    version: "1.0.0"
+    name: "Lead Time"
+    aliases:
+      - "procurement lead time"
+      - "supplier lead time"
+      - "delivery time"
+      - "days to deliver"
+    description: "Time from order to receipt"
+    business_context: "Supplier performance metric"
+    interpretation_guide: "Average days from PO to receipt"
+    formula:
+      type: expression
+      expression: "AVG(receipt_date - order_date)"
+      source_table: "fact_orders"
+      source_columns: ["order_date", "receipt_date"]
+      required_dimensions: []
+    unit: "days"
+    aggregation: AVG
+    semantic_type: DURATION
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - supplier
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_orders"
+    source_columns: ["order_date", "receipt_date"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+    caution: "Consider lead time variability, not just average"
+
+  - id: fill_rate
+    version: "1.0.0"
+    name: "Fill Rate"
+    aliases:
+      - "order fill rate"
+      - "fulfillment rate"
+      - "service level"
+      - "on_time_fill"
+    description: "Percentage of orders filled completely from stock"
+    business_context: "Service level measurement"
+    interpretation_guide: "Orders filled from inventory / Total orders * 100"
+    formula:
+      type: expression
+      expression: "orders_filled_from_stock / total_orders * 100"
+      source_table: "fact_orders"
+      source_columns: ["orders_filled_from_stock", "total_orders"]
+      required_dimensions: []
+    unit: "%"
+    aggregation: AVG
+    semantic_type: PERCENTAGE
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - warehouse
+      - supplier
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_orders"
+    source_columns: ["orders_filled_from_stock", "total_orders"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+    caution: "Target typically 95-99% depending on industry"
+
+  - id: supplier_otif
+    version: "1.0.0"
+    name: "Supplier On-Time In-Full"
+    aliases:
+      - "otif"
+      - "on time in full"
+      - "supplier otif"
+      - "vendor performance"
+    description: "Percentage of orders delivered on time and in full"
+    business_context: "Supplier performance metric"
+    interpretation_guide: "Orders delivered on time and in full / Total orders * 100"
+    formula:
+      type: expression
+      expression: "orders_otif / total_orders * 100"
+      source_table: "fact_orders"
+      source_columns: ["orders_otif", "total_orders"]
+      required_dimensions: []
+    unit: "%"
+    aggregation: AVG
+    semantic_type: PERCENTAGE
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - supplier
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_orders"
+    source_columns: ["orders_otif", "total_orders"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: CONFIDENTIAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+    caution: "Industry benchmark typically 90-95%"
+
+  - id: supplier_otd
+    version: "1.0.0"
+    name: "Supplier On-Time Delivery"
+    aliases:
+      - "otd"
+      - "on time delivery"
+      - "delivery performance"
+    description: "Percentage of orders delivered on time (quantity may vary)"
+    business_context: "Supplier delivery performance"
+    interpretation_guide: "Orders delivered on time / Total orders * 100"
+    formula:
+      type: expression
+      expression: "orders_on_time / total_orders * 100"
+      source_table: "fact_orders"
+      source_columns: ["orders_on_time", "total_orders"]
+      required_dimensions: []
+    unit: "%"
+    aggregation: AVG
+    semantic_type: PERCENTAGE
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - supplier
+      - product_category
+    incompatible_dimensions: []
+    source_table: "fact_orders"
+    source_columns: ["orders_on_time", "total_orders"]
+    time_interpretation: business_date
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: CONFIDENTIAL
+    policy_tags: []
+    owner: "Supply Chain"
+    lineage: []
+
+# Join policies
+join_policies:
+  - name: "standard_inventory_joins"
+    description: "Standard join paths for inventory metrics"
+    paths:
+      - from: "fact_inventory"
+        to: "dim_date"
+        type: "many_to_one"
+        join_column: "inventory_date"
+
+  - name: "standard_order_joins"
+    description: "Standard join paths for order metrics"
+    paths:
+      - from: "fact_orders"
+        to: "dim_date"
+        type: "many_to_one"
+        join_column: "order_date"
+
+# Business rules
+business_rules:
+  - id: "inventory_non_negative"
+    description: "Inventory quantity must be non-negative"
+    expression: "inventory_quantity >= 0"
+    severity: error
+
+  - id: "lead_time_positive"
+    description: "Lead time must be positive"
+    expression: "lead_time >= 0"
+    severity: error
+
+  - id: "fill_rate_range"
+    description: "Fill rate should be between 0% and 100%"
+    expression: "fill_rate >= 0 AND fill_rate <= 100"
+    severity: warning
+
+# Quality rules
+quality_rules:
+  - id: "no_null_receipts"
+    description: "Orders should have receipt dates"
+    check: "receipt_date IS NOT NULL"
+
+  - id: "no_negative_quantities"
+    description: "Order quantities should be positive"
+    check: "order_quantity > 0"
+
+# Access policies
+access_policies:
+  CFO:
+    metrics:
+      - inventory
+      - inventory_turnover
+      - lead_time
+      - fill_rate
+      - supplier_otif
+      - supplier_otd
+    dimensions:
+      - warehouse
+      - supplier
+      - product_category
+  Supply_Chain_Manager:
+    metrics:
+      - inventory
+      - inventory_turnover
+      - stockout
+      - stockout_rate
+      - lead_time
+      - fill_rate
+      - supplier_otif
+      - supplier_otd
+    dimensions:
+      - warehouse
+      - supplier
+      - product
+      - product_category
+  Operations_Analyst:
+    metrics:
+      - inventory
+      - stockout
+      - fill_rate
+      - lead_time
+    dimensions:
+      - warehouse
+      - product_category
+  Procurement_Analyst:
+    metrics:
+      - lead_time
+      - supplier_otif
+      - supplier_otd
+    dimensions:
+      - supplier
+      - product_category

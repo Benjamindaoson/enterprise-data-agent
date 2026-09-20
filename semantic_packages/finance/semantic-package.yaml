@@ -1,0 +1,480 @@
+# Finance Domain Semantic Package
+# Version: 1.0.0
+# Domain: Finance
+# Status: SYNTHETIC_PUBLIC_DEMO - For demonstration purposes only
+
+package:
+  id: finance
+  version: "1.0.0"
+  title: "Finance Operations Semantic Package"
+  description: "Standard financial metrics and dimensions for demo purposes"
+  domain: finance
+
+  timezone: "UTC"
+  currency: "USD"
+  fiscal_year_start_month: 1
+
+  source_snapshot_alias: "finance_demo"
+  default_snapshot: "finance_snapshot_2026_q2"
+
+# Dimensions
+dimensions:
+  - id: region
+    name: "Region"
+    aliases: ["area", "territory", "geo"]
+    description: "Geographic sales region"
+    source_table: "fact_financials"
+    source_column: "region"
+    grain: null
+    join_paths: ["fact_financials"]
+    cardinality: medium
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: product_category
+    name: "Product Category"
+    aliases: ["category", "product_line", "segment"]
+    description: "Product category classification"
+    source_table: "fact_financials"
+    source_column: "product_category"
+    grain: null
+    join_paths: ["fact_financials"]
+    cardinality: medium
+    policy_tags: []
+    classification: INTERNAL
+
+  - id: fiscal_period
+    name: "Fiscal Period"
+    aliases: ["period", "fiscal_quarter", "fiscal_month", "quarter"]
+    description: "Fiscal time period"
+    source_table: "dim_date"
+    source_column: "fiscal_period"
+    grain: QUARTERLY
+    hierarchy:
+      - level: 1
+        name: "Year"
+        parent_level: null
+      - level: 2
+        name: "Quarter"
+        parent_level: 1
+      - level: 3
+        name: "Month"
+        parent_level: 2
+    join_paths: ["fact_financials"]
+    cardinality: low
+    policy_tags: []
+    classification: PUBLIC
+
+  - id: cost_center
+    name: "Cost Center"
+    aliases: ["center", "department", "division"]
+    description: "Organizational cost center"
+    source_table: "fact_financials"
+    source_column: "cost_center"
+    grain: null
+    join_paths: ["fact_financials"]
+    cardinality: medium
+    policy_tags: ["cost_center_restricted"]
+    classification: CONFIDENTIAL
+
+  - id: channel
+    name: "Sales Channel"
+    aliases: ["sales_channel", "distribution_channel"]
+    description: "Sales distribution channel"
+    source_table: "fact_financials"
+    source_column: "channel"
+    grain: null
+    join_paths: ["fact_financials"]
+    cardinality: low
+    policy_tags: []
+    classification: INTERNAL
+
+# Metrics
+metrics:
+  - id: revenue
+    version: "1.0.0"
+    name: "Revenue"
+    aliases:
+      - "total revenue"
+      - "sales revenue"
+      - "net revenue"
+      - "total sales"
+      - "sales"
+    description: "Total revenue from all sales transactions"
+    business_context: "Primary top-line revenue metric for financial reporting"
+    interpretation_guide: "Sum of all revenue transactions in the reporting period"
+    formula:
+      type: column
+      expression: "revenue"
+      source_table: "fact_financials"
+      source_columns: ["revenue"]
+      required_dimensions: []
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: DAILY
+        available: true
+      - grain: WEEKLY
+        available: true
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - product_category
+      - fiscal_period
+      - channel
+    incompatible_dimensions: []
+    allowed_join_paths:
+      - path_id: "by_region"
+        intermediate_tables: []
+        join_conditions: []
+    default_join_path: null
+    source_table: "fact_financials"
+    source_columns: ["revenue"]
+    time_interpretation: fiscal_period
+    fiscal_year_start_month: 1
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    freshness:
+      typical_delay_hours: 24
+      max_delay_hours: 48
+      update_frequency: daily
+    classification: INTERNAL
+    policy_tags: []
+    business_rules: []
+    validation_rules:
+      - "revenue_positive"
+    owner: "Finance Team"
+    lineage: []
+
+  - id: gross_profit
+    version: "1.0.0"
+    name: "Gross Profit"
+    aliases:
+      - "gross margin"
+      - "gross income"
+      - "gross earnings"
+    description: "Revenue minus cost of goods sold"
+    business_context: "Profitability metric after direct costs"
+    interpretation_guide: "Revenue minus COGS; indicates production efficiency"
+    formula:
+      type: expression
+      expression: "revenue - cogs"
+      source_table: "fact_financials"
+      source_columns: ["revenue", "cogs"]
+      required_dimensions: []
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - product_category
+      - fiscal_period
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_financials"
+    source_columns: ["revenue", "cogs"]
+    time_interpretation: fiscal_period
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Finance Team"
+    lineage:
+      - reference_type: upstream
+        entity_type: metric
+        entity_id: revenue
+        description: "Gross profit derived from revenue"
+    unavailable_behavior: error
+
+  - id: gross_margin_rate
+    version: "1.0.0"
+    name: "Gross Margin Rate"
+    aliases:
+      - "gross margin percentage"
+      - "margin rate"
+      - "gross profit percentage"
+    description: "Gross profit as a percentage of revenue"
+    business_context: "Profitability efficiency metric"
+    interpretation_guide: "Gross Profit / Revenue * 100; higher indicates better efficiency"
+    formula:
+      type: derived
+      expression: "(revenue - cogs) / revenue * 100"
+      source_table: "fact_financials"
+      source_columns: ["revenue", "cogs"]
+      required_dimensions: []
+      base_metrics:
+        - revenue
+        - gross_profit
+      derivation_formula: "gross_profit / revenue"
+    unit: "%"
+    aggregation: AVG
+    semantic_type: PERCENTAGE
+    supported_grains:
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: QUARTERLY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - product_category
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_financials"
+    time_interpretation: fiscal_period
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: INTERNAL
+    policy_tags: []
+    owner: "Finance Team"
+    lineage:
+      - reference_type: related
+        entity_type: metric
+        entity_id: revenue
+      - reference_type: related
+        entity_type: metric
+        entity_id: gross_profit
+    unavailable_behavior: error
+
+  - id: operating_expense
+    version: "1.0.0"
+    name: "Operating Expense"
+    aliases:
+      - "opex"
+      - "operating costs"
+      - "operating expenditures"
+      - "operating expenses"
+    description: "Total operating expenses excluding COGS"
+    business_context: "Operational cost tracking"
+    interpretation_guide: "Sum of all operating expenses in period"
+    formula:
+      type: column
+      expression: "operating_expense"
+      source_table: "fact_financials"
+      source_columns: ["operating_expense"]
+      required_dimensions: []
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions: []
+    optional_dimensions:
+      - cost_center
+      - fiscal_period
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_financials"
+    source_columns: ["operating_expense"]
+    time_interpretation: fiscal_period
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: CONFIDENTIAL
+    policy_tags: ["cost_center_restricted"]
+    owner: "Finance Team"
+    lineage: []
+
+  - id: operating_profit
+    version: "1.0.0"
+    name: "Operating Profit"
+    aliases:
+      - "ebit"
+      - "operating income"
+      - "operating earnings"
+    description: "Revenue minus operating expenses (EBIT)"
+    business_context: "Core operational profitability"
+    interpretation_guide: "Gross Profit - Operating Expenses"
+    formula:
+      type: derived
+      expression: "revenue - cogs - operating_expense"
+      source_table: "fact_financials"
+      source_columns: []
+      required_dimensions: []
+      base_metrics:
+        - revenue
+        - gross_profit
+        - operating_expense
+      derivation_formula: "gross_profit - operating_expense"
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: QUARTERLY
+    required_dimensions: []
+    optional_dimensions:
+      - region
+      - cost_center
+      - fiscal_period
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_financials"
+    time_interpretation: fiscal_period
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: CONFIDENTIAL
+    policy_tags: []
+    owner: "Finance Team"
+    lineage:
+      - reference_type: upstream
+        entity_type: metric
+        entity_id: gross_profit
+      - reference_type: upstream
+        entity_type: metric
+        entity_id: operating_expense
+    unavailable_behavior: error
+
+  - id: budget_variance
+    version: "1.0.0"
+    name: "Budget Variance"
+    aliases:
+      - "variance"
+      - "budget variance"
+      - "actual vs budget"
+      - "variance to budget"
+    description: "Difference between actual and budgeted values"
+    business_context: "Budget tracking and control"
+    interpretation_guide: "Actual - Budget; positive = over budget"
+    formula:
+      type: expression
+      expression: "actual - budget"
+      source_table: "fact_financials"
+      source_columns: ["actual", "budget"]
+      required_dimensions: []
+    unit: "USD"
+    aggregation: SUM
+    semantic_type: CURRENCY
+    supported_grains:
+      - grain: MONTHLY
+        available: true
+      - grain: QUARTERLY
+        available: true
+      - grain: YEARLY
+        available: true
+    default_grain: MONTHLY
+    required_dimensions:
+      - fiscal_period
+    optional_dimensions:
+      - cost_center
+      - region
+    incompatible_dimensions: []
+    allowed_join_paths: []
+    source_table: "fact_financials"
+    source_columns: ["actual", "budget"]
+    time_interpretation: fiscal_period
+    availability:
+      from: "2020-01-01"
+      to: "2100-12-31"
+      status: AVAILABLE
+    classification: CONFIDENTIAL
+    policy_tags: ["cost_center_restricted"]
+    owner: "Finance Team"
+    lineage: []
+    caution: "Positive variance may indicate overspend or favorable conditions"
+
+# Join policies
+join_policies:
+  - name: "standard_finance_joins"
+    description: "Standard join paths for finance metrics"
+    paths:
+      - from: "fact_financials"
+        to: "dim_date"
+        type: "many_to_one"
+
+# Business rules
+business_rules:
+  - id: "revenue_positive"
+    description: "Revenue must be non-negative"
+    expression: "revenue >= 0"
+    severity: error
+
+  - id: "margin_reasonable"
+    description: "Gross margin rate should be between -100% and 100%"
+    expression: "gross_margin_rate >= -100 AND gross_margin_rate <= 100"
+    severity: warning
+
+# Quality rules
+quality_rules:
+  - id: "completeness_check"
+    description: "Ensure no missing values in key fields"
+    check: "revenue IS NOT NULL"
+
+# Access policies
+access_policies:
+  CFO:
+    metrics:
+      - revenue
+      - gross_profit
+      - gross_margin_rate
+      - operating_expense
+      - operating_profit
+      - budget_variance
+    dimensions:
+      - region
+      - product_category
+      - fiscal_period
+      - cost_center
+      - channel
+  Finance_Analyst:
+    metrics:
+      - revenue
+      - gross_profit
+      - gross_margin_rate
+      - operating_expense
+      - budget_variance
+    dimensions:
+      - region
+      - product_category
+      - fiscal_period
+  Regional_Manager:
+    metrics:
+      - revenue
+      - gross_profit
+    dimensions:
+      - region
+      - fiscal_period
+  Sales_Manager:
+    metrics:
+      - revenue
+    dimensions:
+      - region
+      - channel
+      - product_category
+      - fiscal_period

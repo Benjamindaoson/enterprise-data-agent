@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Enterprise Business Agent — Demo Console</title>
+  <style>
+    :root{
+      --bg:#0b1118;--panel:#101923;--panel2:#15212e;--line:#223142;--text:#e9f1f7;
+      --muted:#8fa1b3;--cyan:#67e8f9;--green:#6ee7b7;--amber:#fbbf24;--red:#fb7185;
+      --blue:#60a5fa;--violet:#a78bfa;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+    aside{border-right:1px solid var(--line);padding:22px 16px;background:#0d151e}
+    .brand{display:flex;gap:10px;align-items:center;margin-bottom:26px}.mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--cyan),var(--blue));display:grid;place-items:center;color:#06202a;font-weight:900}
+    .brand strong{display:block;font-size:14px}.brand small{color:var(--muted)}
+    .nav-label{color:#587087;font-size:11px;text-transform:uppercase;letter-spacing:.12em;margin:18px 10px 8px}
+    .nav{display:flex;flex-direction:column;gap:4px}.nav a{color:#aebdca;text-decoration:none;padding:9px 10px;border-radius:8px}.nav a.active{background:#142333;color:white;border:1px solid #24415a}.nav span{display:inline-block;width:22px;color:#6d8296}
+    .env{margin-top:24px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#0b131b}.dot{width:7px;height:7px;background:var(--green);border-radius:50%;display:inline-block;margin-right:6px}.env small{display:block;color:var(--muted);margin-top:4px}
+    main{padding:22px 26px 30px}.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:16px}.eyebrow{color:#6f879c;font-size:11px;text-transform:uppercase;letter-spacing:.12em}.top h1{font-size:22px;margin:4px 0 2px}.muted{color:var(--muted)}
+    .top-right{display:flex;gap:8px;align-items:center}.pill{padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:#111d28;color:#b9c7d3;font-size:12px}.pill.good{color:var(--green);border-color:#245843}.pill.warn{color:var(--amber);border-color:#64531f}
+    .grid{display:grid;gap:14px}.kpis{grid-template-columns:repeat(5,1fr);margin:18px 0}.card{background:linear-gradient(180deg,#111b26,#0f1822);border:1px solid var(--line);border-radius:12px;padding:14px}.label{color:var(--muted);font-size:12px}.value{font-size:23px;font-weight:700;margin-top:7px}.sub{font-size:11px;color:#70859a;margin-top:4px}.good{color:var(--green)}.warn{color:var(--amber)}.bad{color:var(--red)}
+    .layout{grid-template-columns:1.35fr .85fr}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.section-title h2{font-size:15px;margin:0}.section-title span{font-size:11px;color:var(--muted)}
+    .task{padding:16px}.question{font-size:18px;font-weight:650;margin:6px 0 13px;max-width:850px}.meta{display:flex;gap:8px;flex-wrap:wrap}.meta .pill{font-size:11px}
+    .timeline{margin-top:13px;border-top:1px solid var(--line)}.step{display:grid;grid-template-columns:28px 155px 1fr 82px;gap:8px;align-items:center;padding:11px 2px;border-bottom:1px solid #1b2937}.num{width:23px;height:23px;border-radius:50%;border:1px solid #31506b;display:grid;place-items:center;color:#8fcaf4;font-size:11px}.step strong{font-size:12px}.step p{margin:0;color:#93a7b8;font-size:12px}.status{text-align:right;font-size:11px}.status.ok{color:var(--green)}.status.run{color:var(--cyan)}.status.wait{color:#63788b}
+    .trace{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:#091018;border:1px solid #172637;border-radius:9px;padding:11px;margin-top:12px;color:#92a8ba}.trace b{color:#c8f5ff}.trace .g{color:var(--green)}.trace .a{color:var(--amber)}
+    .stack{display:flex;flex-direction:column;gap:14px}.kv{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 0;border-bottom:1px solid #1b2937}.kv:last-child{border-bottom:0}.kv strong{font-size:12px}.kv span{font-size:12px;color:#9fb1c0}.bar{height:7px;border-radius:999px;background:#1c2b38;margin-top:7px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));width:64%}
+    .approval{border-color:#5e4d18;background:linear-gradient(180deg,#1d1a0d,#14150f)}.approval h3{margin:0 0 5px;font-size:14px}.approval p{margin:0 0 10px;color:#b7a873;font-size:12px}.btns{display:flex;gap:8px}.btn{padding:7px 10px;border-radius:7px;border:1px solid #31485c;background:#142332;color:#dce9f3;font-size:12px}.btn.primary{background:#173b31;border-color:#2a6b56;color:#8df0c6}
+    .bench table{width:100%;border-collapse:collapse;font-size:11px}.bench th,.bench td{padding:8px 4px;border-bottom:1px solid #1b2937;text-align:right}.bench th:first-child,.bench td:first-child{text-align:left}.bench th{color:#738ba0;font-weight:500}.bench tr:last-child td{border-bottom:0}.bench .best{color:var(--green);font-weight:700}
+    .footer{display:flex;justify-content:space-between;color:#64798c;font-size:11px;margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+    @media(max-width:1000px){.shell{grid-template-columns:1fr}aside{display:none}.kpis{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand"><div class="mark">A</div><div><strong>Business Agent</strong><small>Autonomous Ops Console</small></div></div>
+    <div class="nav-label">Workspace</div>
+    <nav class="nav">
+      <a class="active" href="#"><span>◫</span>Overview</a><a href="#"><span>◎</span>Task</a><a href="#"><span>↯</span>Trace</a><a href="#"><span>◇</span>Evidence</a>
+    </nav>
+    <div class="nav-label">Agent Runtime</div>
+    <nav class="nav">
+      <a href="#"><span>◆</span>Skills</a><a href="#"><span>◌</span>Memory</a><a href="#"><span>✓</span>Approvals</a><a href="#"><span>⌁</span>Benchmarks</a>
+    </nav>
+    <div class="env"><span class="dot"></span>Demo environment<small>dry-run writes · evidence grounded</small></div>
+  </aside>
+  <main>
+    <div class="top">
+      <div><div class="eyebrow">Marketing Budget · Long-Horizon Task</div><h1>Autonomous Operations Console</h1><div class="muted">Task BA-091 · public-data demo · checkpoint v7</div></div>
+      <div class="top-right"><span class="pill good">● runtime healthy</span><span class="pill">trace 8f2a…c91</span><span class="pill warn">HITL required</span></div>
+    </div>
+
+    <div class="grid kpis">
+      <div class="card"><div class="label">Task success</div><div class="value good">66.7%</div><div class="sub">Hard-v1 SFT held-out</div></div>
+      <div class="card"><div class="label">Reward</div><div class="value">0.6395</div><div class="sub">SFT + GRPO</div></div>
+      <div class="card"><div class="label">Invalid actions</div><div class="value">10.59%</div><div class="sub">↓ from 11.63%</div></div>
+      <div class="card"><div class="label">Token budget</div><div class="value">15.4k</div><div class="sub">of 24k remaining</div></div>
+      <div class="card"><div class="label">Policy violations</div><div class="value warn">0</div><div class="sub">current task</div></div>
+    </div>
+
+    <div class="grid layout">
+      <div>
+        <section class="card task">
+          <div class="section-title"><h2>Active business task</h2><span>Plan → Act → Observe → Verify → Replan</span></div>
+          <div class="question">Allocate the remaining campaign budget across eligible customer segments while protecting ROI and requiring approval before any financial commitment.</div>
+          <div class="meta"><span class="pill">UCI Bank Marketing</span><span class="pill">business.marketing_budget</span><span class="pill">semantic v3</span><span class="pill">dry-run</span></div>
+          <div class="timeline">
+            <div class="step"><div class="num">1</div><strong>Resolve metrics</strong><p>Conversion, contact channel, campaign frequency</p><div class="status ok">VERIFIED</div></div>
+            <div class="step"><div class="num">2</div><strong>Inspect segments</strong><p>Cellular vs telephone + job-segment conversion</p><div class="status ok">VERIFIED</div></div>
+            <div class="step"><div class="num">3</div><strong>Cross-check</strong><p>Conflicting evidence reconciled against source profile</p><div class="status ok">VERIFIED</div></div>
+            <div class="step"><div class="num">4</div><strong>Build proposal</strong><p>Constrained allocation produced under budget limits</p><div class="status ok">READY</div></div>
+            <div class="step"><div class="num">5</div><strong>Approval gate</strong><p>Financial commitment blocked until explicit human decision</p><div class="status run">WAITING</div></div>
+            <div class="step"><div class="num">6</div><strong>Execute</strong><p>External campaign adapter remains dry-run in public repo</p><div class="status wait">BLOCKED</div></div>
+          </div>
+          <div class="trace">
+            <div><b>12:41:18.209</b> skill.route → <span class="g">business.marketing_budget@1.0.0</span></div>
+            <div><b>12:41:18.452</b> tool.campaign_history → 45,211 rows profiled</div>
+            <div><b>12:41:18.821</b> verifier.claim_evidence → <span class="g">PASS</span></div>
+            <div><b>12:41:19.044</b> policy.financial_write → <span class="a">HITL_REQUIRED</span></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="card">
+          <div class="section-title"><h2>Evidence & memory</h2><span>4 linked objects</span></div>
+          <div class="kv"><strong>Conversion baseline</strong><span>verified</span></div>
+          <div class="kv"><strong>Channel breakdown</strong><span>verified</span></div>
+          <div class="kv"><strong>Semantic memory</strong><span>metric definitions</span></div>
+          <div class="kv"><strong>Episodic memory</strong><span>prior campaign task</span></div>
+        </section>
+
+        <section class="card">
+          <div class="section-title"><h2>Runtime budget</h2><span>cost-aware routing</span></div>
+          <div class="kv"><strong>Tool calls</strong><span>8 / 20</span></div><div class="bar"><i style="width:40%"></i></div>
+          <div class="kv"><strong>Tokens used</strong><span>8.6k / 24k</span></div><div class="bar"><i style="width:36%"></i></div>
+          <div class="kv"><strong>Model tier</strong><span>STANDARD → REASONING</span></div>
+          <div class="kv"><strong>Estimated cost</strong><span>configured ledger</span></div>
+        </section>
+
+        <section class="card approval">
+          <div class="section-title"><h2>Human approval</h2><span class="warn">PENDING</span></div>
+          <h3>Campaign budget commitment</h3>
+          <p>The proposal is evidence-grounded, but execution is classified as a financial commitment and cannot proceed autonomously.</p>
+          <div class="btns"><button class="btn primary">Approve</button><button class="btn">Reject</button></div>
+        </section>
+
+        <section class="card bench">
+          <div class="section-title"><h2>Hard-v1 benchmark</h2><span>held-out 12 cases</span></div>
+          <table><thead><tr><th>Policy</th><th>Success</th><th>Reward</th></tr></thead><tbody>
+            <tr><td>Direct</td><td>0.0%</td><td>-3.7627</td></tr>
+            <tr><td>Prompt</td><td>58.3%</td><td>0.0115</td></tr>
+            <tr><td>SFT</td><td>66.7%</td><td>0.5926</td></tr>
+            <tr><td class="best">SFT + GRPO</td><td class="best">66.7%</td><td class="best">0.6395</td></tr>
+          </tbody></table>
+        </section>
+      </div>
+    </div>
+    <div class="footer"><span>PostgreSQL durable state · Redis queue · OpenTelemetry tracing</span><span>public demo · no proprietary write access</span></div>
+  </main>
+</div>
+</body>
+</html>

@@ -11,6 +11,10 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from eiw.business.models import BusinessTaskRequest
+from eiw.business.operations import BusinessOperationsService
+from eiw.production.persistence import ProductionStore
+from eiw.runtime.skills import default_skill_registry
 from eiw.workspace.analysis import DEFAULT_USER, AnalysisService
 from eiw.workspace.data import DIMENSIONS, METRICS, IowaData
 from eiw.workspace.store import WorkspaceStore
@@ -35,18 +39,134 @@ class FeedbackRequest(BaseModel):
     comment: str = Field(default="", max_length=2000)
 
 
+class DurableCheckpointRequest(BaseModel):
+    version: int = Field(ge=1)
+    payload: dict[str, Any]
+
+
+class ApprovalCreateRequest(BaseModel):
+    task_id: str = Field(min_length=1, max_length=128)
+    action_id: str = Field(min_length=1, max_length=128)
+    requested_by: str = Field(min_length=1, max_length=128)
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class ApprovalDecisionRequest(BaseModel):
+    approved: bool
+    decided_by: str = Field(min_length=1, max_length=128)
+    reason: str | None = Field(default=None, max_length=2000)
+
+
 def create_app() -> FastAPI:
     artifact_root = Path(os.getenv("EIW_ARTIFACT_ROOT", "./artifacts"))
     store = WorkspaceStore(artifact_root / "workspace-state.json")
     data = IowaData()
     service = AnalysisService(store, data, artifact_root)
-    app = FastAPI(title="Enterprise Intelligence Workspace", version="0.2.0", description="Evidence-native analytical workspace for Iowa wholesale intelligence.")
+    business_service = BusinessOperationsService()
+    skill_registry = default_skill_registry()
+    database_url = os.getenv("EIW_DATABASE_URL")
+    production_store = ProductionStore(database_url) if database_url else None
+    app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> FileResponse:
         return FileResponse(static_dir / "index.html")
+
+    @app.get("/demo", response_class=HTMLResponse)
+    def demo() -> FileResponse:
+        """Portfolio demo surface with deterministic presentation data."""
+        return FileResponse(static_dir / "demo.html")
+
+    @app.get("/api/v1/capabilities")
+    def capabilities() -> dict[str, Any]:
+        return {
+            "product": "Enterprise Business Intelligence & Autonomous Operations Agent",
+            "business_scenarios": ["ANALYTICS", "MARKETING_BUDGET", "SALES_EXPANSION", "MONETIZATION"],
+            "runtime": [
+                "agent_loop", "context_engineering", "checkpoint_resume", "failure_recovery",
+                "layered_memory", "skill_registry", "tool_budget", "token_budget",
+                "human_in_the_loop", "policy_guardrails", "observability", "trajectory_replay",
+            ],
+            "skills": [
+                {
+                    "skill_id": skill.skill_id,
+                    "version": skill.version,
+                    "description": skill.description,
+                    "tools": list(skill.tool_dependencies),
+                    "permissions": list(skill.permissions),
+                    "tags": list(skill.tags),
+                }
+                for skill in skill_registry.list()
+            ],
+            "public_reference_limits": {
+                "external_writes": "proposal/dry-run only",
+                "post_training": "Tiny policy SFT/GRPO verified in CI; real open-weight LLM training runs in the manual self-hosted workflow",
+                "real_campaign_crm_integrations": False,
+            },
+        }
+
+    @app.post("/api/v1/business-tasks")
+    def create_business_task(request: BusinessTaskRequest) -> dict[str, Any]:
+        return business_service.plan(request).model_dump(mode="json")
+
+    @app.put("/api/v1/runtime/checkpoints/{task_id}")
+    def save_durable_checkpoint(task_id: str, request: DurableCheckpointRequest) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        production_store.save_checkpoint(
+            task_id=task_id,
+            version=request.version,
+            payload=request.payload,
+        )
+        checkpoint = production_store.load_checkpoint(task_id)
+        return {"saved": True, "checkpoint": checkpoint}
+
+    @app.get("/api/v1/runtime/checkpoints/{task_id}")
+    def load_durable_checkpoint(task_id: str) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        checkpoint = production_store.load_checkpoint(task_id)
+        if checkpoint is None:
+            raise HTTPException(404, "Checkpoint not found")
+        return checkpoint
+
+    @app.post("/api/v1/approvals")
+    def request_approval(request: ApprovalCreateRequest) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        approval_id = production_store.request_approval(
+            task_id=request.task_id,
+            action_id=request.action_id,
+            requested_by=request.requested_by,
+            reason=request.reason,
+        )
+        return production_store.get_approval(approval_id) or {"approval_id": approval_id}
+
+    @app.post("/api/v1/approvals/{approval_id}/decision")
+    def decide_approval(approval_id: str, request: ApprovalDecisionRequest) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        try:
+            production_store.decide_approval(
+                approval_id,
+                approved=request.approved,
+                decided_by=request.decided_by,
+                reason=request.reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return production_store.get_approval(approval_id) or {"approval_id": approval_id}
+
+    @app.get("/api/v1/approvals/{approval_id}")
+    def get_approval(approval_id: str) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        approval = production_store.get_approval(approval_id)
+        if approval is None:
+            raise HTTPException(404, "Approval not found")
+        return approval
 
     @app.get("/api/v1/health")
     def health() -> dict[str, Any]:

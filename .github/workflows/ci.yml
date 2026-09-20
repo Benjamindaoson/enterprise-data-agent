@@ -1,0 +1,143 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e '.[dev]'
+      - name: Lint business-agent modules
+        run: >
+          python -m ruff check
+          src/eiw/business
+          src/eiw/benchmark
+          src/eiw/flywheel
+          src/eiw/llm_agent
+          src/eiw/production
+          src/eiw/training
+          src/eiw/runtime/governance.py
+          src/eiw/runtime/memory.py
+          src/eiw/runtime/skills.py
+          tests/unit/test_business_operations.py
+          tests/unit/test_flywheel_simulator.py
+          tests/unit/test_hard_business_benchmark.py
+          tests/unit/test_hard_acceptance.py
+          tests/unit/test_llm_agent_contracts.py
+          tests/unit/test_production_runtime.py
+          tests/unit/test_public_business_data.py
+          scripts/generate_agent_trajectories.py
+          scripts/run_agent_flywheel.py
+          scripts/run_business_agent_benchmark.py
+          scripts/build_real_business_benchmark.py
+          scripts/export_llm_agent_dataset.py
+          scripts/evaluate_llm_agent.py
+          scripts/agent_regression_gate.py
+          scripts/check_hard_benchmark_acceptance.py
+      - name: Tests
+        run: >
+          python -m pytest -q
+          --ignore=tests/unit/test_training_pipeline.py
+          --ignore=tests/unit/test_hard_training.py
+          --ignore=tests/integration/test_production_services.py
+      - name: Hard benchmark reference policies
+        run: python scripts/run_business_agent_benchmark.py --cases 48
+
+  post-training-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU PyTorch
+        run: python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+      - name: Install training stack
+        run: python -m pip install -e '.[dev,training]'
+      - name: Original trajectory flywheel
+        run: python scripts/generate_agent_trajectories.py --episodes-per-scenario 2
+      - name: Original SFT smoke
+        run: python scripts/train_agent_sft.py --epochs 12
+      - name: Original GRPO smoke
+        run: python scripts/train_agent_grpo.py --iterations 3 --group-size 3
+      - name: Hard benchmark SFT and GRPO
+        run: >
+          python scripts/train_hard_business_agent.py
+          --cases 48
+          --sft-epochs 5
+          --grpo-iterations 10
+          --group-size 5
+      - name: Hard benchmark acceptance gate
+        run: python scripts/check_hard_benchmark_acceptance.py
+      - name: Training unit tests
+        run: >
+          python -m pytest
+          tests/unit/test_flywheel_simulator.py
+          tests/unit/test_training_pipeline.py
+          tests/unit/test_hard_training.py
+          -q
+
+  real-data-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install benchmark stack
+        run: python -m pip install -e '.[dev,benchmark]'
+      - name: Build official Bank Marketing + Online Retail benchmark
+        run: python scripts/build_real_business_benchmark.py
+      - name: Verify public data contracts
+        run: python -m pytest tests/unit/test_public_business_data.py -q
+
+  production-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: eiw
+          POSTGRES_USER: eiw
+          POSTGRES_PASSWORD: eiw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eiw -d eiw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      EIW_TEST_DATABASE_URL: postgresql+psycopg://eiw:eiw@127.0.0.1:5432/eiw
+      EIW_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install production stack
+        run: python -m pip install -e '.[dev,production]'
+      - name: Production unit and integration tests
+        run: >
+          python -m pytest
+          tests/unit/test_production_runtime.py
+          tests/integration/test_production_services.py
+          -q
