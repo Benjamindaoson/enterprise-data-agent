@@ -9,10 +9,21 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from eiw.benchmark.hard_env import HARD_ACTION_SPACE, HardBusinessEnvironment, HardCase, HardState
+from eiw.benchmark.hard_env import (
+    HARD_ACTION_SPACE,
+    HardBusinessEnvironment,
+    HardCase,
+    HardState,
+)
 from eiw.benchmark.policies import HardExpertPolicy
 from eiw.benchmark.runner import evaluate_hard_policy, run_hard_episode
-from eiw.training.policy import PolicyConfig, TinyAgentTransformer, collate_texts, load_policy, save_policy
+from eiw.training.policy import (
+    PolicyConfig,
+    TinyAgentTransformer,
+    collate_texts,
+    load_policy,
+    save_policy,
+)
 
 
 ACTION_TO_ID = {action: index for index, action in enumerate(HARD_ACTION_SPACE)}
