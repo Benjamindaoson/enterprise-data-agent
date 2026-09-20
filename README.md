@@ -1,12 +1,12 @@
 <div align="center">
 
-# Enterprise Business Intelligence & Autonomous Operations Agent
+# BA Agent
 
-**企业级商业智能与自主经营智能体**
+**商业分析智能体｜Business Intelligence & Autonomous Operations**
 
-A governed long-horizon Agent system for **business analysis, marketing budget planning, sales expansion, and monetization** — with durable state, reusable skills, evidence verification, safety controls, evaluation, post-training, and production runtime.
+A governed long-horizon **Business Analysis Agent** that turns business questions into evidence-backed analysis, decisions, and approval-gated actions across **analytics, marketing budget planning, sales expansion, and monetization**.
 
-`Agent Harness` · `Business Intelligence` · `Autonomous Operations` · `Skill Runtime` · `Long-Term Memory` · `Multi-Agent` · `Semantic Layer` · `SFT` · `GRPO / AgentRL` · `OpenTelemetry`
+`BA Agent` · `Agent Harness` · `Business Intelligence` · `Autonomous Operations` · `Semantic Layer` · `Skill Runtime` · `Evaluation` · `SFT` · `GRPO / AgentRL`
 
 </div>
 
@@ -14,7 +14,7 @@ A governed long-horizon Agent system for **business analysis, marketing budget p
 
 ## What this project is
 
-Most data agents stop at:
+Most BA / data agents stop at:
 
 ```text
 Question → SQL → Answer
@@ -46,13 +46,13 @@ The system is designed around one principle:
 
 > **The model decides what to do next; governed deterministic services decide how data and actions are executed.**
 
-The result is not a single-call NL2SQL demo, but a **stateful, recoverable, auditable business Agent runtime**.
+The result is not a single-call NL2SQL or ChatBI demo, but a **stateful, recoverable, auditable BA Agent** that can continue from analysis into governed business operations.
 
 ## Product preview
 
 ### Final architecture
 
-![Enterprise Business Agent Architecture](docs/assets/system-architecture.svg)
+![BA Agent Architecture](docs/assets/system-architecture.svg)
 
 ### Demo console
 
@@ -108,7 +108,7 @@ The CI acceptance gate enforces this result class instead of allowing a training
 
 ## Business scenarios
 
-The same runtime supports four business-operation families.
+The BA Agent uses one runtime to support four closely related business-analysis and operations families.
 
 ### 1. Business Intelligence
 
