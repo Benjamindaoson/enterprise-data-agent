@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from eiw.business.models import BusinessScenario
-from eiw.business.simulator import BusinessOperationsSimulator, EXPECTED_PATHS
+from eiw.business.simulator import EXPECTED_PATHS, BusinessOperationsSimulator
 from eiw.flywheel.evaluation import evaluate_policy
 from eiw.flywheel.policies import ExpertPolicy, RandomPolicy
 from eiw.flywheel.trajectory import TrajectoryStore, run_episode
