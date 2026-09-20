@@ -18,11 +18,12 @@ ID_TO_ACTION = {index: name for name, index in ACTION_TO_ID.items()}
 @dataclass(frozen=True, slots=True)
 class PolicyConfig:
     vocab_size: int = 2048
-    max_tokens: int = 48
+    max_tokens: int = 96
     hidden_size: int = 64
     heads: int = 4
     layers: int = 2
     dropout: float = 0.0
+    action_space: tuple[str, ...] = ACTION_SPACE
 
 
 def hashed_tokenize(text: str, config: PolicyConfig) -> list[int]:
@@ -60,7 +61,7 @@ class TinyAgentTransformer(nn.Module):
             activation="gelu",
         )
         self.encoder = nn.TransformerEncoder(layer, num_layers=self.config.layers)
-        self.head = nn.Linear(self.config.hidden_size, len(ACTION_SPACE))
+        self.head = nn.Linear(self.config.hidden_size, len(self.config.action_space))
 
     def forward(self, tokens: Tensor, padding_mask: Tensor) -> Tensor:
         hidden = self.encoder(self.embedding(tokens), src_key_padding_mask=padding_mask)
@@ -82,7 +83,7 @@ class TransformerPolicy:
         with torch.no_grad():
             logits = self.model.logits_for_texts([state.as_policy_text()])
             action_id = int(logits.argmax(dim=-1).item())
-        return ID_TO_ACTION[action_id]
+        return self.model.config.action_space[action_id]
 
 
 def save_policy(model: TinyAgentTransformer, path: Path, metadata: dict[str, object] | None = None) -> None:
@@ -99,6 +100,9 @@ def save_policy(model: TinyAgentTransformer, path: Path, metadata: dict[str, obj
 
 def load_policy(path: Path) -> TinyAgentTransformer:
     payload = torch.load(path, map_location="cpu", weights_only=False)
-    model = TinyAgentTransformer(PolicyConfig(**payload["config"]))
+    config_payload = dict(payload["config"])
+    if "action_space" in config_payload:
+        config_payload["action_space"] = tuple(config_payload["action_space"])
+    model = TinyAgentTransformer(PolicyConfig(**config_payload))
     model.load_state_dict(payload["state_dict"])
     return model
