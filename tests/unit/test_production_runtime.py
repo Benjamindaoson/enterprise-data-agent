@@ -3,7 +3,7 @@ import asyncio
 from eiw.production.canary import RegressionGate
 from eiw.production.costing import CostLedger, ModelPrice
 from eiw.production.queue import AsyncTaskQueue, TaskEnvelope
-from eiw.production.routing import ModelTier, ModelRouter
+from eiw.production.routing import ModelRouter, ModelTier
 from eiw.production.worker import AsyncAgentWorker
 
 
