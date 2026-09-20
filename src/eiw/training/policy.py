@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import torch
@@ -90,7 +90,7 @@ def save_policy(model: TinyAgentTransformer, path: Path, metadata: dict[str, obj
     torch.save(
         {
             "state_dict": model.state_dict(),
-            "config": vars(model.config),
+            "config": asdict(model.config),
             "metadata": metadata or {},
         },
         path,
