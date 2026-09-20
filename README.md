@@ -60,7 +60,7 @@ The result is not a single-call NL2SQL demo, but a **stateful, recoverable, audi
 | Post-training tests | **7 passed** |
 | PostgreSQL + Redis integration | **6 passed** |
 | Hard benchmark acceptance gate | **PASS** |
-| Official public business datasets | **596,?** |
+| UCI real-data benchmark | **587,120 rows parsed in CI** |
 
 The real-data benchmark currently parses:
 
