@@ -1,0 +1,38 @@
+{
+  "title": "Enterprise Business Agent",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Task Success",
+      "targets": [{"expr": "sum(rate(eiw_agent_tasks_total{success=\"true\"}[5m])) / sum(rate(eiw_agent_tasks_total[5m]))"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Policy Violations",
+      "targets": [{"expr": "sum(rate(eiw_agent_policy_violations_total[5m]))"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tool Calls",
+      "targets": [{"expr": "sum by (tool) (rate(eiw_agent_tool_calls_total[5m]))"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Token Throughput",
+      "targets": [{"expr": "sum by (direction, model) (rate(eiw_agent_tokens_total[5m]))"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Step Latency p95",
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, model) (rate(eiw_agent_step_latency_ms_bucket[5m])))"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent Cost",
+      "targets": [{"expr": "sum(rate(eiw_agent_cost_usd_sum[5m]))"}]
+    }
+  ]
+}
