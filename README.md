@@ -48,6 +48,24 @@ The system is designed around one principle:
 
 The result is not a single-call NL2SQL demo, but a **stateful, recoverable, auditable business Agent runtime**.
 
+## Product preview
+
+### Final architecture
+
+![Enterprise Business Agent Architecture](docs/assets/system-architecture.svg)
+
+### Demo console
+
+![Autonomous Operations Console](docs/assets/demo-console.svg)
+
+Run the presentation demo locally:
+
+```text
+http://127.0.0.1:8000/demo
+```
+
+See [Demo Console](docs/DEMO.md) for details.
+
 ---
 
 ## Verified results
@@ -987,6 +1005,7 @@ External writes in the public implementation remain dry-run or approval-gated.
 
 - [Business Intelligence & Autonomous Operations Architecture](docs/business-intelligence-autonomous-operations.md)
 - [P9–P12 Execution Report](docs/P9_P12_EXECUTION_REPORT.md)
+- [Demo Console](docs/DEMO.md)
 - [Architecture Development Baseline](docs/architecture-development-baseline.md)
 - [Core Module Design](docs/core-module-design.md)
 
