@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1"><stop offset="0" stop-color="#081019"/><stop offset="1" stop-color="#0c1620"/></linearGradient>
+    <style>
+      .t{font-family:Inter,Arial,sans-serif;fill:#eaf2f7}.m{font-family:Inter,Arial,sans-serif;fill:#8fa1b3}.h{font:700 18px Inter,Arial,sans-serif;fill:#eef6fb}
+      .s{font:500 13px Inter,Arial,sans-serif;fill:#9eb1c0}.xs{font:500 11px Inter,Arial,sans-serif;fill:#71879a}.v{font:700 25px Inter,Arial,sans-serif;fill:#f3f8fb}
+      .panel{fill:#101a25;stroke:#223447;stroke-width:2}.panel2{fill:#14212f;stroke:#2b4359;stroke-width:1.5}.line{stroke:#223447;stroke-width:1.5}
+      .green{fill:#6ee7b7}.cyan{fill:#67e8f9}.amber{fill:#fbbf24}.red{fill:#fb7185}
+    </style>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect x="0" y="0" width="220" height="1000" fill="#0d151e"/><line x1="220" y1="0" x2="220" y2="1000" class="line"/>
+  <rect x="22" y="26" width="34" height="34" rx="9" fill="#67e8f9"/><text x="39" y="49" text-anchor="middle" font-family="Inter,Arial" font-size="18" font-weight="800" fill="#08202a">A</text>
+  <text x="70" y="39" class="h" font-size="15">Business Agent</text><text x="70" y="57" class="xs">Autonomous Ops Console</text>
+  <text x="24" y="105" class="xs">WORKSPACE</text>
+  <rect x="16" y="120" width="188" height="38" rx="8" fill="#142333" stroke="#24415a"/><text x="28" y="144" class="s">◫  Overview</text>
+  <text x="28" y="184" class="s">◎  Task</text><text x="28" y="222" class="s">↯  Trace</text><text x="28" y="260" class="s">◇  Evidence</text>
+  <text x="24" y="310" class="xs">AGENT RUNTIME</text><text x="28" y="348" class="s">◆  Skills</text><text x="28" y="386" class="s">◌  Memory</text><text x="28" y="424" class="s">✓  Approvals</text><text x="28" y="462" class="s">⌁  Benchmarks</text>
+  <rect x="16" y="900" width="188" height="66" rx="10" fill="#0b131b" stroke="#223447"/><circle cx="31" cy="922" r="5" class="green"/><text x="43" y="926" class="s">Demo environment</text><text x="28" y="948" class="xs">dry-run writes · evidence grounded</text>
+
+  <text x="260" y="44" class="xs">MARKETING BUDGET · LONG-HORIZON TASK</text><text x="260" y="78" class="t" font-size="27" font-weight="700">Autonomous Operations Console</text><text x="260" y="102" class="m" font-size="13">Task BA-091 · public-data demo · checkpoint v7</text>
+  <rect x="1185" y="36" width="112" height="28" rx="14" fill="#0f2a28" stroke="#2d6e61"/><text x="1241" y="55" text-anchor="middle" class="s" fill="#6ee7b7">● healthy</text>
+  <rect x="1308" y="36" width="110" height="28" rx="14" fill="#111d28" stroke="#2b4053"/><text x="1363" y="55" text-anchor="middle" class="s">trace 8f2a</text>
+  <rect x="1429" y="36" width="132" height="28" rx="14" fill="#211d0e" stroke="#6a5420"/><text x="1495" y="55" text-anchor="middle" class="s" fill="#fbbf24">HITL required</text>
+  <line x1="250" y1="124" x2="1560" y2="124" class="line"/>
+
+  <!-- KPI row -->
+  <g>
+    <rect x="260" y="148" width="244" height="112" rx="12" class="panel"/><text x="278" y="174" class="s">Task success</text><text x="278" y="211" class="v" fill="#6ee7b7">66.7%</text><text x="278" y="238" class="xs">Hard-v1 SFT held-out</text>
+    <rect x="518" y="148" width="244" height="112" rx="12" class="panel"/><text x="536" y="174" class="s">Reward</text><text x="536" y="211" class="v">0.6395</text><text x="536" y="238" class="xs">SFT + GRPO</text>
+    <rect x="776" y="148" width="244" height="112" rx="12" class="panel"/><text x="794" y="174" class="s">Invalid actions</text><text x="794" y="211" class="v">10.59%</text><text x="794" y="238" class="xs">↓ from 11.63%</text>
+    <rect x="1034" y="148" width="244" height="112" rx="12" class="panel"/><text x="1052" y="174" class="s">Token budget</text><text x="1052" y="211" class="v">15.4k</text><text x="1052" y="238" class="xs">of 24k remaining</text>
+    <rect x="1292" y="148" width="269" height="112" rx="12" class="panel"/><text x="1310" y="174" class="s">Policy violations</text><text x="1310" y="211" class="v" fill="#fbbf24">0</text><text x="1310" y="238" class="xs">current task</text>
+  </g>
+
+  <!-- left main task -->
+  <rect x="260" y="280" width="835" height="654" rx="14" class="panel"/>
+  <text x="284" y="316" class="h">Active business task</text><text x="1068" y="316" text-anchor="end" class="xs">Plan → Act → Observe → Verify → Replan</text>
+  <text x="284" y="354" class="t" font-size="18" font-weight="650">Allocate remaining campaign budget across eligible customer segments</text>
+  <text x="284" y="380" class="t" font-size="18" font-weight="650">while protecting ROI and requiring approval before financial commitment.</text>
+  <rect x="284" y="402" width="142" height="25" rx="12" fill="#111d28" stroke="#2a4054"/><text x="355" y="419" text-anchor="middle" class="xs">UCI Bank Marketing</text>
+  <rect x="437" y="402" width="198" height="25" rx="12" fill="#111d28" stroke="#2a4054"/><text x="536" y="419" text-anchor="middle" class="xs">business.marketing_budget</text>
+  <rect x="646" y="402" width="104" height="25" rx="12" fill="#111d28" stroke="#2a4054"/><text x="698" y="419" text-anchor="middle" class="xs">semantic v3</text>
+  <rect x="761" y="402" width="86" height="25" rx="12" fill="#111d28" stroke="#2a4054"/><text x="804" y="419" text-anchor="middle" class="xs">dry-run</text>
+
+  <line x1="284" y1="449" x2="1070" y2="449" class="line"/>
+  <!-- steps -->
+  <g class="s">
+    <circle cx="301" cy="482" r="12" fill="#132536" stroke="#355a77"/><text x="301" y="486" text-anchor="middle">1</text><text x="330" y="477" class="h" font-size="13">Resolve metrics</text><text x="500" y="477" class="s">Conversion, channel, campaign frequency</text><text x="1034" y="477" class="green">VERIFIED</text>
+    <circle cx="301" cy="534" r="12" fill="#132536" stroke="#355a77"/><text x="301" y="538" text-anchor="middle">2</text><text x="330" y="529" class="h" font-size="13">Inspect segments</text><text x="500" y="529" class="s">Cellular vs telephone + job segments</text><text x="1034" y="529" class="green">VERIFIED</text>
+    <circle cx="301" cy="586" r="12" fill="#132536" stroke="#355a77"/><text x="301" y="590" text-anchor="middle">3</text><text x="330" y="581" class="h" font-size="13">Cross-check</text><text x="500" y="581" class="s">Conflicting evidence reconciled</text><text x="1034" y="581" class="green">VERIFIED</text>
+    <circle cx="301" cy="638" r="12" fill="#132536" stroke="#355a77"/><text x="301" y="642" text-anchor="middle">4</text><text x="330" y="633" class="h" font-size="13">Build proposal</text><text x="500" y="633" class="s">Constrained allocation under budget limits</text><text x="1034" y="633" class="green">READY</text>
+    <circle cx="301" cy="690" r="12" fill="#132536" stroke="#355a77"/><text x="301" y="694" text-anchor="middle">5</text><text x="330" y="685" class="h" font-size="13">Approval gate</text><text x="500" y="685" class="s">Financial commitment needs human decision</text><text x="1034" y="685" class="cyan">WAITING</text>
+    <circle cx="301" cy="742" r="12" fill="#132536" stroke="#355a77"/><text x="301" y="746" text-anchor="middle">6</text><text x="330" y="737" class="h" font-size="13">Execute</text><text x="500" y="737" class="s">Public adapter remains dry-run</text><text x="1034" y="737" class="xs">BLOCKED</text>
+  </g>
+  <rect x="284" y="780" width="786" height="124" rx="10" fill="#091018" stroke="#18293a"/>
+  <text x="300" y="808" font-family="monospace" font-size="12" fill="#c8f5ff">12:41:18.209  skill.route → <tspan fill="#6ee7b7">business.marketing_budget@1.0.0</tspan></text>
+  <text x="300" y="834" font-family="monospace" font-size="12" fill="#91a9bb">12:41:18.452  tool.campaign_history → 45,211 rows profiled</text>
+  <text x="300" y="860" font-family="monospace" font-size="12" fill="#91a9bb">12:41:18.821  verifier.claim_evidence → <tspan fill="#6ee7b7">PASS</tspan></text>
+  <text x="300" y="886" font-family="monospace" font-size="12" fill="#91a9bb">12:41:19.044  policy.financial_write → <tspan fill="#fbbf24">HITL_REQUIRED</tspan></text>
+
+  <!-- right stack -->
+  <rect x="1115" y="280" width="446" height="178" rx="14" class="panel"/><text x="1138" y="315" class="h">Evidence &amp; memory</text><text x="1535" y="315" text-anchor="end" class="xs">4 linked objects</text>
+  <text x="1138" y="350" class="s">Conversion baseline</text><text x="1535" y="350" text-anchor="end" class="green">verified</text><line x1="1138" y1="364" x2="1535" y2="364" class="line"/>
+  <text x="1138" y="390" class="s">Channel breakdown</text><text x="1535" y="390" text-anchor="end" class="green">verified</text><line x1="1138" y1="404" x2="1535" y2="404" class="line"/>
+  <text x="1138" y="430" class="s">Semantic + episodic memory</text><text x="1535" y="430" text-anchor="end" class="m">loaded</text>
+
+  <rect x="1115" y="475" width="446" height="190" rx="14" class="panel"/><text x="1138" y="510" class="h">Runtime budget</text><text x="1535" y="510" text-anchor="end" class="xs">cost-aware routing</text>
+  <text x="1138" y="548" class="s">Tool calls</text><text x="1535" y="548" text-anchor="end" class="s">8 / 20</text><rect x="1138" y="560" width="397" height="8" rx="4" fill="#1d2d3b"/><rect x="1138" y="560" width="159" height="8" rx="4" fill="#67e8f9"/>
+  <text x="1138" y="598" class="s">Tokens used</text><text x="1535" y="598" text-anchor="end" class="s">8.6k / 24k</text><rect x="1138" y="610" width="397" height="8" rx="4" fill="#1d2d3b"/><rect x="1138" y="610" width="143" height="8" rx="4" fill="#6ee7b7"/>
+  <text x="1138" y="645" class="s">Model tier</text><text x="1535" y="645" text-anchor="end" class="m">STANDARD → REASONING</text>
+
+  <rect x="1115" y="682" width="446" height="148" rx="14" fill="#1c190d" stroke="#69561f"/><text x="1138" y="718" class="h">Human approval</text><text x="1535" y="718" text-anchor="end" class="amber">PENDING</text>
+  <text x="1138" y="750" class="s">Campaign budget commitment is blocked</text><text x="1138" y="772" class="s">until an explicit human decision exists.</text>
+  <rect x="1138" y="792" width="86" height="26" rx="7" fill="#173b31" stroke="#2a6b56"/><text x="1181" y="809" text-anchor="middle" class="s" fill="#8df0c6">Approve</text>
+  <rect x="1236" y="792" width="72" height="26" rx="7" fill="#142332" stroke="#31485c"/><text x="1272" y="809" text-anchor="middle" class="s">Reject</text>
+
+  <rect x="1115" y="847" width="446" height="87" rx="14" class="panel"/><text x="1138" y="877" class="h">Hard-v1 benchmark</text><text x="1535" y="877" text-anchor="end" class="xs">held-out 12 cases</text>
+  <text x="1138" y="907" class="s">Prompt 58.3%</text><text x="1260" y="907" class="s">SFT 66.7%</text><text x="1370" y="907" class="green">SFT+GRPO reward 0.6395</text>
+
+  <text x="260" y="972" class="xs">PostgreSQL durable state · Redis queue · OpenTelemetry tracing</text><text x="1560" y="972" text-anchor="end" class="xs">public demo · no proprietary write access</text>
+</svg>
