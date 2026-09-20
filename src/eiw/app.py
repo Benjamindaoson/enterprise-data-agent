@@ -11,6 +11,9 @@ from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from eiw.business.models import BusinessTaskRequest
+from eiw.business.operations import BusinessOperationsService
+from eiw.runtime.skills import default_skill_registry
 from eiw.workspace.analysis import DEFAULT_USER, AnalysisService
 from eiw.workspace.data import DIMENSIONS, METRICS, IowaData
 from eiw.workspace.store import WorkspaceStore
@@ -40,13 +43,47 @@ def create_app() -> FastAPI:
     store = WorkspaceStore(artifact_root / "workspace-state.json")
     data = IowaData()
     service = AnalysisService(store, data, artifact_root)
-    app = FastAPI(title="Enterprise Intelligence Workspace", version="0.2.0", description="Evidence-native analytical workspace for Iowa wholesale intelligence.")
+    business_service = BusinessOperationsService()
+    skill_registry = default_skill_registry()
+    app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> FileResponse:
         return FileResponse(static_dir / "index.html")
+
+    @app.get("/api/v1/capabilities")
+    def capabilities() -> dict[str, Any]:
+        return {
+            "product": "Enterprise Business Intelligence & Autonomous Operations Agent",
+            "business_scenarios": ["ANALYTICS", "MARKETING_BUDGET", "SALES_EXPANSION", "MONETIZATION"],
+            "runtime": [
+                "agent_loop", "context_engineering", "checkpoint_resume", "failure_recovery",
+                "layered_memory", "skill_registry", "tool_budget", "token_budget",
+                "human_in_the_loop", "policy_guardrails", "observability", "trajectory_replay",
+            ],
+            "skills": [
+                {
+                    "skill_id": skill.skill_id,
+                    "version": skill.version,
+                    "description": skill.description,
+                    "tools": list(skill.tool_dependencies),
+                    "permissions": list(skill.permissions),
+                    "tags": list(skill.tags),
+                }
+                for skill in skill_registry.list()
+            ],
+            "public_reference_limits": {
+                "external_writes": "proposal/dry-run only",
+                "post_training": "contracts/hooks only; no fabricated trained checkpoint",
+                "real_campaign_crm_integrations": False,
+            },
+        }
+
+    @app.post("/api/v1/business-tasks")
+    def create_business_task(request: BusinessTaskRequest) -> dict[str, Any]:
+        return business_service.plan(request).model_dump(mode="json")
 
     @app.get("/api/v1/health")
     def health() -> dict[str, Any]:
