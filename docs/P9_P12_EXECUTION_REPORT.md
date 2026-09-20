@@ -195,6 +195,27 @@ The main CI contains four independent verification jobs:
 The real open-weight LLM workflow remains separate and manual because it needs
 substantially more compute.
 
+## Measured verification snapshot
+
+The current automated verification records:
+
+- Core CI: **535 passed / 2 skipped**.
+- Training CI: **7 passed**.
+- Production PostgreSQL/Redis integration: **6 passed**.
+- RealData-v1: **45,211 Bank Marketing rows** and **541,909 Online Retail rows**,
+  producing **9 grounded benchmark tasks**.
+- Hard-v1 held-out (12 cases):
+  - Direct: 0.0% success, -3.7627 average reward.
+  - Random: 0.0% success, -3.8506 average reward.
+  - Prompt heuristic: 58.33% success, 0.0115 average reward.
+  - SFT: 66.67% success, 0.5926 average reward, 11.63% invalid actions.
+  - SFT + GRPO: 66.67% success, 0.6395 average reward, 10.59% invalid actions.
+
+The GRPO result is deliberately described as a reward/action-validity
+improvement, **not** a task-success improvement. A CI acceptance gate enforces
+that SFT beats the prompt baseline and that GRPO does not regress success while
+improving reward and invalid-action rate.
+
 ## Truthful boundary
 
 The repository can claim implementation and automated verification only when CI
