@@ -61,7 +61,7 @@ class BusinessExecutionPlan(BusinessModel):
     approval_required: bool = False
 
     @model_validator(mode="after")
-    def financial_actions_require_approval(self) -> "BusinessExecutionPlan":
+    def financial_actions_require_approval(self) -> BusinessExecutionPlan:
         if any(action.risk == ActionRisk.FINANCIAL_COMMITMENT for action in self.actions):
             if not self.approval_required:
                 raise ValueError("financial actions require plan-level approval")
