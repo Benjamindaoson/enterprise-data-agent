@@ -1,0 +1,280 @@
+# P0-B Evaluation Cases: Semantic Resolution, Aliases, and RAG Retrieval
+# Total: 35 evaluation cases
+
+- id: "P0B-SR-001"
+  title: "Resolve Revenue Metric by Exact ID"
+  business_question: "Show me total revenue for Q1"
+  domain: "finance"
+  expected_metrics: ["revenue"]
+  expected_confidence: 1.0
+
+- id: "P0B-SR-002"
+  title: "Resolve Revenue by Alias 'sales'"
+  business_question: "What are our sales figures this month?"
+  domain: "finance"
+  expected_metrics: ["revenue"]
+  expected_confidence: 0.95
+
+- id: "P0B-SR-003"
+  title: "Resolve Gross Profit by Name"
+  business_question: "Calculate the gross profit for each product category"
+  domain: "finance"
+  expected_metrics: ["gross_profit"]
+  expected_confidence: 0.8
+
+- id: "P0B-SR-004"
+  title: "Resolve Multiple Metrics"
+  business_question: "Show revenue, gross profit, and operating profit"
+  domain: "finance"
+  expected_metrics: ["revenue", "gross_profit", "operating_profit"]
+  expected_confidence: 0.9
+
+- id: "P0B-SR-005"
+  title: "Resolve Rate Metric"
+  business_question: "What is our gross margin rate by region?"
+  domain: "finance"
+  expected_metrics: ["gross_margin_rate"]
+  expected_confidence: 0.9
+
+- id: "P0B-SR-006"
+  title: "Resolve Sales Metric"
+  business_question: "Total sales amount by region"
+  domain: "sales_operations"
+  expected_metrics: ["sales"]
+  expected_confidence: 0.9
+
+- id: "P0B-SR-007"
+  title: "Resolve Orders Count"
+  business_question: "How many orders did we receive?"
+  domain: "sales_operations"
+  expected_metrics: ["orders"]
+  expected_confidence: 0.9
+
+- id: "P0B-SR-008"
+  title: "Resolve Inventory Level"
+  business_question: "Current inventory levels at each warehouse"
+  domain: "supply_chain"
+  expected_metrics: ["inventory"]
+  expected_confidence: 0.9
+
+- id: "P0B-SR-009"
+  title: "Resolve Fill Rate"
+  business_question: "What is our order fill rate?"
+  domain: "supply_chain"
+  expected_metrics: ["fill_rate"]
+  expected_confidence: 0.9
+
+- id: "P0B-SR-010"
+  title: "Resolve Budget Variance"
+  business_question: "Show budget variance analysis"
+  domain: "finance"
+  expected_metrics: ["budget_variance"]
+  expected_confidence: 0.9
+
+# Alias Resolution Cases
+
+- id: "P0B-AL-001"
+  title: "Resolve Revenue by 'income' Alias"
+  business_question: "What is our total income for the year?"
+  domain: "finance"
+  expected_metrics: ["revenue"]
+  expected_alias_used: "income"
+
+- id: "P0B-AL-002"
+  title: "Resolve Profit by 'GP' Alias"
+  business_question: "Calculate GP by product"
+  domain: "finance"
+  expected_metrics: ["gross_profit"]
+  expected_alias_used: "GP"
+
+- id: "P0B-AL-003"
+  title: "Resolve Orders by 'order_count' Alias"
+  business_question: "Show order_count by channel"
+  domain: "sales_operations"
+  expected_metrics: ["orders"]
+  expected_alias_used: "order_count"
+
+- id: "P0B-AL-004"
+  title: "Resolve ASP by 'avg_price' Alias"
+  business_question: "Average selling price trend"
+  domain: "sales_operations"
+  expected_metrics: ["average_selling_price"]
+  expected_alias_used: "avg_price"
+
+- id: "P0B-AL-005"
+  title: "Resolve Lead Time by 'LT' Alias"
+  business_question: "Supplier LT performance"
+  domain: "supply_chain"
+  expected_metrics: ["lead_time"]
+  expected_alias_used: "LT"
+
+# Cross-Domain Cases
+
+- id: "P0B-CD-001"
+  title: "Revenue Across Finance and Sales"
+  business_question: "Compare revenue from sales operations to finance reports"
+  domain: "finance"
+  note: "Revenue exists in both domains with same definition"
+
+- id: "P0B-CD-002"
+  title: "Product Performance in Multiple Domains"
+  business_question: "Show product sales and inventory together"
+  domains: ["sales_operations", "supply_chain"]
+  expected_metrics:
+    sales_operations: ["product_sales"]
+    supply_chain: ["inventory"]
+  note: "Product dimension shared between domains"
+
+- id: "P0B-CD-003"
+  title: "Region Performance Across Business Units"
+  business_question: "Regional revenue and regional sales comparison"
+  domains: ["finance", "sales_operations"]
+  expected_metrics:
+    finance: ["revenue"]
+    sales_operations: ["region_sales"]
+  note: "Region dimension exists in both domains"
+
+- id: "P0B-CD-004"
+  title: "Supply Chain Cost Analysis"
+  business_question: "Operating expenses related to supply chain"
+  domain: "finance"
+  cross_domain_hint: "supply_chain"
+  note: "Operating expenses may involve supply chain data"
+
+- id: "P0B-CD-005"
+  title: "Channel Performance Multi-Domain"
+  business_question: "Sales by channel and associated costs"
+  domains: ["sales_operations", "finance"]
+  expected_metrics:
+    sales_operations: ["channel_sales"]
+    finance: ["operating_expense"]
+  note: "Channel dimension shared"
+
+# RAG Retrieval Cases
+
+- id: "P0B-RAG-001"
+  title: "Retrieve Revenue Definition"
+  business_question: "What is the definition of revenue?"
+  knowledge_type: "metric_definition"
+  expected_content_contains: ["revenue", "sales"]
+
+- id: "P0B-RAG-002"
+  title: "Retrieve Gross Margin Formula"
+  business_question: "How is gross margin rate calculated?"
+  knowledge_type: "metric_definition"
+  expected_content_contains: ["formula", "calculation"]
+
+- id: "P0B-RAG-003"
+  title: "Retrieve Business Glossary Term"
+  business_question: "What does YTD mean?"
+  knowledge_type: "glossary"
+  expected_content_contains: ["YTD", "year"]
+
+- id: "P0B-RAG-004"
+  title: "Retrieve SQL Example"
+  business_question: "Show me example SQL for revenue calculation"
+  knowledge_type: "sql_example"
+  expected_content_contains: ["SELECT", "SUM"]
+
+- id: "P0B-RAG-005"
+  title: "Retrieve Table Documentation"
+  business_question: "What columns are in the sales table?"
+  knowledge_type: "table_documentation"
+  expected_content_contains: ["sales", "table"]
+
+- id: "P0B-RAG-006"
+  title: "Cross-Reference Metric Knowledge"
+  business_question: "What metrics are related to regional performance?"
+  knowledge_type: "metric_definition"
+  expected_metric_ids: ["region_sales", "revenue"]
+
+# Permission-Filtered Retrieval Cases
+
+- id: "P0B-PERM-001"
+  title: "Analyst Sees Internal Metrics"
+  business_question: "Show revenue metrics"
+  user_role: "analyst"
+  expected_permission_level: "INTERNAL"
+  should_see: true
+
+- id: "P0B-PERM-002"
+  title: "Analyst Cannot See Confidential"
+  business_question: "Show executive compensation data"
+  user_role: "analyst"
+  expected_permission_level: "CONFIDENTIAL"
+  should_see: false
+
+- id: "P0B-PERM-003"
+  title: "CFO Sees Restricted Finance Data"
+  business_question: "Show budget variance details"
+  user_role: "CFO"
+  expected_permission_level: "RESTRICTED"
+  should_see: true
+
+- id: "P0B-PERM-004"
+  title: "Public Glossary Visible to All"
+  business_question: "What is EBITDA?"
+  user_role: "guest"
+  expected_permission_level: "PUBLIC"
+  should_see: true
+
+# Ambiguous Metric Cases
+
+- id: "P0B-AMB-001"
+  title: "Ambiguous 'Profit' Reference"
+  business_question: "Show profit by region"
+  domain: "finance"
+  ambiguous_metrics: ["gross_profit", "operating_profit", "net_profit"]
+  requires_clarification: true
+  clarification_reason: "Multiple profit types exist"
+
+- id: "P0B-AMB-002"
+  title: "Ambiguous 'Sales' Reference"
+  business_question: "Total sales"
+  domains: ["finance", "sales_operations"]
+  ambiguous_metrics: ["revenue", "sales"]
+  requires_clarification: true
+
+- id: "P0B-AMB-003"
+  title: "Ambiguous 'Rate' Metric"
+  business_question: "What is our rate performance?"
+  domain: "supply_chain"
+  ambiguous_metrics: ["fill_rate", "stockout_rate"]
+  requires_clarification: true
+
+- id: "P0B-AMB-004"
+  title: "Ambiguous 'Count' Reference"
+  business_question: "Customer count"
+  domain: "sales_operations"
+  ambiguous_metrics: ["customer_count", "orders"]
+  note: "Could refer to customer count or order count"
+
+- id: "P0B-AMB-005"
+  title: "Ambiguous Time Period"
+  business_question: "Show performance this quarter"
+  domain: "finance"
+  ambiguous_periods: ["current_quarter", "last_quarter", "fiscal_quarter"]
+  requires_clarification: true
+  clarification_reason: "Quarter definition needs clarification"
+
+# Error Handling Cases
+
+- id: "P0B-ERR-001"
+  title: "Non-Existent Metric Returns Empty"
+  business_question: "Show magic_revenue_metric"
+  domain: "finance"
+  expected_metrics: []
+  expected_confidence: 0.0
+
+- id: "P0B-ERR-002"
+  title: "Invalid Domain Handled"
+  business_question: "Show revenue"
+  domain: "nonexistent_domain"
+  expected_error: "FileNotFoundError"
+
+- id: "P0B-ERR-003"
+  title: "Cross-Domain Without Join Path"
+  business_question: "Revenue by warehouse"
+  domain: "finance"
+  note: "Revenue and warehouse are in different domains"
+  expected_warning: "cross_domain_join_not_supported"

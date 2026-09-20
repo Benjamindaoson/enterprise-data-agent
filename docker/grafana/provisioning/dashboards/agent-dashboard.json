@@ -1,0 +1,82 @@
+{
+  "dashboard": {
+    "title": "Enterprise Data Agent",
+    "uid": "eda-dashboard",
+    "panels": [
+      {
+        "title": "Task Success Rate",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [{"expr": "agent_tasks_completed / agent_tasks_total * 100"}],
+        "fieldConfig": {"defaults": {"unit": "percent", "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 50}, {"color": "green", "value": 80}]}}}
+      },
+      {
+        "title": "Request Rate",
+        "type": "timeseries",
+        "gridPos": {"x": 6, "y": 0, "w": 12, "h": 4},
+        "targets": [{"expr": "rate(agent_tasks_total[5m])"}]
+      },
+      {
+        "title": "LLM Latency (p95)",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 4, "w": 8, "h": 4},
+        "targets": [{"expr": "histogram_quantile(0.95, rate(llm_request_duration_seconds_bucket[5m]))"}],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "Token Usage",
+        "type": "timeseries",
+        "gridPos": {"x": 8, "y": 4, "w": 8, "h": 4},
+        "targets": [
+          {"expr": "rate(llm_input_tokens[5m])", "legendFormat": "Input"},
+          {"expr": "rate(llm_output_tokens[5m])", "legendFormat": "Output"}
+        ]
+      },
+      {
+        "title": "Executor Call Duration",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 4},
+        "targets": [{"expr": "histogram_quantile(0.95, rate(executor_call_duration_seconds_bucket[5m]))"}],
+        "fieldConfig": {"defaults": {"unit": "s"}}
+      },
+      {
+        "title": "HitL Response Rate",
+        "type": "timeseries",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 4},
+        "targets": [
+          {"expr": 'rate(hitl_responses_total{response="approved"}[5m])', "legendFormat": "Approved"},
+          {"expr": 'rate(hitl_responses_total{response="rejected"}[5m])', "legendFormat": "Rejected"},
+          {"expr": 'rate(hitl_timeout_total[5m])', "legendFormat": "Timeout"}
+        ]
+      },
+      {
+        "title": "NL2SQL Pipeline",
+        "type": "timeseries",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 4},
+        "targets": [
+          {"expr": "rate(nl2sql_generated_total[5m])", "legendFormat": "Generated"},
+          {"expr": "rate(nl2sql_validated_total[5m])", "legendFormat": "Validated"},
+          {"expr": "rate(nl2sql_execution_total[5m])", "legendFormat": "Executed"}
+        ]
+      },
+      {
+        "title": "Evaluation Results",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 12, "w": 6, "h": 4},
+        "targets": [
+          {"expr": "eval_cases_passed", "legendFormat": "Passed"},
+          {"expr": "eval_cases_failed", "legendFormat": "Failed"}
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "type": "timeseries",
+        "gridPos": {"x": 18, "y": 12, "w": 6, "h": 4},
+        "targets": [
+          {"expr": "rate(executor_errors_total[5m])", "legendFormat": "Executor Errors"},
+          {"expr": "rate(llm_errors_total[5m])", "legendFormat": "LLM Errors"}
+        ]
+      }
+    ]
+  }
+}

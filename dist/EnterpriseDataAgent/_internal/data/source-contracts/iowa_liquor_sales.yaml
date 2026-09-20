@@ -1,0 +1,68 @@
+source:
+  publisher: Iowa Department of Revenue, Alcohol Operations Bureau
+  catalog_url: https://data.iowa.gov/catalog/dataset/1051
+  license: CC BY 4.0
+  logical_alias: iowa_liquor_rolling
+  required_snapshot: iowa_liquor_snapshot_2026_07_v1
+  extraction_windows:
+    operating_trend: {from: 2024-01-01, to: 2026-07-31}
+    cost_spread: {from: 2025-07-01, to: 2026-07-31}
+  required_fields:
+    - invoice_id
+    - ordered_on
+    - store_no
+    - store_name
+    - store_city
+    - county_fips_code
+    - county_name
+    - category_code
+    - category_name
+    - vendor_number
+    - vendor_name
+    - item_no
+    - im_desc
+    - pack
+    - bottle_volume_ml
+    - state_bottle_cost
+    - state_bottle_retail
+    - sales_bottles
+    - sales_dollars
+    - sales_liters
+  event_time_authoritative_fields:
+    - store_name
+    - store_city
+    - county_fips_code
+    - county_name
+    - category_code
+    - category_name
+    - vendor_number
+    - vendor_name
+    - item_no
+    - im_desc
+  curator_mapping:
+    invoice_id: source_record_id
+    ordered_on: order_date
+    store_no: store_id
+    store_name: store_name_at_order
+    store_city: city_at_order
+    county_fips_code: county_fips_code
+    county_name: county_name_at_order
+    category_code: category_id
+    category_name: category_name_at_order
+    vendor_number: vendor_id
+    vendor_name: vendor_name_at_order
+    item_no: product_id
+    im_desc: product_name_at_order
+    state_bottle_cost: state_cost_per_bottle
+    state_bottle_retail: store_purchase_price_per_bottle
+    sales_bottles: bottles_ordered
+    sales_dollars: line_wholesale_sales_amount
+    sales_liters: ordered_volume_liters
+quality_gates:
+  - invoice_id_is_invoice_header_not_fact_primary_key
+  - source_record_id_unique_after_exact_raw_deduplicate
+  - raw_exact_duplicate_count_recorded
+  - required_fields_present
+  - date_coverage_matches_snapshot
+  - cost_is_null_before_cost_window
+  - current_dimension_joins_do_not_multiply_fact

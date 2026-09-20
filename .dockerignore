@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+!README.md
+
+# Local development
+.env.local
+.env.development
+*.log
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files
+data/
+*.db
+*.duckdb
+
+# Test fixtures
+tests/fixtures/
+
+# Alembic
+alembic/versions/*.pyc

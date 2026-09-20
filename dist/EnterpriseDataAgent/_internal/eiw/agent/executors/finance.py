@@ -1,0 +1,275 @@
+"""Finance Executor - Financial analysis operations.
+
+This executor handles financial analysis operations including:
+- Revenue, profit, margin analysis
+- Budget variance analysis
+- Financial period comparisons
+- Cost analysis
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+from eiw.agent.executor import (
+    BaseExecutor,
+    ExecutorCategory,
+    ExecutorResult,
+    StepContext,
+)
+from eiw.observability.logging import get_structured_logger
+from eiw.observability.otel import trace_span
+
+logger = get_structured_logger(__name__, "executor.finance")
+
+# Supported financial tool types
+FINANCE_TOOLS = {
+    "metric_query",
+    "period_compare",
+    "contribution_analysis",
+    "variance_analysis",
+    "trend_analysis",
+    "metric_explain",
+    "pvm_analysis",
+}
+
+
+class FinanceExecutor(BaseExecutor):
+    """Executor for financial analysis operations.
+
+    This executor handles financial metrics and analysis operations:
+    - Revenue, gross profit, net income analysis
+    - Margin analysis (gross margin, operating margin)
+    - Budget variance analysis
+    - Period comparisons (YoY, QoQ, MoM)
+    - Trend analysis
+    """
+
+    def __init__(self):
+        super().__init__(
+            category=ExecutorCategory.FINANCE,
+            name="finance",
+            description="Financial analysis executor for revenue, profit, margin, and variance analysis",
+            supported_tools=FINANCE_TOOLS,
+        )
+
+    async def execute(
+        self,
+        context: StepContext,
+        tool_type: str,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute financial analysis step.
+
+        Args:
+            context: Step execution context
+            tool_type: Tool type to execute
+            inputs: Tool-specific inputs
+
+        Returns:
+            Executor result with financial analysis data
+        """
+        start_time = datetime.now()
+
+        with trace_span("executor.finance.execute", {
+            "task_id": context.task_id,
+            "step_id": context.step_id,
+            "tool_type": tool_type,
+        }):
+            logger.info(
+                f"FinanceExecutor executing {tool_type}",
+                extra={"task_id": context.task_id, "step_id": context.step_id}
+            )
+
+            # Validate financial tool
+            if tool_type not in FINANCE_TOOLS:
+                return ExecutorResult(
+                    success=False,
+                    step_id=context.step_id,
+                    error=f"Unsupported tool for FinanceExecutor: {tool_type}",
+                    duration_ms=(datetime.now() - start_time).total_seconds() * 1000,
+                    executor_category=self.category,
+                )
+
+            # Execute based on tool type
+            if tool_type == "metric_query":
+                result = await self._execute_metric_query(context, inputs)
+            elif tool_type == "period_compare":
+                result = await self._execute_period_compare(context, inputs)
+            elif tool_type == "contribution_analysis":
+                result = await self._execute_contribution_analysis(context, inputs)
+            elif tool_type == "variance_analysis":
+                result = await self._execute_variance_analysis(context, inputs)
+            elif tool_type == "trend_analysis":
+                result = await self._execute_trend_analysis(context, inputs)
+            elif tool_type == "metric_explain":
+                result = await self._execute_metric_explain(context, inputs)
+            else:
+                result = ExecutorResult(
+                    success=False,
+                    step_id=context.step_id,
+                    error=f"Unhandled tool type: {tool_type}",
+                    executor_category=self.category,
+                )
+
+            # Add execution metadata
+            result.duration_ms = (datetime.now() - start_time).total_seconds() * 1000
+            result.executor_category = self.category
+
+            return result
+
+    async def _execute_metric_query(
+        self,
+        context: StepContext,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute financial metric query."""
+        metrics = inputs.get("metrics", [])
+        dimensions = inputs.get("dimensions", [])
+
+        logger.info(
+            f"Executing financial metric query for {metrics}",
+            extra={"dimensions": dimensions}
+        )
+
+        # This would call the actual tool handler
+        # For now, return a mock result
+        return ExecutorResult(
+            success=True,
+            step_id=context.step_id,
+            data={
+                "metrics": metrics,
+                "dimensions": dimensions,
+                "results": [],
+                "query_type": "financial_metric",
+            },
+            observation_id=f"obs_{context.step_id}",
+            status="success",
+        )
+
+    async def _execute_period_compare(
+        self,
+        context: StepContext,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute financial period comparison."""
+        period_type = inputs.get("period_type", "YoY")  # YoY, QoQ, MoM
+        metric = inputs.get("metric", "")
+
+        logger.info(
+            f"Executing {period_type} comparison for {metric}",
+        )
+
+        return ExecutorResult(
+            success=True,
+            step_id=context.step_id,
+            data={
+                "period_type": period_type,
+                "metric": metric,
+                "comparison": {},
+                "query_type": "period_comparison",
+            },
+            observation_id=f"obs_{context.step_id}",
+            status="success",
+        )
+
+    async def _execute_contribution_analysis(
+        self,
+        context: StepContext,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute financial contribution analysis."""
+        breakdown_by = inputs.get("breakdown_by", "product")
+        metric = inputs.get("metric", "")
+
+        logger.info(
+            f"Executing contribution analysis by {breakdown_by}",
+        )
+
+        return ExecutorResult(
+            success=True,
+            step_id=context.step_id,
+            data={
+                "breakdown_by": breakdown_by,
+                "metric": metric,
+                "contributions": [],
+                "query_type": "contribution_analysis",
+            },
+            observation_id=f"obs_{context.step_id}",
+            status="success",
+        )
+
+    async def _execute_variance_analysis(
+        self,
+        context: StepContext,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute budget variance analysis."""
+        baseline = inputs.get("baseline", "budget")
+        metric = inputs.get("metric", "")
+
+        logger.info(
+            f"Executing variance analysis against {baseline}",
+        )
+
+        return ExecutorResult(
+            success=True,
+            step_id=context.step_id,
+            data={
+                "baseline": baseline,
+                "metric": metric,
+                "variance": {},
+                "query_type": "variance_analysis",
+            },
+            observation_id=f"obs_{context.step_id}",
+            status="success",
+        )
+
+    async def _execute_trend_analysis(
+        self,
+        context: StepContext,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute financial trend analysis."""
+        granularity = inputs.get("granularity", "monthly")
+        metric = inputs.get("metric", "")
+
+        logger.info(
+            f"Executing trend analysis at {granularity} granularity",
+        )
+
+        return ExecutorResult(
+            success=True,
+            step_id=context.step_id,
+            data={
+                "granularity": granularity,
+                "metric": metric,
+                "trend": {},
+                "query_type": "trend_analysis",
+            },
+            observation_id=f"obs_{context.step_id}",
+            status="success",
+        )
+
+    async def _execute_metric_explain(
+        self,
+        context: StepContext,
+        inputs: dict[str, Any],
+    ) -> ExecutorResult:
+        """Execute metric explanation."""
+        metric = inputs.get("metric", "")
+
+        logger.info(f"Explaining metric: {metric}")
+
+        return ExecutorResult(
+            success=True,
+            step_id=context.step_id,
+            data={
+                "metric": metric,
+                "definition": "",
+                "formula": "",
+                "query_type": "metric_explain",
+            },
+            status="success",
+        )

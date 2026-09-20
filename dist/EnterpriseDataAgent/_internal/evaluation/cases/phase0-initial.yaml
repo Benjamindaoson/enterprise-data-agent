@@ -1,0 +1,194 @@
+suite_version: 0.1.0
+cases:
+  - case_id: GC-001
+    title: July 2026 wholesale sales compared with June in a county
+    business_question: What happened to wholesale sales in Polk County in July 2026 compared with June 2026?
+    user_context: &analyst
+      user_id: analyst@example.test
+      tenant_id: iowa-demo
+      roles: [business_analyst]
+      policy_version: local-policy-v1
+      allowed_metric_ids: [wholesale_sales_amount, bottles_ordered, volume_liters, average_wholesale_price_per_bottle, state_acquisition_cost, wholesale_gross_spread, wholesale_spread_rate, average_state_cost_per_bottle]
+      allowed_dimension_ids: [order_date, month, year, store, county, city, vendor, category, product, pack, bottle_volume_ml]
+      data_classification_ceiling: INTERNAL
+    dataset_snapshot: &snapshot
+      identifier: iowa_liquor_snapshot_2026_07_v1
+      version: 2026-07
+      content_hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    semantic_package: &semantic
+      identifier: iowa_liquor_wholesale
+      version: 1.0.0
+      content_hash: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount]
+      dimension_filters: {county: [Polk]}
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      comparison_period_start: 2026-06-01
+      comparison_period_end: 2026-06-30
+    allowed_data_objects: [fact_liquor_order_line]
+    required_evidence_count: 1
+    required_claim_types: [FACT]
+    tags: [semantic, month_over_month]
+  - case_id: GC-002
+    title: Wholesale spread contribution within cost window
+    business_question: Which categories contributed most to the July 2026 versus June 2026 change in wholesale gross spread?
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_gross_spread]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      comparison_period_start: 2026-06-01
+      comparison_period_end: 2026-06-30
+      requested_grain: category
+    allowed_data_objects: [fact_liquor_order_line]
+    required_hypothesis_topics: [quantity, unit_price, product_mix]
+    required_evidence_count: 2
+    required_claim_types: [FACT, INFERENCE]
+    tags: [contribution, cost_window]
+  - case_id: GC-003
+    title: Product mix investigation
+    business_question: To what extent did product mix explain the July 2026 wholesale sales change from June?
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount, bottles_ordered, average_wholesale_price_per_bottle]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      comparison_period_start: 2026-06-01
+      comparison_period_end: 2026-06-30
+    required_hypothesis_topics: [product_mix]
+    required_evidence_count: 2
+    acceptable_outcomes: [COMPLETED, PARTIAL]
+    tags: [mix, decomposition]
+  - case_id: GC-004
+    title: Price volume mix decomposition
+    business_question: Break down the wholesale sales change between June and July 2026 into bottle volume, price, and mix.
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount, bottles_ordered, average_wholesale_price_per_bottle]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      comparison_period_start: 2026-06-01
+      comparison_period_end: 2026-06-30
+    required_evidence_count: 2
+    required_claim_types: [FACT, INFERENCE]
+    tags: [pvm, numeric]
+  - case_id: GC-005
+    title: Store and county contribution ranking
+    business_question: Which stores and counties were the main contributors to the July 2026 sales change?
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      comparison_period_start: 2026-06-01
+      comparison_period_end: 2026-06-30
+      requested_grain: store
+    required_evidence_count: 2
+    required_claim_types: [FACT]
+    tags: [drilldown, contribution]
+  - case_id: GC-006
+    title: Profit terminology needs clarification
+    business_question: Why did store profit fall in July 2026?
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: []
+      must_request_clarification: true
+    acceptable_outcomes: [NEEDS_CLARIFICATION]
+    tags: [clarification, terminology]
+  - case_id: GC-007
+    title: Year-over-year wholesale sales
+    business_question: Compare July 2026 wholesale sales with July 2025 by vendor.
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      comparison_period_start: 2025-07-01
+      comparison_period_end: 2025-07-31
+      requested_grain: vendor
+    required_evidence_count: 1
+    tags: [year_over_year]
+  - case_id: GC-008
+    title: Policy rejects unauthorized metric
+    business_question: Show wholesale gross spread by product for July 2026.
+    user_context:
+      user_id: restricted@example.test
+      tenant_id: iowa-demo
+      roles: [restricted_analyst]
+      policy_version: local-policy-v1
+      allowed_metric_ids: [wholesale_sales_amount]
+      allowed_dimension_ids: [month]
+      data_classification_ceiling: INTERNAL
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_gross_spread]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+    acceptable_outcomes: [NEEDS_CLARIFICATION, FAILED]
+    tags: [policy, forbidden]
+  - case_id: GC-009
+    title: Controlled fixture catches duplicate current dimension
+    business_question: Compare July 2026 wholesale sales by current store attribute.
+    user_context: *analyst
+    dataset_snapshot:
+      identifier: controlled_fixture_duplicate_dimension_v1
+      version: 1.0.0
+      content_hash: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+    acceptable_outcomes: [FAILED, PARTIAL]
+    tags: [fixture, join, data_quality]
+  - case_id: GC-010
+    title: Unsupported causal claim is qualified
+    business_question: Did a marketing campaign cause the July 2026 wholesale sales change?
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+    acceptable_outcomes: [PARTIAL, NEEDS_CLARIFICATION]
+    tags: [abstention, causal]
+  - case_id: GC-011
+    title: Cost metric requested outside coverage
+    business_question: What was wholesale gross spread in March 2024?
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_gross_spread]
+      primary_period_start: 2024-03-01
+      primary_period_end: 2024-03-31
+    acceptable_outcomes: [PARTIAL, NEEDS_CLARIFICATION]
+    tags: [availability, no_zero_fill]
+  - case_id: GC-012
+    title: Follow-up reuses evidence only after authorization
+    business_question: For the prior July 2026 analysis, drill into the top vendor contribution.
+    user_context: *analyst
+    dataset_snapshot: *snapshot
+    semantic_package: *semantic
+    expected_semantics:
+      metric_ids: [wholesale_sales_amount]
+      primary_period_start: 2026-07-01
+      primary_period_end: 2026-07-31
+      requested_grain: vendor
+    required_evidence_count: 1
+    tags: [follow_up, lineage, policy]
