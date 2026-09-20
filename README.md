@@ -48,40 +48,58 @@ analytics suite:
 The real-data benchmark explicitly covers **Analytics, Attribution, Marketing
 Budget, Sales Expansion, Monetization, Tool Use, Recovery and Safety**.
 
-The normal CI verifies the hard environment, small-policy SFT/GRPO, official
-Bank Marketing ingestion and PostgreSQL/Redis integration. Real Qwen/Llama-class
-training lives in a separate manual self-hosted workflow so the repository does
-not pretend a large-model experiment ran when GPU compute was unavailable.
+The normal CI verifies the hard environment, small-policy SFT/GRPO, the full
+official Bank Marketing + Online Retail benchmark, and PostgreSQL/Redis
+integration. Real Qwen/Llama-class training lives in a separate manual
+self-hosted workflow so the repository does not pretend a large-model
+experiment ran when GPU compute was unavailable.
+
+Measured held-out Hard-v1 results (12 cases) are:
+
+| Policy | Success | Avg reward | Invalid action | Policy violation |
+| --- | ---: | ---: | ---: | ---: |
+| Direct | 0.0% | -3.7627 | 90.63% | 75.0% |
+| Random | 0.0% | -3.8506 | 72.0% | 91.67% |
+| Prompt heuristic | 58.33% | 0.0115 | 19.54% | 0.0% |
+| SFT | 66.67% | 0.5926 | 11.63% | 8.33% |
+| SFT + GRPO | 66.67% | 0.6395 | 10.59% | 8.33% |
+
+GRPO therefore shows a **measured reward / action-validity improvement without
+a task-success uplift** on this run; the repository does not claim otherwise.
+
+The RealData-v1 CI build parses **45,211 Bank Marketing rows** and **541,909
+Online Retail rows** and generates nine grounded benchmark tasks.
 
 See [P9–P12 Execution Report](docs/P9_P12_EXECUTION_REPORT.md).
 
 ---
 
-## P0 Implementation Status
+## Implementation Status
 
 | Capability | Status | Notes |
 |------------|--------|-------|
-| **VERIFIED** | | |
-| Agent Runtime | ✅ VERIFIED | Supervisor + checkpoint/resume |
-| 13 P0 Tools | ✅ VERIFIED | All tools implemented + tested |
-| NL2SQL Pipeline | ✅ VERIFIED | SQLGlot, repair, security |
-| Semantic Layer | ✅ VERIFIED | 4 domain packages |
-| RBAC/Governance | ✅ VERIFIED | 22 security tests pass |
-| Python Sandbox | ✅ VERIFIED | Blocked imports enforced |
-| OpenTelemetry | ✅ VERIFIED | Full tracing |
-| Intent Resolution | ✅ VERIFIED | 7 tests pass |
-| **IMPLEMENTED** | | |
-| Real Provider | ⚠️ IMPLEMENTED | Code exists, needs API key |
-| PostgreSQL Adapter | ⚠️ IMPLEMENTED | Needs Docker |
-| Regression Runner | ⚠️ IMPLEMENTED | Infrastructure ready |
-| UI Surfaces | ⚠️ PARTIAL | Basic structure exists |
-| **BLOCKED** | | |
-| Real API Verification | 🔒 BLOCKED | No ANTHROPIC_API_KEY |
-| PostgreSQL E2E | 🔒 BLOCKED | Docker not running |
-| Flagship E2E (real) | 🔒 BLOCKED | No real provider |
+| Agent Runtime / Harness | ✅ VERIFIED | Supervisor, durable state, checkpoint/resume, recovery |
+| Governed NL2SQL + Semantic Layer | ✅ VERIFIED | SQLGlot, versioned business semantics, evidence |
+| Skill + Layered Memory | ✅ VERIFIED | Typed skill registry; working/episodic/semantic/procedural memory |
+| Business Operations | ✅ VERIFIED | Analytics, marketing budget, sales expansion, monetization |
+| BusinessAgentBench-Hard-v1 | ✅ VERIFIED | Long-horizon faults, memory, safety, replanning |
+| BusinessAgentBench-RealData-v1 | ✅ VERIFIED | Bank Marketing + Online Retail + Iowa analytics |
+| Trajectory / Eval Flywheel | ✅ VERIFIED | Replay, failure mining, SFT export, policy metrics |
+| Small-policy SFT | ✅ VERIFIED | Held-out success 66.67% vs prompt 58.33% |
+| Small-policy GRPO | ✅ VERIFIED | Reward 0.5926 → 0.6395; invalid actions 11.63% → 10.59% |
+| PostgreSQL Durable Runtime | ✅ VERIFIED | Trajectory, checkpoint, approval round trips in CI |
+| Redis Async Queue | ✅ VERIFIED | Queue round trip and worker retry in CI |
+| OTel / Prometheus / Grafana | ✅ IMPLEMENTED | Metrics + provisioned local observability stack |
+| Canary / Regression Gate | ✅ VERIFIED | Success, safety, invalid-action and cost thresholds |
+| Real open-weight LLM evaluation | ⚠️ IMPLEMENTED | Qwen causal-LM policy + held-out evaluator; GPU run not yet measured |
+| Real LLM LoRA SFT / GRPO | ⚠️ IMPLEMENTED | Manual self-hosted workflow; no fabricated gain claim |
+| Proprietary CRM / campaign writes | 🔒 NOT CONNECTED | Public version remains dry-run / approval-gated |
 
-**Total Tests: 511 passing** (including 24 retrieval, 46 paraphrase, 14 evidence)
-**Evaluation Cases: 245+** (221 base + 24 retrieval)
+**Core CI:** 535 passed / 2 skipped  
+**Training CI:** 7 passed  
+**Production integration:** 6 passed  
+**RealData-v1:** 45,211 Bank Marketing rows + 541,909 Online Retail rows  
+**Evaluation Cases:** existing 245+ deterministic cases + BusinessAgentBench suites
 
 ---
 
