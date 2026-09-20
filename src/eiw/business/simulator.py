@@ -109,7 +109,7 @@ class BusinessOperationsSimulator:
         self.state: SimulatorState | None = None
 
     @classmethod
-    def from_public_data(cls, data: IowaData, seed: int = 0) -> "BusinessOperationsSimulator":
+    def from_public_data(cls, data: IowaData, seed: int = 0) -> BusinessOperationsSimulator:
         if not data.available():
             return cls(seed=seed)
 
