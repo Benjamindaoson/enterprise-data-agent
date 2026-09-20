@@ -235,7 +235,7 @@ def train_hard_grpo(
             rewards_for_iteration.extend(rollout.reward for rollout in group)
             successes_for_iteration.extend(float(rollout.success) for rollout in group)
 
-        losses: list[torch.Tensor] = []
+        rl_losses: list[torch.Tensor] = []
         for group, advantages in grouped:
             for rollout, advantage in zip(group, advantages, strict=True):
                 for step in rollout.steps:
@@ -254,7 +254,7 @@ def train_hard_grpo(
                         ref_log_probs = torch.log_softmax(ref_logits, dim=-1)
                     kl = torch.sum(probs * (log_probs - ref_log_probs))
                     entropy = -(probs * log_probs).sum()
-                    losses.append(-surrogate + kl_beta * kl - entropy_beta * entropy)
+                    rl_losses.append(-surrogate + kl_beta * kl - entropy_beta * entropy)
 
         # Small supervised anchor prevents safety/recovery behavior learned by
         # SFT from being catastrophically forgotten during sparse-reward RL.
@@ -266,6 +266,7 @@ def train_hard_grpo(
                 action = expert.choose_action(env.state)
                 anchor_examples.append((features, ACTION_TO_ID[action]))
                 env.step(action)
+        anchor_loss: torch.Tensor | None = None
         if anchor_examples:
             anchor_texts = [item[0] for item in anchor_examples]
             anchor_labels = torch.tensor([item[1] for item in anchor_examples], dtype=torch.long)
@@ -274,11 +275,13 @@ def train_hard_grpo(
                 model(anchor_tokens, anchor_mask),
                 anchor_labels,
             )
-            losses.append(bc_beta * anchor_loss)
 
-        if losses:
+        if rl_losses:
+            total_loss = torch.stack(rl_losses).mean()
+            if anchor_loss is not None:
+                total_loss = total_loss + bc_beta * anchor_loss
             optimizer.zero_grad()
-            torch.stack(losses).mean().backward()
+            total_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
 
