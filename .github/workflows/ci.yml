@@ -72,8 +72,8 @@ jobs:
           python scripts/train_hard_business_agent.py
           --cases 48
           --sft-epochs 5
-          --grpo-iterations 4
-          --group-size 3
+          --grpo-iterations 10
+          --group-size 5
       - name: Training unit tests
         run: >
           python -m pytest
@@ -89,10 +89,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install
-        run: python -m pip install -e '.[dev]'
-      - name: Build official Bank Marketing benchmark
-        run: python scripts/build_real_business_benchmark.py --bank-only
+      - name: Install benchmark stack
+        run: python -m pip install -e '.[dev,benchmark]'
+      - name: Build official Bank Marketing + Online Retail benchmark
+        run: python scripts/build_real_business_benchmark.py
       - name: Verify public data contracts
         run: python -m pytest tests/unit/test_public_business_data.py -q
 
