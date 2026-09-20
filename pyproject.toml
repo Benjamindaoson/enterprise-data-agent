@@ -27,6 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]>=3.2,<4"]
+training = ["torch>=2.4,<3"]
 dev = [
   "mypy>=1.14,<2",
   "pytest>=8.3,<9",
