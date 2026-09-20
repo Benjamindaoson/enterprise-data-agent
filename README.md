@@ -1,10 +1,10 @@
 <div align="center">
 
-# BA Agent
+# BA Agent｜商业分析智能体
 
-**商业分析智能体｜Business Intelligence & Autonomous Operations**
+**Business Intelligence & Autonomous Operations Agent**
 
-A governed long-horizon **Business Analysis Agent** that turns business questions into evidence-backed analysis, decisions, and approval-gated actions across **analytics, marketing budget planning, sales expansion, and monetization**.
+A governed long-horizon **Business Analysis Agent (BA Agent)** that turns business questions into evidence-backed analysis, decisions, and approval-gated actions across **analytics, marketing budget planning, sales expansion, and monetization**.
 
 `BA Agent` · `Agent Harness` · `Business Intelligence` · `Autonomous Operations` · `Semantic Layer` · `Skill Runtime` · `Evaluation` · `SFT` · `GRPO / AgentRL`
 
