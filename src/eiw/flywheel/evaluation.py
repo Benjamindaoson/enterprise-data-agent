@@ -33,9 +33,16 @@ def evaluate_policy(
     *,
     seeds: range = range(10),
     public_signal: float = 1.0,
+    public_context: dict[str, float | str] | None = None,
 ) -> EvaluationSummary:
     trajectories = [
-        run_episode(policy, scenario=scenario, seed=seed, public_signal=public_signal)
+        run_episode(
+            policy,
+            scenario=scenario,
+            seed=seed,
+            public_signal=public_signal,
+            public_context=public_context,
+        )
         for scenario in BusinessScenario
         for seed in seeds
     ]
