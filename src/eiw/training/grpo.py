@@ -11,7 +11,13 @@ import torch
 
 from eiw.business.models import BusinessScenario
 from eiw.business.simulator import BusinessOperationsSimulator
-from eiw.training.policy import ID_TO_ACTION, TinyAgentTransformer, collate_texts, load_policy, save_policy
+from eiw.training.policy import (
+    ID_TO_ACTION,
+    TinyAgentTransformer,
+    collate_texts,
+    load_policy,
+    save_policy,
+)
 
 
 @dataclass(slots=True)
