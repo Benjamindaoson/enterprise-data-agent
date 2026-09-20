@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from eiw.business.models import BusinessTaskRequest
 from eiw.business.operations import BusinessOperationsService
+from eiw.production.persistence import ProductionStore
 from eiw.runtime.skills import default_skill_registry
 from eiw.workspace.analysis import DEFAULT_USER, AnalysisService
 from eiw.workspace.data import DIMENSIONS, METRICS, IowaData
@@ -38,6 +39,24 @@ class FeedbackRequest(BaseModel):
     comment: str = Field(default="", max_length=2000)
 
 
+class DurableCheckpointRequest(BaseModel):
+    version: int = Field(ge=1)
+    payload: dict[str, Any]
+
+
+class ApprovalCreateRequest(BaseModel):
+    task_id: str = Field(min_length=1, max_length=128)
+    action_id: str = Field(min_length=1, max_length=128)
+    requested_by: str = Field(min_length=1, max_length=128)
+    reason: str | None = Field(default=None, max_length=2000)
+
+
+class ApprovalDecisionRequest(BaseModel):
+    approved: bool
+    decided_by: str = Field(min_length=1, max_length=128)
+    reason: str | None = Field(default=None, max_length=2000)
+
+
 def create_app() -> FastAPI:
     artifact_root = Path(os.getenv("EIW_ARTIFACT_ROOT", "./artifacts"))
     store = WorkspaceStore(artifact_root / "workspace-state.json")
@@ -45,6 +64,8 @@ def create_app() -> FastAPI:
     service = AnalysisService(store, data, artifact_root)
     business_service = BusinessOperationsService()
     skill_registry = default_skill_registry()
+    database_url = os.getenv("EIW_DATABASE_URL")
+    production_store = ProductionStore(database_url) if database_url else None
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -76,7 +97,7 @@ def create_app() -> FastAPI:
             ],
             "public_reference_limits": {
                 "external_writes": "proposal/dry-run only",
-                "post_training": "contracts/hooks only; no fabricated trained checkpoint",
+                "post_training": "Tiny policy SFT/GRPO verified in CI; real open-weight LLM training runs in the manual self-hosted workflow",
                 "real_campaign_crm_integrations": False,
             },
         }
@@ -84,6 +105,63 @@ def create_app() -> FastAPI:
     @app.post("/api/v1/business-tasks")
     def create_business_task(request: BusinessTaskRequest) -> dict[str, Any]:
         return business_service.plan(request).model_dump(mode="json")
+
+    @app.put("/api/v1/runtime/checkpoints/{task_id}")
+    def save_durable_checkpoint(task_id: str, request: DurableCheckpointRequest) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        production_store.save_checkpoint(
+            task_id=task_id,
+            version=request.version,
+            payload=request.payload,
+        )
+        checkpoint = production_store.load_checkpoint(task_id)
+        return {"saved": True, "checkpoint": checkpoint}
+
+    @app.get("/api/v1/runtime/checkpoints/{task_id}")
+    def load_durable_checkpoint(task_id: str) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        checkpoint = production_store.load_checkpoint(task_id)
+        if checkpoint is None:
+            raise HTTPException(404, "Checkpoint not found")
+        return checkpoint
+
+    @app.post("/api/v1/approvals")
+    def request_approval(request: ApprovalCreateRequest) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        approval_id = production_store.request_approval(
+            task_id=request.task_id,
+            action_id=request.action_id,
+            requested_by=request.requested_by,
+            reason=request.reason,
+        )
+        return production_store.get_approval(approval_id) or {"approval_id": approval_id}
+
+    @app.post("/api/v1/approvals/{approval_id}/decision")
+    def decide_approval(approval_id: str, request: ApprovalDecisionRequest) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        try:
+            production_store.decide_approval(
+                approval_id,
+                approved=request.approved,
+                decided_by=request.decided_by,
+                reason=request.reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return production_store.get_approval(approval_id) or {"approval_id": approval_id}
+
+    @app.get("/api/v1/approvals/{approval_id}")
+    def get_approval(approval_id: str) -> dict[str, Any]:
+        if production_store is None:
+            raise HTTPException(503, "Durable PostgreSQL runtime is not configured")
+        approval = production_store.get_approval(approval_id)
+        if approval is None:
+            raise HTTPException(404, "Approval not found")
+        return approval
 
     @app.get("/api/v1/health")
     def health() -> dict[str, Any]:
