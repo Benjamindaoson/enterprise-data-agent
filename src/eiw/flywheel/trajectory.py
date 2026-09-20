@@ -94,8 +94,13 @@ def run_episode(
     scenario: BusinessScenario,
     seed: int,
     public_signal: float = 1.0,
+    public_context: dict[str, float | str] | None = None,
 ) -> Trajectory:
-    simulator = BusinessOperationsSimulator(seed=seed, public_signal=public_signal)
+    simulator = BusinessOperationsSimulator(
+        seed=seed,
+        public_signal=public_signal,
+        public_context=public_context,
+    )
     state = simulator.reset(scenario)
     trajectory = Trajectory(
         trajectory_id=str(uuid4()),
