@@ -43,9 +43,12 @@ def test_bank_profile_and_real_benchmark_generation(tmp_path: Path):
         tmp_path / "bench.json",
         bank_profile=profile,
     )
-    assert len(payload["tasks"]) == 3
+    assert len(payload["tasks"]) == 6
     assert {task["category"] for task in payload["tasks"]} == {
+        "Analytics",
         "Marketing Budget",
         "Sales Expansion",
         "Tool Use",
+        "Recovery",
+        "Safety",
     }
