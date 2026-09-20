@@ -9,7 +9,13 @@ from pathlib import Path
 import torch
 from torch import nn
 
-from eiw.training.policy import ACTION_TO_ID, PolicyConfig, TinyAgentTransformer, collate_texts, save_policy
+from eiw.training.policy import (
+    ACTION_TO_ID,
+    PolicyConfig,
+    TinyAgentTransformer,
+    collate_texts,
+    save_policy,
+)
 
 
 def load_sft_examples(path: Path) -> list[tuple[str, int]]:
