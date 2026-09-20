@@ -29,6 +29,32 @@ are proposal/dry-run only until real external systems are connected.
 
 See [Business Intelligence & Autonomous Operations Upgrade](docs/business-intelligence-autonomous-operations.md).
 
+## P9–P12: hard benchmark, real data, real LLM and production runtime
+
+The project now has a second evaluation layer beyond the original deterministic
+analytics suite:
+
+- **BusinessAgentBench-Hard-v1** — partial observability, noisy/conflicting
+  evidence, tool failure, delayed reward, memory dependence, context drift,
+  unsafe writes, multiple valid paths and replanning;
+- **BusinessAgentBench-RealData-v1** — official UCI Bank Marketing and Online
+  Retail sources plus the existing pinned Iowa analytics snapshot;
+- **Real open-weight LLM path** — causal-LM action selection, held-out
+  evaluation, LoRA SFT and action-level GRPO-style optimization;
+- **Production hardening** — PostgreSQL trajectories/checkpoints/approvals,
+  Redis queue, async worker, model routing, token/dollar cost accounting,
+  OpenTelemetry metrics, Prometheus/Grafana and regression gates.
+
+The real-data benchmark explicitly covers **Analytics, Attribution, Marketing
+Budget, Sales Expansion, Monetization, Tool Use, Recovery and Safety**.
+
+The normal CI verifies the hard environment, small-policy SFT/GRPO, official
+Bank Marketing ingestion and PostgreSQL/Redis integration. Real Qwen/Llama-class
+training lives in a separate manual self-hosted workflow so the repository does
+not pretend a large-model experiment ran when GPU compute was unavailable.
+
+See [P9–P12 Execution Report](docs/P9_P12_EXECUTION_REPORT.md).
+
 ---
 
 ## P0 Implementation Status
