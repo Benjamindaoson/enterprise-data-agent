@@ -17,7 +17,7 @@ from eiw.benchmark.hard_env import (
     HardState,
 )
 from eiw.benchmark.policies import HardExpertPolicy
-from eiw.benchmark.runner import evaluate_hard_policy
+from eiw.benchmark.runner import evaluate_hard_policy, run_hard_episode
 from eiw.training.policy import (
     PolicyConfig,
     TinyAgentTransformer,
