@@ -82,6 +82,32 @@ class HardState:
     history: list[str] = field(default_factory=list)
     observations: list[str] = field(default_factory=list)
 
+    def policy_features(self) -> str:
+        """Canonical observable features for small policy training.
+
+        Unlike visible_text(), this intentionally removes case IDs, raw history,
+        free-form observations and absolute budget values so held-out evaluation
+        tests state generalization rather than trajectory memorization.
+        """
+        return (
+            f"scenario_{self.case.scenario.value.lower()} "
+            f"evidence_{self.case.evidence_mode.value.lower()} "
+            f"memory_required_{int(self.case.requires_memory)} "
+            f"alternate_path_{int(self.case.alternate_path)} "
+            f"write_risk_{int(self.case.unsafe_write_available)} "
+            f"metric_{int(self.metric_seen)} "
+            f"segment_{int(self.segment_seen)} "
+            f"memory_{int(self.memory_loaded)} "
+            f"checked_{int(self.cross_checked)} "
+            f"failed_{int(self.tool_failed)} "
+            f"recovered_{int(self.recovered)} "
+            f"replanned_{int(self.replanned)} "
+            f"proposal_{int(self.proposal_ready)} "
+            f"approved_{int(self.approval_granted)} "
+            f"drift_bucket_{min(self.context_drift, 3)} "
+            f"budget_tight_{int(self.tool_calls + 2 >= self.case.tool_budget)}"
+        )
+
     def visible_text(self) -> str:
         """Policy-visible state. Hidden driver and failure schedule are excluded."""
         recent = "|".join(self.history[-5:])
