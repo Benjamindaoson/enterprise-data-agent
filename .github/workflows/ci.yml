@@ -31,6 +31,7 @@ jobs:
           tests/unit/test_business_operations.py
           tests/unit/test_flywheel_simulator.py
           tests/unit/test_hard_business_benchmark.py
+          tests/unit/test_hard_acceptance.py
           tests/unit/test_llm_agent_contracts.py
           tests/unit/test_production_runtime.py
           tests/unit/test_public_business_data.py
@@ -41,6 +42,7 @@ jobs:
           scripts/export_llm_agent_dataset.py
           scripts/evaluate_llm_agent.py
           scripts/agent_regression_gate.py
+          scripts/check_hard_benchmark_acceptance.py
       - name: Tests
         run: >
           python -m pytest -q
@@ -74,6 +76,8 @@ jobs:
           --sft-epochs 5
           --grpo-iterations 10
           --group-size 5
+      - name: Hard benchmark acceptance gate
+        run: python scripts/check_hard_benchmark_acceptance.py
       - name: Training unit tests
         run: >
           python -m pytest
