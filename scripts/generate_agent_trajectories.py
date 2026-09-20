@@ -9,7 +9,9 @@ from pathlib import Path
 from eiw.business.models import BusinessScenario
 from eiw.flywheel.evaluation import evaluate_policy
 from eiw.flywheel.policies import ExpertPolicy, RandomPolicy
+from eiw.business.simulator import BusinessOperationsSimulator
 from eiw.flywheel.trajectory import TrajectoryStore, run_episode
+from eiw.workspace.data import IowaData
 
 
 def main() -> None:
@@ -23,14 +25,40 @@ def main() -> None:
         args.output.unlink()
     store = TrajectoryStore(args.output)
     expert = ExpertPolicy()
+
+    data = IowaData()
+    public_simulator = BusinessOperationsSimulator.from_public_data(data, seed=0)
+    public_signal = public_simulator.public_signal
+    public_context = public_simulator.public_context
+    data_source = "iowa-public-snapshot" if data.available() else "deterministic-fixture"
     for scenario in BusinessScenario:
         for seed in range(args.episodes_per_scenario):
-            store.append(run_episode(expert, scenario=scenario, seed=seed))
+            store.append(
+                run_episode(
+                    expert,
+                    scenario=scenario,
+                    seed=seed,
+                    public_signal=public_signal,
+                    public_context=public_context,
+                )
+            )
 
     sft_examples = store.export_sft(args.sft_output)
     payload = {
-        "expert_eval": evaluate_policy(expert, seeds=range(5)).as_dict(),
-        "random_eval": evaluate_policy(RandomPolicy(17), seeds=range(5)).as_dict(),
+        "data_source": data_source,
+        "public_context": public_context,
+        "expert_eval": evaluate_policy(
+            expert,
+            seeds=range(5),
+            public_signal=public_signal,
+            public_context=public_context,
+        ).as_dict(),
+        "random_eval": evaluate_policy(
+            RandomPolicy(17),
+            seeds=range(5),
+            public_signal=public_signal,
+            public_context=public_context,
+        ).as_dict(),
         "sft_examples": sft_examples,
         "failure_report": store.failure_report(),
     }
