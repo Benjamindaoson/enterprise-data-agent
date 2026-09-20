@@ -1,12 +1,12 @@
 from pathlib import Path
 
 from eiw.business.models import BusinessScenario
+from eiw.flywheel.evaluation import evaluate_policy
 from eiw.flywheel.policies import ExpertPolicy
 from eiw.flywheel.trajectory import TrajectoryStore, run_episode
 from eiw.training.grpo import train_grpo
 from eiw.training.policy import TransformerPolicy, load_policy
 from eiw.training.sft import train_sft
-from eiw.flywheel.evaluation import evaluate_policy
 
 
 def _build_sft_dataset(root: Path) -> Path:
