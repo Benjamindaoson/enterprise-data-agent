@@ -74,6 +74,11 @@ def create_app() -> FastAPI:
     def home() -> FileResponse:
         return FileResponse(static_dir / "index.html")
 
+    @app.get("/demo", response_class=HTMLResponse)
+    def demo() -> FileResponse:
+        """Portfolio demo surface with deterministic presentation data."""
+        return FileResponse(static_dir / "demo.html")
+
     @app.get("/api/v1/capabilities")
     def capabilities() -> dict[str, Any]:
         return {
