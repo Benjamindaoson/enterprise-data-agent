@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from eiw.business.models import BusinessScenario
@@ -67,6 +68,7 @@ class SimulatorState:
     policy_violations: int = 0
     cumulative_cost: float = 0.0
     public_signal: float = 1.0
+    public_context: dict[str, float | str] = field(default_factory=dict)
     history: list[str] = field(default_factory=list)
 
     def as_policy_text(self) -> str:
@@ -75,7 +77,11 @@ class SimulatorState:
             f"evidence={int(self.evidence_ready)} proposal={int(self.proposal_ready)} "
             f"verified={int(self.verified)} invalid={self.invalid_actions} "
             f"violations={self.policy_violations} cost={self.cumulative_cost:.3f} "
-            f"signal={self.public_signal:.3f} history={'|'.join(self.history[-4:])}"
+            f"signal={self.public_signal:.3f} "
+            f"snapshot={self.public_context.get('snapshot_id', 'fixture')} "
+            f"latest_sales={self.public_context.get('latest_sales', 0)} "
+            f"latest_bottles={self.public_context.get('latest_bottles', 0)} "
+            f"history={'|'.join(self.history[-4:])}"
         )
 
 
@@ -90,20 +96,44 @@ class StepResult:
 class BusinessOperationsSimulator:
     """Small, auditable MDP for long-horizon skill-selection experiments."""
 
-    def __init__(self, seed: int = 0, public_signal: float = 1.0) -> None:
+    def __init__(
+        self,
+        seed: int = 0,
+        public_signal: float = 1.0,
+        public_context: dict[str, float | str] | None = None,
+    ) -> None:
         self.seed = seed
         self.rng = random.Random(seed)
         self.public_signal = public_signal
+        self.public_context = public_context or {"snapshot_id": "deterministic-fixture"}
         self.state: SimulatorState | None = None
 
     @classmethod
     def from_public_data(cls, data: IowaData, seed: int = 0) -> "BusinessOperationsSimulator":
-        signal = 1.0
-        if data.available():
-            status = data.status()
-            rows = float(status.get("measured_row_count", 1) or 1)
-            signal = max(0.5, min(2.0, 1.0 + (rows % 1000) / 2000.0))
-        return cls(seed=seed, public_signal=signal)
+        if not data.available():
+            return cls(seed=seed)
+
+        status = data.status()
+        through = date.fromisoformat(str(status["measured_business_date_max"]))
+        start = through.replace(day=1)
+        rows = data.aggregate(
+            start,
+            through,
+            ["wholesale_sales_amount", "bottles_ordered", "average_wholesale_price_per_bottle"],
+        )
+        latest = rows[0] if rows else {}
+        sales = float(latest.get("wholesale_sales_amount") or 0.0)
+        bottles = float(latest.get("bottles_ordered") or 0.0)
+        price = float(latest.get("average_wholesale_price_per_bottle") or 0.0)
+        signal = max(0.75, min(1.25, 0.75 + price / 40.0))
+        context: dict[str, float | str] = {
+            "snapshot_id": data.snapshot_id,
+            "measured_row_count": float(status.get("measured_row_count", 0) or 0),
+            "latest_sales": round(sales, 2),
+            "latest_bottles": round(bottles, 2),
+            "latest_avg_price": round(price, 4),
+        }
+        return cls(seed=seed, public_signal=signal, public_context=context)
 
     def reset(self, scenario: BusinessScenario) -> SimulatorState:
         goals = {
@@ -116,6 +146,7 @@ class BusinessOperationsSimulator:
             scenario=scenario,
             goal=goals[scenario],
             public_signal=self.public_signal,
+            public_context=dict(self.public_context),
         )
         return self.state
 
