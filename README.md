@@ -1,3 +1,6 @@
+> **Portfolio status / 作品集状态：FLAGSHIP · Agent Systems**
+> Canonical independent flagship repository; indexed by Agent Systems Lab.
+
 <div align="center">
 
 # BA Agent｜商业分析智能体
