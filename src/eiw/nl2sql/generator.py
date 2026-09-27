@@ -20,8 +20,8 @@ from eiw.nl2sql.contracts import (
     SchemaContext,
     SQLGeneratorProvider,
 )
-from eiw.observability.otel import trace_span
 from eiw.observability.logging import get_structured_logger
+from eiw.observability.otel import trace_span
 
 
 logger = get_structured_logger(__name__, "sql_generator")
