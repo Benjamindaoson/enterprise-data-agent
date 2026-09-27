@@ -37,6 +37,7 @@ class SQLValidationErrorCategory(str, Enum):
     SECURITY_POLICY = "security_policy"
     INVALID_COLUMN_REFERENCE = "invalid_column_reference"
     INVALID_METRIC_FORMULA = "invalid_metric_formula"
+    EXECUTION_ERROR = "execution_error"
 
 
 # =============================================================================
@@ -126,6 +127,7 @@ class SchemaContext:
     tables: dict[str, TableInfo] = field(default_factory=dict)
     joins: list[JoinInfo] = field(default_factory=list)
     domain: str = ""
+    retrieval_trace: dict[str, Any] = field(default_factory=dict)
 
     def get_table(self, name: str) -> TableInfo | None:
         """Get table by name."""
