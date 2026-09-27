@@ -9,10 +9,10 @@ This module links:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
 from eiw.observability.logging import get_structured_logger
 from eiw.observability.otel import trace_span
 from eiw.semantic.v2 import SemanticPackageV2
-
 
 logger = get_structured_logger(__name__, "schema_linker")
 
