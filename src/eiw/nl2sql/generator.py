@@ -144,21 +144,27 @@ class MockSQLGenerator(SQLGeneratorProvider):
         """
         cols: list[str] = []
 
-        # Add grouping columns
-        for dim in plan.dimensions:
-            if dim in schema.tables:
-                table = schema.tables[dim]
-                if table.columns:
-                    cols.append(table.columns[0].name)
-                else:
-                    cols.append(dim)
-            else:
-                cols.append(dim)
+        # Semantic dimensions resolve to governed physical columns.
+        for dimension in plan.dimensions:
+            cols.append(schema.dimension_columns.get(dimension, dimension))
 
-        # Add metric aggregations
+        # Metric IDs never become physical columns by accident. The semantic
+        # layer supplies the authoritative expression; simple expressions are
+        # wrapped in the declared aggregation while pre-aggregated/derived
+        # expressions are preserved.
         for metric in plan.metrics:
-            agg = plan.aggregation or "SUM"
-            cols.append(f"{agg}({metric}) AS {metric}")
+            expression = schema.metric_expressions.get(metric, metric)
+            expression_upper = expression.upper()
+            has_aggregation = any(
+                token in expression_upper
+                for token in ("SUM(", "AVG(", "COUNT(", "MIN(", "MAX(", "MEDIAN(", "STDDEV(")
+            )
+            if has_aggregation:
+                metric_sql = expression
+            else:
+                aggregation = plan.aggregation or "SUM"
+                metric_sql = f"{aggregation}({expression})"
+            cols.append(f"{metric_sql} AS {metric}")
 
         if not cols:
             return "*"
@@ -208,12 +214,13 @@ class MockSQLGenerator(SQLGeneratorProvider):
         """
         conditions: list[str] = []
 
-        # Add filter conditions
+        # Add semantic data filters only; planner control hints such as top_n
+        # must never be emitted as fake database columns.
+        control_filters = {"time_period", "top_n", "bottom_n", "trend_direction"}
         for key, value in plan.filters.items():
-            if key == "time_period":
-                # Convert time period to actual condition
-                pass  # Would need actual date handling
-            elif isinstance(value, (int, float)):
+            if key in control_filters:
+                continue
+            if isinstance(value, (int, float)):
                 conditions.append(f"{key} = {value}")
             elif isinstance(value, str):
                 conditions.append(f"{key} = '{value}'")
