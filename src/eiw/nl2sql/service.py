@@ -13,16 +13,15 @@ from datetime import datetime
 from typing import Any
 
 from eiw.nl2sql.contracts import (
-    ExecutionResult,
     ExecutionStatus,
     GeneratedSQL,
     LogicalQueryPlan,
     NL2SQLRequest,
     NL2SQLResult,
     QueryLane,
+    SchemaContext,
     SQLValidationErrorCategory,
     SQLValidationResult,
-    SchemaContext,
 )
 from eiw.nl2sql.cost_guard import CostGuard, CostThreshold
 from eiw.nl2sql.example_retriever import ExampleRetriever
