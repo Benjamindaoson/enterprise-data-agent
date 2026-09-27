@@ -28,6 +28,14 @@ jobs:
           src/eiw/runtime/governance.py
           src/eiw/runtime/memory.py
           src/eiw/runtime/skills.py
+          src/eiw/nl2sql/retrieval.py
+          src/eiw/nl2sql/schema_retriever.py
+          src/eiw/nl2sql/schema_linker.py
+          src/eiw/nl2sql/service.py
+          src/eiw/nl2sql/generator.py
+          tests/nl2sql/test_retrieval.py
+          tests/nl2sql/test_schema_retriever_hybrid.py
+          tests/nl2sql/test_service_convergence.py
           tests/unit/test_business_operations.py
           tests/unit/test_flywheel_simulator.py
           tests/unit/test_hard_business_benchmark.py
