@@ -9,12 +9,9 @@ This module links:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
-
-from eiw.nl2sql.contracts import SchemaContext, TableInfo, JoinInfo
-from eiw.semantic.v2 import SemanticPackageV2, MetricDefinition, DimensionDefinition
-from eiw.observability.otel import trace_span
 from eiw.observability.logging import get_structured_logger
+from eiw.observability.otel import trace_span
+from eiw.semantic.v2 import SemanticPackageV2
 
 
 logger = get_structured_logger(__name__, "schema_linker")
@@ -250,16 +247,20 @@ class SchemaLinker:
         # Check for metric aliases
         for metric in pkg.metrics:
             for alias in metric.aliases:
-                if alias.lower() in question_lower:
-                    if metric.id not in result.resolved_metrics:
-                        self._link_metric(pkg, metric.id, result)
+                if (
+                    alias.lower() in question_lower
+                    and metric.id not in result.resolved_metrics
+                ):
+                    self._link_metric(pkg, metric.id, result)
 
         # Check for dimension aliases
         for dim in pkg.dimensions:
             for alias in dim.aliases:
-                if alias.lower() in question_lower:
-                    if dim.id not in result.resolved_dimensions:
-                        self._link_dimension(pkg, dim.id, result)
+                if (
+                    alias.lower() in question_lower
+                    and dim.id not in result.resolved_dimensions
+                ):
+                    self._link_dimension(pkg, dim.id, result)
 
         # Check for common terms
         common_terms = {
@@ -327,10 +328,12 @@ class SchemaLinker:
                     if metric_table != dim.source_table:
                         # Check if there's a join path
                         joins = valid_joins.get(metric_table, set())
-                        if dim.source_table not in joins and dim.source_table not in result.linked_tables:
-                            # Add as potential join (will be validated later)
-                            if dim.source_table not in result.linked_joins:
-                                result.linked_joins.append(dim.source_table)
+                        if (
+                            dim.source_table not in joins
+                            and dim.source_table not in result.linked_tables
+                            and dim.source_table not in result.linked_joins
+                        ):
+                            result.linked_joins.append(dim.source_table)
 
     def _add_table_link(
         self,
