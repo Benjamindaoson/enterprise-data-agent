@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from eiw.agent.provider import ModelProvider, DeterministicProvider, ProviderConfig
 from eiw.agent.planner import AnalysisPlan, AnalysisStep, StepStatus, ToolType
+from eiw.agent.executor import ExecutorRegistry, StepContext
 from eiw.observability.otel import trace_span
 from eiw.observability.logging import get_structured_logger
 
@@ -292,6 +293,7 @@ class Supervisor:
         provider: ModelProvider | None = None,
         max_retries: int = 3,
         max_budget_ms: int = 60000,
+        executor_registry: ExecutorRegistry | None = None,
     ):
         """Initialize supervisor.
 
@@ -304,11 +306,12 @@ class Supervisor:
         self._max_retries = max_retries
         self._max_budget_ms = max_budget_ms
         self._task: AnalysisTask | None = None
-        self._tool_registry: dict[ToolType, Callable] = {}
+        self._tool_registry: dict[ToolType | str, Callable] = {}
+        self._executor_registry = executor_registry
         self._execution_count = 0
         self._start_time: datetime | None = None
 
-    def register_tool(self, tool_type: ToolType, handler: Callable) -> None:
+    def register_tool(self, tool_type: ToolType | str, handler: Callable) -> None:
         """Register a tool handler.
 
         Args:
@@ -353,31 +356,31 @@ class Supervisor:
                     break
 
                 # Make decision
-                decision = await self._decide(
+                decision, reason = await self._decide(
                     plan=plan,
                     step=next_step,
                 )
 
                 logger.info(
-                    f"Supervisor decision: {decision.decision.value}",
-                    extra={"step_id": next_step.step_id, "reason": decision.reason}
+                    f"Supervisor decision: {decision.value}",
+                    extra={"step_id": next_step.step_id, "reason": reason}
                 )
 
                 # Execute decision
-                if decision.decision == SupervisorDecision.EXECUTE_STEP:
-                    result = await self._execute_step(plan, next_step)
-                    if not result.success:
+                if decision == SupervisorDecision.EXECUTE_STEP:
+                    success, _error = await self._execute_step(plan, next_step)
+                    if not success:
                         # Check if should retry
                         if self._task.retry_count < self._max_retries:
                             decision = SupervisorDecision.RETRY
                         else:
                             decision = SupervisorDecision.STOP_FAILED
 
-                elif decision.decision == SupervisorDecision.SYNTHESIZE:
+                elif decision == SupervisorDecision.SYNTHESIZE:
                     await self._synthesize_claims()
                     break
 
-                elif decision.decision in (SupervisorDecision.STOP_FAILED, SupervisorDecision.COMPLETE_PARTIAL):
+                elif decision in (SupervisorDecision.STOP_FAILED, SupervisorDecision.COMPLETE_PARTIAL):
                     self._task.status = TaskStatus.PARTIAL if decision == SupervisorDecision.COMPLETE_PARTIAL else TaskStatus.FAILED
                     break
 
@@ -436,6 +439,12 @@ Respond with JSON: {{"decision": "...", "reason": "..."}}"""
         # Default: execute step
         return SupervisorDecision.EXECUTE_STEP, "Proceeding with next step"
 
+    def _select_executor(self, tool_type: ToolType | str):
+        """Return the specialized executor for a tool when compatibility executors are configured."""
+        if self._executor_registry is None:
+            return None
+        return self._executor_registry.get_executor_for_tool(tool_type)
+
     async def _execute_step(
         self,
         plan: AnalysisPlan,
@@ -451,9 +460,60 @@ Respond with JSON: {{"decision": "...", "reason": "..."}}"""
             Tuple of (success, error_message)
         """
         tool_type = step.tool
-        handler = self._tool_registry.get(tool_type)
+        handler = self._tool_registry.get(tool_type) or self._tool_registry.get(tool_type.value)
 
         if not handler:
+            executor = self._select_executor(tool_type)
+            if executor is not None:
+                context = StepContext(
+                    task_id=self._task.task_id,
+                    plan_id=plan.plan_id,
+                    step_id=step.step_id,
+                    intent=self._task.intent or {},
+                    hypotheses=self._task.hypotheses,
+                    previous_observations=self._task.observations,
+                    remaining_budget_ms=plan.remaining_budget_ms(self._task.elapsed_ms),
+                    step_budget_ms=step.budget_estimate_ms,
+                    domain=self._task.domain,
+                )
+                executor_result = await executor.execute(
+                    context=context,
+                    tool_type=tool_type,
+                    inputs=step.required_inputs,
+                )
+                if executor_result.success:
+                    observation = Observation(
+                        observation_id=executor_result.observation_id
+                        or f"obs_{len(self._task.observations)}",
+                        tool_execution_id=f"executor_{self._execution_count}",
+                        content=str(executor_result.data)[:500],
+                        data=executor_result.data,
+                    )
+                    self._execution_count += 1
+                    self._task.observations.append(observation.to_dict())
+                    self._task.tool_executions.append(
+                        {
+                            "execution_id": observation.tool_execution_id,
+                            "tool_name": tool_type.value,
+                            "status": executor_result.status,
+                            "duration_ms": executor_result.duration_ms,
+                            "executor_category": (
+                                executor_result.executor_category.value
+                                if executor_result.executor_category
+                                else None
+                            ),
+                        }
+                    )
+                    plan.mark_step_complete(step.step_id)
+                    self._task.completed_steps.append(step.step_id)
+                    await self._update_hypotheses(observation)
+                    return True, ""
+
+                plan.mark_step_failed(step.step_id)
+                self._task.failed_steps.append(step.step_id)
+                self._task.retry_count += 1
+                return False, executor_result.error or "executor failed"
+
             logger.warning(f"No handler for tool {tool_type}")
             plan.mark_step_failed(step.step_id)
             return False, f"No handler for tool {tool_type}"
@@ -604,6 +664,7 @@ def create_supervisor(
     provider: ModelProvider | None = None,
     max_retries: int = 3,
     max_budget_ms: int = 60000,
+    executor_registry: ExecutorRegistry | None = None,
 ) -> Supervisor:
     """Create a supervisor.
 
@@ -619,4 +680,5 @@ def create_supervisor(
         provider=provider,
         max_retries=max_retries,
         max_budget_ms=max_budget_ms,
+        executor_registry=executor_registry,
     )
