@@ -127,6 +127,8 @@ class SchemaContext:
     tables: dict[str, TableInfo] = field(default_factory=dict)
     joins: list[JoinInfo] = field(default_factory=list)
     domain: str = ""
+    metric_expressions: dict[str, str] = field(default_factory=dict)
+    dimension_columns: dict[str, str] = field(default_factory=dict)
     retrieval_trace: dict[str, Any] = field(default_factory=dict)
 
     def get_table(self, name: str) -> TableInfo | None:
