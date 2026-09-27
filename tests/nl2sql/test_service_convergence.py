@@ -90,7 +90,9 @@ def test_service_executes_semantic_plan_end_to_end() -> None:
         )
     )
 
-    assert result.final_status == ExecutionStatus.VALID
+    assert result.final_status == ExecutionStatus.VALID, (
+        result.validation.details if result.validation is not None else result
+    )
     assert result.success is True
     assert result.generated_sql is not None
     assert "SUM(amount) AS net_sales" in result.generated_sql.sql
