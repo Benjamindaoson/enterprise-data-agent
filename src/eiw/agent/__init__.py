@@ -81,6 +81,16 @@ from eiw.agent.governance import (
     GovernanceConfig,
 )
 
+from eiw.agent.executor import (
+    BaseExecutor,
+    Executor,
+    ExecutorCategory,
+    ExecutorRegistry,
+    ExecutorResult,
+    StepContext,
+    create_default_executor_registry,
+)
+
 from eiw.agent.runtime import (
     AgentRuntime,
     AgentResult,
@@ -148,6 +158,14 @@ __all__ = [
     "create_demo_session",
     "create_governance_config",
     "GovernanceConfig",
+    # Executor compatibility API
+    "BaseExecutor",
+    "Executor",
+    "ExecutorCategory",
+    "ExecutorRegistry",
+    "ExecutorResult",
+    "StepContext",
+    "create_default_executor_registry",
     # Runtime
     "AgentRuntime",
     "AgentResult",

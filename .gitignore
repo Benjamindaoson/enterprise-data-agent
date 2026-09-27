@@ -25,3 +25,7 @@ frontend/dist/
 
 # Python egg info
 *.egg-info/
+
+# Root build artifacts
+/build/
+/dist/

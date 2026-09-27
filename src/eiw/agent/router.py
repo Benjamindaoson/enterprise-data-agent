@@ -564,3 +564,74 @@ class ToolRouter:
         }
 
         return tool.cost_weight * complexity_multiplier.get(complexity, 1.0)
+
+
+# =============================================================================
+# Legacy provider-routing compatibility
+# =============================================================================
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderSelection:
+    """Compatibility view over the canonical production model router.
+
+    Historical callers expected route_task to return provider and reason
+    fields. Keep that contract while delegating actual tier/model selection
+    to eiw.production.routing.ModelRouter.
+    """
+
+    provider: str
+    reason: str
+    tier: str
+    model: str
+
+
+def route_task(tool_type: Any) -> ProviderSelection:
+    """Route a tool step through the canonical budget-aware model router.
+
+    This is a compatibility adapter, not a second routing implementation.
+    New runtime code should use ModelRouter directly.
+    """
+
+    from eiw.production.routing import ModelRouter, ModelTier
+
+    value = tool_type.value if hasattr(tool_type, "value") else str(tool_type)
+    reasoning_tools = {
+        "nl2sql_query",
+        "contribution_analysis",
+        "pvm_analysis",
+        "variance_analysis",
+        "anomaly_analysis",
+        "python_analysis",
+    }
+    standard_tools = {
+        "trend_analysis",
+        "period_compare",
+        "drilldown_analysis",
+        "report_generate",
+    }
+
+    if value in reasoning_tools:
+        complexity = 0.85
+    elif value in standard_tools:
+        complexity = 0.55
+    else:
+        complexity = 0.20
+
+    route = ModelRouter().route(
+        complexity=complexity,
+        risk=0.0,
+        remaining_tokens=4096,
+        verification=False,
+    )
+    reasons = {
+        ModelTier.FAST: "simple_task_deterministic",
+        ModelTier.STANDARD: "medium_task_sonnet",
+        ModelTier.REASONING: "reasoning_task_anthropic",
+    }
+    return ProviderSelection(
+        provider=route.model,
+        reason=reasons[route.tier],
+        tier=route.tier.value,
+        model=route.model,
+    )
