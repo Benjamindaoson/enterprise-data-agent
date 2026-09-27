@@ -97,13 +97,17 @@ class SchemaRetriever:
 
             for metric_id in selected_metrics:
                 try:
-                    self._add_metric_table(package.metric(metric_id), schema)
+                    metric = package.metric(metric_id)
+                    self._add_metric_table(metric, schema)
+                    schema.metric_expressions[metric.id] = metric.formula.expression
                 except KeyError:
                     logger.warning(f"Unknown metric: {metric_id}")
 
             for dimension_id in selected_dimensions:
                 try:
-                    self._add_dimension_table(package.dimension(dimension_id), schema)
+                    dimension = package.dimension(dimension_id)
+                    self._add_dimension_table(dimension, schema)
+                    schema.dimension_columns[dimension.id] = dimension.source_column
                 except KeyError:
                     logger.warning(f"Unknown dimension: {dimension_id}")
 
