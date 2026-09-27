@@ -218,7 +218,6 @@ class HeuristicReranker:
 
         reranked: list[RetrievalHit] = []
         for hit in candidates:
-            text_lower = hit.candidate.text.lower()
             candidate_tokens = set(_tokens(hit.candidate.text))
             overlap = len(query_tokens & candidate_tokens) / max(len(query_tokens), 1)
             phrase_bonus = 0.0
