@@ -37,6 +37,7 @@ class SQLValidationErrorCategory(str, Enum):
     SECURITY_POLICY = "security_policy"
     INVALID_COLUMN_REFERENCE = "invalid_column_reference"
     INVALID_METRIC_FORMULA = "invalid_metric_formula"
+    EXECUTION_ERROR = "execution_error"
 
 
 # =============================================================================
@@ -126,6 +127,9 @@ class SchemaContext:
     tables: dict[str, TableInfo] = field(default_factory=dict)
     joins: list[JoinInfo] = field(default_factory=list)
     domain: str = ""
+    metric_expressions: dict[str, str] = field(default_factory=dict)
+    dimension_columns: dict[str, str] = field(default_factory=dict)
+    retrieval_trace: dict[str, Any] = field(default_factory=dict)
 
     def get_table(self, name: str) -> TableInfo | None:
         """Get table by name."""
@@ -227,7 +231,10 @@ class ExecutionResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     success: bool = Field(description="Whether execution succeeded")
-    rows: list[dict[str, Any]] = Field(default_factory=list, description="Result rows")
+    rows: list[Any] = Field(
+        default_factory=list,
+        description="Result rows as DB-API tuples/lists or mapping rows",
+    )
     row_count: int = Field(default=0, description="Number of rows")
     columns: list[str] = Field(default_factory=list, description="Column names")
     column_types: dict[str, str] = Field(default_factory=dict, description="Column types")

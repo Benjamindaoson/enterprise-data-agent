@@ -126,10 +126,7 @@ class QueryPlanner:
         Returns:
             Empty logical plan
         """
-        return LogicalQueryPlan(
-            purpose="unknown",
-            question=question,
-        )
+        return LogicalQueryPlan(purpose="unknown")
 
     def _determine_purpose(self, question: str) -> str:
         """Determine the purpose of the query.
