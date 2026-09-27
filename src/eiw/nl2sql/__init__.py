@@ -36,11 +36,27 @@ from eiw.nl2sql.contracts import (
     ExecutorProvider,
 )
 
+# Retrieval
+from eiw.nl2sql.retrieval import (
+    DeterministicDenseRetriever,
+    HeuristicReranker,
+    HybridRetrievalService,
+    InMemoryBM25Retriever,
+    RetrievalCandidate,
+    RetrievalHit,
+    reciprocal_rank_fusion,
+)
+
 # Schema retrieval
 from eiw.nl2sql.schema_retriever import SchemaRetriever
 
 # Schema linking
-from eiw.nl2sql.schema_linker import SchemaLinker, SchemaLinkingResult
+from eiw.nl2sql.schema_linker import (
+    BusinessConcept,
+    SchemaLink,
+    SchemaLinker,
+    SchemaLinkingResult,
+)
 
 # Example retrieval
 from eiw.nl2sql.example_retriever import ExampleRetriever, SQLExample
@@ -122,6 +138,14 @@ __all__ = [
     "NL2SQLResult",
     "SQLGeneratorProvider",
     "ExecutorProvider",
+    # Retrieval
+    "RetrievalCandidate",
+    "RetrievalHit",
+    "InMemoryBM25Retriever",
+    "DeterministicDenseRetriever",
+    "HeuristicReranker",
+    "HybridRetrievalService",
+    "reciprocal_rank_fusion",
     # Schema retrieval
     "SchemaRetriever",
     # Schema linking
