@@ -34,7 +34,11 @@ class RetailSemanticEngine:
         self._append_if(metrics, "units", any(t in question for t in ("unit", "volume", "销量", "件数")))
         self._append_if(metrics, "baskets", any(t in question for t in ("basket", "transaction", "购物篮", "交易数")))
         self._append_if(metrics, "average_basket_value", any(t in question for t in ("basket value", "客单", "客单价")))
-        self._append_if(metrics, "discount_amount", any(t in question for t in ("discount", "coupon", "折扣", "优惠券", "促销")))
+        self._append_if(
+            metrics,
+            "discount_amount",
+            any(t in question for t in ("discount", "coupon", "promotion", "promo", "折扣", "优惠券", "促销")),
+        )
 
         self._append_if(dimensions, "store", any(t in question for t in ("store", "region", "门店", "区域")))
         self._append_if(dimensions, "product", any(t in question for t in ("product", "sku", "商品", "单品")))
@@ -49,12 +53,16 @@ class RetailSemanticEngine:
         self._append_if(intents, "recommend", any(t in question for t in ("recommend", "action", "怎么办", "建议", "下一步")))
         self._append_if(intents, "report", any(t in question for t in ("report", "summary", "报告", "汇报", "总结")))
 
-        if not metrics:
-            metrics = ["sales_value", "units", "baskets", "average_basket_value"]
-        if not dimensions:
-            dimensions = ["store", "commodity", "week"]
         if not intents:
             intents = ["diagnose", "recommend"]
+        if not metrics:
+            metrics = ["sales_value", "units", "baskets", "average_basket_value"]
+        if any(intent in intents for intent in ("diagnose", "discover", "report")):
+            for dimension in ("store", "commodity"):
+                if dimension not in dimensions:
+                    dimensions.append(dimension)
+        if not dimensions:
+            dimensions = ["store", "commodity", "week"]
 
         metrics = [metric for metric in metrics if metric in self._metric_ids]
         dimensions = [dimension for dimension in dimensions if dimension in self._dimension_ids]
