@@ -106,6 +106,7 @@ jobs:
             artifacts/ba-demo/ba-agent-real-data.png
             artifacts/ba-demo/ba-agent-real-data.webm
             artifacts/ba-demo/ba-agent-executive-report.html
+            artifacts/ba-demo/ba-agent-executive-report.pdf
             artifacts/ba-demo/ba-agent-trace.zip
             artifacts/ba-demo/demo-proof.txt
             artifacts/ba-demo/ba-api.log
