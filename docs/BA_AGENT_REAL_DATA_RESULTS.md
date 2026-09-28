@@ -159,6 +159,14 @@ The captured UI reports the exact dataset provenance
 `complete-journey:retail · 1,469,307 transactions · CC0 · 5b5d061`.
 The generated PDF was rendered in CI from the same analytical response.
 
+## Development adversarial gate
+
+The development partition contains **168 cases / 14 categories** and is the
+place where guard/runtime behavior may be iterated. The verified core CI run
+passed **164 / 168 (97.62%)** cases. Security resistance and malformed-model
+fallback recovery were both **1.000**. The four misses are retained in the
+missing-data family rather than rewritten after the result.
+
 ## Adversarial frozen holdout
 
 The 9.5 hardening pass adds `RetailAdversarialBench-v1` with 210 total cases across 14 failure families. The development partition contains 168 deterministic cases; a separate **42-case frozen holdout** is stored as checksum-pinned JSONL and is not intended for tuning.
@@ -188,7 +196,7 @@ The 1.000 result is reported only as an internal contract/robustness result. It 
 - Report Completeness = 1.00
 - Action Coverage = 1.00
 
-Both deterministic CI and the public real-data workflow execute the gate. The core workflow also gates all 210 adversarial cases, while the real-data workflow gates the frozen 42-case holdout.
+Both deterministic CI and the public real-data workflow execute the gate. The core workflow requires the 168-case development partition to clear its release threshold and the immutable 42-case frozen partition to clear its own threshold; the real-data workflow independently gates the frozen 42-case holdout.
 
 ## Claim discipline
 

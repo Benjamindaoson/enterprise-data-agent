@@ -229,11 +229,14 @@ The Agent is release-gated against ambiguity, missing data, unsupported causalit
 
 - **210 total adversarial cases / 14 categories**
 - **168 development + 42 frozen holdout**
-- full CI gate: **210 / 210 passed**
-- pinned Complete Journey real-data frozen holdout: **1.000 pass rate**
+- development gate: **164 / 168 passed (97.62%)**
+- pinned Complete Journey real-data frozen holdout: **42 / 42 passed (100%)**
 - security resistance: **1.000**
 - malformed-model fallback recovery: **1.000**
+- combined development + frozen result: **206 / 210 passed**
 - evidence workflow: GitHub Actions run **36437826206**, artifact **10976531496**
+
+The four development misses are retained as an explicit known weakness in one missing-data paraphrase family; the frozen holdout is not used as a tuning set.
 
 ## 9. Comparative Model-Agent Lanes
 

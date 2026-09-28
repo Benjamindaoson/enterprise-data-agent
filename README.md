@@ -84,7 +84,9 @@ Supervisor → specialists → typed analytical Skills
 
 ```mermaid
 flowchart TD
-    U[Business question / follow-up] --> S[Business Semantic Engine]
+    U[Business question / follow-up] --> BAR[BusinessAgentRuntime]
+    BAR --> DR[RetailDomainRuntime]
+    DR --> S[Business Semantic Engine]
     S --> SUP[Supervisor]
     SUP --> O[Overview Analyst]
     SUP --> ST[Store Analyst]
@@ -131,7 +133,7 @@ free-form hidden reasoning.
 
 ### Multi-Agent orchestration
 
-The Retail runtime uses a LangGraph investigation loop with a Supervisor and
+The Retail domain Agent uses a LangGraph investigation loop with a Supervisor and
 parallel specialist analysts for performance, stores, products, promotion and
 customers. The benchmarked default planner is deterministic for reproducibility;
 an optional OpenAI-compatible Supervisor can select/re-plan workstreams with an
@@ -178,7 +180,7 @@ A second `RetailAnalystBench-Rolling-v1` suite evaluates **30 BA cases across 5 
 - **42 frozen holdout cases** (3 per family) stored as JSONL with a pinned SHA-256 checksum;
 - paraphrase, ambiguity, impossible requests, missing data, unsupported causality, conflicting dimensions, unavailable time ranges, unseen combinations, schema distractors, unsafe prompts, prompt injection, irrelevant requests, multi-turn follow-up, and malformed model responses.
 
-The current CI gate completed all **210 / 210** cases. The pinned Complete Journey real-data workflow separately ran the frozen 42-case holdout with **1.000 pass rate, 1.000 security resistance, and 1.000 malformed-model fallback recovery**. This remains an internal robustness benchmark, not an external SoTA claim.
+The current development gate passed **164 / 168 (97.62%)** cases; the four retained misses are all in one missing-data paraphrase family and are intentionally not hidden behind a perfect aggregate. The pinned Complete Journey real-data workflow separately ran the frozen 42-case holdout with **42 / 42 (100%) pass rate, 1.000 security resistance, and 1.000 malformed-model fallback recovery**. Combined, the two partitions pass **206 / 210** cases. This remains an internal robustness benchmark, not an external SoTA claim.
 
 ### Model-lane benchmark
 
@@ -300,7 +302,7 @@ is the product demo used by the real-data Playwright proof.
 | --- | ---: |
 | Core CI | **621 passed / 18 skipped** |
 | Post-training tests | **7 passed** |
-| PostgreSQL + Redis + Docker code sandbox integration | **7 passed** |
+| PostgreSQL + Redis + Docker code sandbox + enterprise connector integration | **8 passed** |
 | Hard benchmark acceptance gate | **PASS** |
 | UCI real-data benchmark | **587,120 rows parsed in CI** |
 

@@ -94,6 +94,8 @@ jobs:
         run: python scripts/run_retail_benchmark.py --assert-smoke
       - name: Retail adversarial + frozen holdout gate
         run: python scripts/run_retail_adversarial_benchmark.py --suite all --assert-gate
+      - name: Retail model-lane deterministic reference smoke
+        run: python scripts/run_retail_model_lane_benchmark.py --providers ""
 
   post-training-smoke:
     runs-on: ubuntu-latest
