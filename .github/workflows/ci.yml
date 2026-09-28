@@ -49,6 +49,7 @@ jobs:
           tests/unit/test_retail_data.py
           tests/unit/test_retail_runtime.py
           tests/unit/test_retail_benchmark.py
+          tests/unit/test_retail_charts.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
@@ -60,6 +61,7 @@ jobs:
           scripts/check_hard_benchmark_acceptance.py
           scripts/run_retail_benchmark.py
           scripts/prepare_complete_journey.py
+          scripts/benchmark_retail_scale.py
       - name: Tests
         run: >
           python -m pytest -q
