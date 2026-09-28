@@ -767,6 +767,108 @@ class RetailDataEngine:
             params,
         )
 
+    def focus_diagnostic(
+        self,
+        focus: dict[str, str],
+        current: list[int],
+        previous: list[int],
+        *,
+        limit: int = 12,
+    ) -> dict[str, Any]:
+        """Drill one selected entity into its most useful next dimension."""
+
+        focus_dimension = ""
+        focus_value = ""
+        breakdown_dimension = ""
+        join = "JOIN retail_products p ON p.product_id = t.product_id"
+        predicate = ""
+        select_dimension = ""
+        cast_value: Any = None
+
+        if focus.get("store"):
+            focus_dimension = "store"
+            focus_value = str(focus["store"])
+            breakdown_dimension = "commodity"
+            predicate = "t.store_id = ?"
+            select_dimension = "p.commodity"
+            cast_value = int(focus_value)
+        elif focus.get("commodity"):
+            focus_dimension = "commodity"
+            focus_value = str(focus["commodity"])
+            breakdown_dimension = "store"
+            predicate = "p.commodity = ?"
+            select_dimension = "CAST(t.store_id AS VARCHAR)"
+            cast_value = focus_value
+        elif focus.get("product"):
+            focus_dimension = "product"
+            focus_value = str(focus["product"])
+            breakdown_dimension = "store"
+            predicate = "t.product_id = ?"
+            select_dimension = "CAST(t.store_id AS VARCHAR)"
+            cast_value = int(focus_value)
+        else:
+            return {
+                "focus": dict(focus),
+                "focus_dimension": None,
+                "focus_value": None,
+                "breakdown_dimension": None,
+                "rows": [],
+            }
+
+        current_marks, current_params = self._in_clause(current)
+        previous_marks, previous_params = self._in_clause(previous)
+        rows = self._query(
+            f"""
+            WITH current_period AS (
+                SELECT
+                    {select_dimension} AS segment,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units,
+                    COUNT(DISTINCT t.basket_id) AS baskets
+                FROM retail_transactions t
+                {join}
+                WHERE t.week_no IN ({current_marks})
+                  AND {predicate}
+                GROUP BY 1
+            ),
+            previous_period AS (
+                SELECT
+                    {select_dimension} AS segment,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units,
+                    COUNT(DISTINCT t.basket_id) AS baskets
+                FROM retail_transactions t
+                {join}
+                WHERE t.week_no IN ({previous_marks})
+                  AND {predicate}
+                GROUP BY 1
+            )
+            SELECT
+                COALESCE(current_period.segment, previous_period.segment) AS segment,
+                COALESCE(current_period.sales, 0) AS current_sales,
+                COALESCE(previous_period.sales, 0) AS previous_sales,
+                COALESCE(current_period.sales, 0) - COALESCE(previous_period.sales, 0) AS delta,
+                COALESCE(current_period.units, 0) AS current_units,
+                COALESCE(previous_period.units, 0) AS previous_units,
+                COALESCE(current_period.baskets, 0) AS current_baskets
+            FROM current_period
+            FULL OUTER JOIN previous_period USING(segment)
+            ORDER BY ABS(delta) DESC
+            LIMIT {int(limit)}
+            """,
+            [*current_params, cast_value, *previous_params, cast_value],
+        )
+        total_abs = sum(abs(float(row.get("delta") or 0.0)) for row in rows) or 1.0
+        for row in rows:
+            row["share_of_absolute_change"] = abs(float(row.get("delta") or 0.0)) / total_abs
+        return {
+            "focus": dict(focus),
+            "focus_dimension": focus_dimension,
+            "focus_value": focus_value,
+            "breakdown_dimension": breakdown_dimension,
+            "rows": rows,
+        }
+
     def demographic_contribution(
         self,
         dimension: str,
