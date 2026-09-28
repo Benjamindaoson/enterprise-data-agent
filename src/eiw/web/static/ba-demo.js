@@ -2,8 +2,30 @@ const $ = (q) => document.querySelector(q);
 const activity = $("#activity"), charts = $("#charts"), insightList = $("#insightList");
 const runBtn = $("#runBtn"), question = $("#question"), report = $("#report");
 let clock = null, startedAt = 0, currentResult = null;
+const WORKSTREAMS=["overview","store","product","promotion","customer"];
 
+function setWorkstreamState(name,state,message=""){
+  const node=document.querySelector(`[data-workstream="${CSS.escape(name)}"]`);
+  if(!node) return;
+  node.classList.remove("running","done","failed");
+  if(state!=="idle" && state!=="ready") node.classList.add(state);
+  const badge=node.querySelector("em");
+  if(badge) badge.textContent=state;
+  if(message){
+    const small=node.querySelector("small");
+    if(small) small.title=message;
+  }
+}
+function resetWorkstreams(){
+  setWorkstreamState("supervisor","ready");
+  WORKSTREAMS.forEach(name=>setWorkstreamState(name,"idle"));
+}
 function addEvent(evt){
+  if(evt.event_type==="plan_ready" || evt.event_type==="replan_started") setWorkstreamState("supervisor","running",evt.message);
+  if(evt.event_type==="replan_ready" || evt.event_type==="replan_skipped" || evt.event_type==="report_ready") setWorkstreamState("supervisor","done",evt.message);
+  if(evt.event_type==="workstream_started" && evt.workstream) setWorkstreamState(evt.workstream,"running",evt.message);
+  if(evt.event_type==="workstream_completed" && evt.workstream) setWorkstreamState(evt.workstream,"done",evt.message);
+  if(evt.event_type==="workstream_failed" && evt.workstream) setWorkstreamState(evt.workstream,"failed",evt.message);
   const el=document.createElement("div"); el.className="event active";
   const timing=evt.elapsed_ms==null?"":` · ${(evt.elapsed_ms/1000).toFixed(2)}s`;
   el.innerHTML=`<b>${escapeHtml(evt.message)}</b><small>${escapeHtml(evt.workstream || evt.event_type)}${timing}</small>`;
@@ -89,7 +111,7 @@ async function loadStatus(){
     `${j.dataset.label} · ${Number(j.dataset.counts.retail_transactions).toLocaleString()} transactions${provenance}`;
 }
 async function run(){
-  runBtn.disabled=true; currentResult=null; activity.innerHTML=""; charts.innerHTML=""; insightList.innerHTML=""; report.classList.add("hidden"); $("#kpis").innerHTML="";
+  runBtn.disabled=true; runBtn.textContent="自主分析中…"; currentResult=null; activity.innerHTML=""; charts.innerHTML=""; insightList.innerHTML=""; report.classList.add("hidden"); $("#kpis").innerHTML=""; resetWorkstreams();
   $("#hero").className="hero-card"; $("#hero").innerHTML="<p>Investigation running</p><h2>多个分析工作流正在并行扫描经营数据…</h2>";
   startedAt=performance.now(); clock=setInterval(()=>{$("#elapsed").textContent=((performance.now()-startedAt)/1000).toFixed(1)+"s"},100);
   try{
@@ -110,6 +132,20 @@ async function run(){
         if(msg.kind==="result") renderResult(msg.payload);
       }
     }
-  }catch(err){addEvent({message:"分析失败："+err,event_type:"error"});}finally{clearInterval(clock);runBtn.disabled=false;}
+  }catch(err){
+    addEvent({message:"分析失败："+err,event_type:"error"});
+    setWorkstreamState("supervisor","failed",String(err));
+  }finally{
+    clearInterval(clock);runBtn.disabled=false;runBtn.textContent="开始自主分析";
+  }
 }
+document.querySelectorAll(".prompt-presets button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    question.value=btn.dataset.prompt||"";
+    document.querySelectorAll(".prompt-presets button").forEach(x=>x.classList.remove("active"));
+    btn.classList.add("active");
+    question.focus();
+  });
+});
+resetWorkstreams();
 runBtn.onclick=run; loadStatus().catch(()=>{$("#datasetStatus").textContent="Demo dataset"});
