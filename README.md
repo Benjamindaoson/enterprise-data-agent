@@ -47,7 +47,26 @@ EIW_RETAIL_DATA_DIR=$PWD/data/retail make dev
 
 The pinned real-data baseline currently contains **1,469,307 transaction lines**, **20,940,529 promotion states**, **92,331 products**, **801 demographic households**, **6,589 campaign memberships**, **116,204 coupon records**, and **2,102 coupon redemptions**. Source commit, source/Parquet SHA-256 hashes, row counts and column manifests are recorded by the ingestion pipeline.
 
-The upstream bootstrap branch pins DeepAnalyze, Microsoft Data Formulator and WrenAI as temporary acceleration components under `third_party/`. First-party contracts live under `src/eiw/retail/`; upstream implementations are replaced one capability at a time behind those contracts only after benchmark parity is established.
+The current Retail Intelligence product path is first-party. DeepAnalyze, Microsoft Data Formulator and WrenAI were evaluated during bootstrap, but their source trees have been removed after first-party replacements passed the project benchmark and integration gates. An externally operated DeepAnalyze API remains an optional compatibility fallback only.
+
+### Multi-Agent orchestration
+
+The Retail runtime uses a LangGraph investigation loop with a Supervisor and
+parallel specialist analysts for performance, stores, products, promotion and
+customers. The benchmarked default planner is deterministic for reproducibility;
+an optional OpenAI-compatible Supervisor can select/re-plan workstreams with an
+allowlisted JSON contract and automatic deterministic fallback. Interactive
+follow-ups preserve the parent analysis window and carry an explicit focus
+(e.g. store -> commodity or commodity -> store) rather than restarting from
+chat history.
+
+### First-party AI Coding
+
+Open-ended analytical code is generated through a provider-neutral
+OpenAI-compatible adapter and executed in a repository-owned ephemeral Docker
+sandbox with network disabled, read-only root filesystem, dropped capabilities,
+`no-new-privileges`, and CPU/memory/PID limits. The production-integration CI
+runs the real Docker sandbox, not a mock.
 
 ### Measured Retail BA baseline
 
