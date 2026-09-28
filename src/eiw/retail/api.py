@@ -31,12 +31,7 @@ from eiw.retail.models import (
 )
 from eiw.retail.runtime import RetailBARuntime
 from eiw.retail.supervisor import OpenAICompatibleSupervisor
-from eiw.retail.upstream import (
-    DataFormulatorBridge,
-    DeepAnalyzeWorker,
-    WrenCliAdapter,
-    upstream_manifest,
-)
+from eiw.retail.upstream import DeepAnalyzeWorker
 
 
 def _build_runtime() -> RetailBARuntime:
@@ -107,34 +102,42 @@ def create_retail_router() -> APIRouter:
             "mode": "real-data" if not runtime.data.label.startswith("retail-demo") else "deterministic-demo",
         }
 
+    @router.get("/capabilities")
     @router.get("/upstreams")
-    def upstreams() -> dict[str, object]:
-        repo_root = Path(__file__).resolve().parents[3]
-        manifest = upstream_manifest(repo_root)
-        df = DataFormulatorBridge(repo_root / "third_party" / "data-formulator")
+    def capabilities() -> dict[str, object]:
         deep_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
         deep = DeepAnalyzeWorker(base_url=deep_url) if deep_url else None
         code_url = os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip()
+        supervisor_url = os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip()
         sandbox = DockerCodeSandbox()
-        wren = WrenCliAdapter()
         return {
-            "checked_out": manifest,
-            "data_formulator": df.manifest(),
+            "runtime": "first-party",
+            "business_semantic_engine": "first-party",
+            "multi_agent_supervisor": {
+                "mode": "model" if supervisor_url else "deterministic",
+                "model_base_url": supervisor_url or None,
+                "fallback": "deterministic",
+            },
+            "analytical_skills": "first-party",
+            "insight_mining": "first-party",
+            "visualization_and_reporting": "first-party",
             "first_party_code_worker": {
                 "configured": bool(code_url),
                 "docker_available": sandbox.available(),
                 "model_base_url": code_url or None,
-                "model": os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3") if code_url else None,
+                "model": (
+                    os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3")
+                    if code_url
+                    else None
+                ),
             },
-            "deepanalyze": {
-                "configured": bool(deep_url),
-                "healthy": deep.health() if deep else False,
-                "base_url": deep_url or None,
-                "role": "bootstrap fallback",
-            },
-            "wren": {
-                "cli_available": wren.available(),
-                "integration_mode": "isolated-cli-or-sidecar",
+            "external_compatibility": {
+                "deepanalyze": {
+                    "configured": bool(deep_url),
+                    "healthy": deep.health() if deep else False,
+                    "base_url": deep_url or None,
+                    "role": "optional external fallback",
+                }
             },
         }
 
