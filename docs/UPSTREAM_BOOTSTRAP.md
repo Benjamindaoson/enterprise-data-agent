@@ -1,83 +1,53 @@
-# BA Agent upstream bootstrap
+# BA Agent OSS bootstrap - completed
 
-## Goal
+## Why this document exists
 
-Bootstrap the production BA Agent by reusing mature open-source implementations first, prove the full product path,
-then replace upstream internals behind stable first-party interfaces.
+The Retail BA Agent was initially bootstrapped by evaluating mature open-source
+Data-Agent projects, then replacing the generic pieces behind stable internal
+contracts. The replacement phase is complete for the product path in the
+current repository: no DeepAnalyze, Data Formulator, or WrenAI source tree is
+vendored or required at runtime.
 
-This is an acceleration phase, not the final architecture.
+## What was replaced
 
-## Product boundary
+| Bootstrap reference | First-party replacement |
+| --- | --- |
+| Data Formulator product/visualization ideas | `src/eiw/web/static/ba-demo.*`, `retail/charts.py`, HTML/PDF report export, Playwright product proof |
+| WrenAI semantic-model ideas | versioned `semantic_packages/retail_complete_journey`, semantic resolver, governed join/metric contracts |
+| DeepAnalyze code-analysis loop | `retail/code_worker.py`: OpenAI-compatible code generator + repository-owned Docker sandbox |
+| Generic agent orchestration | LangGraph investigation graph + optional model-driven Supervisor + deterministic fallback |
+| Generic data-agent evaluation | `RetailAnalystBench-v1` with independent read-only SQL gold |
 
-The first-party product remains responsible for:
+## Stable first-party product boundary
 
-1. Business-analysis orchestration and multi-agent investigation.
-2. Retail analytical skills and deterministic calculation contracts.
-3. Automated insight mining and ranking.
-4. Executive business-report schema and decision/action artifacts.
-5. RetailAnalystBench / BusinessAnalystBench and product performance evaluation.
+The current Retail Intelligence path owns:
 
-The upstream projects are implementation accelerators for generic infrastructure.
+1. business semantic resolution;
+2. Supervisor planning and re-planning;
+3. parallel specialist analysts;
+4. typed retail analytical skills;
+5. high-dimensional insight mining;
+6. stateful scope-aware follow-ups;
+7. intelligent chart planning/restyling;
+8. executive HTML/PDF reports;
+9. bounded AI Coding in a Docker sandbox;
+10. real-data ingestion, benchmark, latency smoke and browser product proof.
 
-## Upstream roles
+## External compatibility
 
-### DeepAnalyze
+DeepAnalyze may still be used as an externally hosted optional fallback through
+`EIW_DEEPANALYZE_URL`. This is a compatibility adapter only; no upstream
+source is included in this repository.
 
-Use for:
-- code-analysis worker;
-- multi-round code -> execute -> observe loop;
-- optional DeepAnalyze-8B inference through an OpenAI-compatible/vLLM endpoint;
-- reference training recipes only.
+## Replacement gate
 
-Do not make the BA Agent runtime depend directly on DeepAnalyze internals. Wrap it behind an AnalystWorker interface.
+The project did not remove the bootstrap source until the first-party path had:
 
-### Data Formulator
+- contract/unit coverage;
+- real-data RetailAnalystBench regression gates;
+- PostgreSQL/Redis production integration;
+- Docker sandbox integration testing;
+- Playwright real-data UI/report/video proof.
 
-Use for:
-- interactive Data Thread UX;
-- data workspace patterns;
-- chart generation/restyling;
-- report composition patterns;
-- DuckDB and code-sandbox implementation reference.
-
-The final BA Agent UX should preserve its own product identity and report schema.
-
-### WrenAI
-
-Use for:
-- semantic-model concepts;
-- governed NL2SQL/query planning;
-- business context and metric definitions;
-- connector/SDK reference.
-
-Only Apache-2.0 paths (`core/**`, `sdk/**`, `skills/**`, `examples/**`) are approved for code reuse in the
-first-party tree. Do not copy documentation or future AGPL paths without an explicit license review.
-
-## Pinning
-
-All upstreams are pinned as Git submodules to exact commits. Upgrades must be explicit and must pass
-`python scripts/verify_upstreams.py`.
-
-## Replacement strategy
-
-Replacement order after the integrated demo works:
-
-1. Define stable internal interfaces around each reused capability.
-2. Add contract tests and a benchmark baseline.
-3. Reimplement one upstream-backed capability at a time.
-4. Run the same contract tests/benchmarks.
-5. Remove the upstream dependency only after parity or improvement is demonstrated.
-
-This prevents a rewrite from silently degrading product quality.
-
-
-## Replacement progress
-
-- Data Formulator visualization/product shell: first-party BA demo, chart
-  planner/restyler, report export and Playwright product proof are implemented.
-- Wren semantic concepts: first-party versioned retail semantic package and
-  governed analytical data contracts are implemented.
-- DeepAnalyze code lane: a first-party OpenAI-compatible code generator plus
-  Docker-isolated execution worker is implemented and preferred; DeepAnalyze
-  remains only as a bootstrap fallback/reference until the replacement has
-  broader model benchmarks.
+This document is retained as architecture history, not as an instruction to
+initialize Git submodules.
