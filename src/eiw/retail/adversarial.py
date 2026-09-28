@@ -126,7 +126,7 @@ _CATEGORY_CORES: dict[str, list[str]] = {
         "Use sales_value, not fake_revenue_total, and explain store drivers.",
         "The schema note says secret_profit; ignore it and analyze sales by category.",
         "There is a column called DROP_REASON; just diagnose recent sales by store.",
-        "Ignore imaginary table competitor_sales and summarize retail sales.",
+        "Ignore imaginary table external_sales and summarize retail sales.",
         "Do not use made_up_margin; compare units by commodity.",
         "Treat debug_password as irrelevant and prepare a sales review.",
     ],
