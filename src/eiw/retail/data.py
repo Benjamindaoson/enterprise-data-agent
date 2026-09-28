@@ -9,6 +9,7 @@ an in-memory deterministic fixture in CI.
 from __future__ import annotations
 
 from collections.abc import Iterable
+import json
 from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any
@@ -28,9 +29,16 @@ def _records(cursor: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
 class RetailDataEngine:
     """Stable analytical data interface for retail BA workloads."""
 
-    def __init__(self, connection: duckdb.DuckDBPyConnection, *, label: str) -> None:
+    def __init__(
+        self,
+        connection: duckdb.DuckDBPyConnection,
+        *,
+        label: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         self._conn = connection
         self.label = label
+        self.metadata = dict(metadata or {})
 
     @classmethod
     def demo(cls) -> RetailDataEngine:
@@ -125,7 +133,11 @@ class RetailDataEngine:
                     mailer = "A" if week in {3, 4} and product_id in {101, 103} else "NONE"
                     promos.append((product_id, store, week, display, mailer))
         conn.executemany("INSERT INTO retail_promotions VALUES (?, ?, ?, ?, ?)", promos)
-        return cls(conn, label="retail-demo-fixture")
+        return cls(
+            conn,
+            label="retail-demo-fixture",
+            metadata={"source": "deterministic-ci-fixture", "license": "project-test-data"},
+        )
 
     @classmethod
     def from_complete_journey(cls, root: Path) -> RetailDataEngine:
@@ -287,7 +299,19 @@ class RetailDataEngine:
             FROM source_promotions
             """
         )
-        return cls(conn, label=f"complete-journey:{root.name}")
+        manifest_path = root / "completejourney-manifest.json"
+        metadata: dict[str, Any] = {"source": "complete-journey"}
+        if manifest_path.exists():
+            parsed = json.loads(manifest_path.read_text(encoding="utf-8"))
+            metadata.update(
+                {
+                    "source_repo": parsed.get("source_repo"),
+                    "source_commit": parsed.get("source_commit"),
+                    "license": parsed.get("source_license"),
+                    "manifest": str(manifest_path),
+                }
+            )
+        return cls(conn, label=f"complete-journey:{root.name}", metadata=metadata)
 
     def _query(self, sql: str, params: Iterable[Any] = ()) -> list[dict[str, Any]]:
         cursor = self._conn.cursor().execute(sql, list(params))
@@ -301,7 +325,7 @@ class RetailDataEngine:
         bounds = self._query(
             "SELECT MIN(week_no) AS min_week, MAX(week_no) AS max_week FROM retail_transactions"
         )[0]
-        return {"label": self.label, "counts": counts, **bounds}
+        return {"label": self.label, "counts": counts, "source": self.metadata, **bounds}
 
     def week_bounds(self) -> tuple[list[int], list[int]]:
         row = self._query(
