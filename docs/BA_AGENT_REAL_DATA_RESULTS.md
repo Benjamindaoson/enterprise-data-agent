@@ -43,9 +43,9 @@ downloaded again.
 
 Measured workflow run:
 
-- GitHub Actions run: `36394245153`
-- source commit: `d5a427d7a11fba226a60333f2d12c2e466580a6c`
-- benchmark artifact: `10957970871`
+- GitHub Actions run: `36404293616`
+- source commit: `61dcfcc443f3f1e6b75d70aa9f618ff0f90558f1`
+- benchmark artifact: `10961870924`
 - gold method: **independent_readonly_sql**
 - cases: **10**
 
@@ -58,9 +58,9 @@ Aggregate result:
 | Numeric Accuracy | **1.000** |
 | Report Completeness | **1.000** |
 | Action Coverage | **1.000** |
-| Mean time to first insight | **376.43 ms** |
-| Mean end-to-end latency | **394.11 ms** |
-| End-to-end P95 | **435.07 ms** |
+| Mean time to first insight | **354.88 ms** |
+| Mean end-to-end latency | **371.83 ms** |
+| End-to-end P95 | **392.43 ms** |
 
 The ten cases cover:
 
@@ -88,15 +88,38 @@ The same workflow ran three end-to-end requests with concurrency=1:
 | --- | ---: |
 | Requests | 3 |
 | Concurrency | 1 |
-| Mean | **394.67 ms** |
-| Median | **392.90 ms** |
+| Mean | **388.66 ms** |
+| Median | **387.20 ms** |
 | P95 | **400.28 ms** |
-| Throughput | **2.53 requests/s** |
+| Throughput | **2.57 requests/s** |
 
 This is a small GitHub-hosted CI smoke measurement. It is useful as a
 regression baseline, not as a production throughput claim. Larger local/hosted
 runs should report machine configuration, request count and concurrency before
 being used in resume claims.
+
+## Harness ablation
+
+The same workflow also runs `RetailHarnessAblation-v1`. It reuses the exact
+same typed workstream outputs and changes only harness-level selection and
+execution behavior.
+
+| Ablation metric | Result |
+| --- | ---: |
+| Intrinsic-score Driver Recall@K | **0.900** |
+| Query-aware Driver Recall@K | **1.000** |
+| Gain | **+10.0 pp** |
+| Cases where re-plan added specialists | **8 / 10** |
+| Mean initial workstreams | **3.4** |
+| Mean final workstreams | **4.6** |
+| Sequential specialist wall time | **443.58 ms** |
+| Parallel specialist wall time | **341.70 ms** |
+| Parallel wall-clock speedup | **1.30×** |
+
+The purpose of this ablation is narrower than an external system comparison:
+it isolates the contribution of query-aware ranking, dynamic re-planning and
+parallel specialist execution while keeping the underlying analytical
+operators/data fixed.
 
 ## Browser product proof
 
@@ -111,7 +134,7 @@ with Playwright Chromium and executes the product end to end. Artifact
 - `ba-agent-executive-report.html`;
 - `ba-agent-executive-report.pdf`;
 - `demo-proof.txt`;
-- the benchmark/scale JSON and data manifest.
+- `retail-harness-ablation.json`;\n- the benchmark/scale JSON and data manifest.
 
 The captured UI reports the exact dataset provenance
 `complete-journey:retail · 1,469,307 transactions · CC0 · 5b5d061`.
