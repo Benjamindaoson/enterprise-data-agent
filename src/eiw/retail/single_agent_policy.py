@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from time import perf_counter
+
 import httpx
 from pydantic import BaseModel, Field
 
