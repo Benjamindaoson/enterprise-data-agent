@@ -12,9 +12,9 @@ import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-import httpx
 from pydantic import BaseModel, Field
 
+from eiw.retail.model_client import ChatClient, OpenAICompatibleChatClient, PolicyTelemetry
 from eiw.retail.models import WorkstreamName
 
 SPECIALIST_SKILLS: dict[WorkstreamName, tuple[str, ...]] = {
@@ -60,6 +60,8 @@ class OpenAICompatibleSpecialistPolicy:
     model: str
     api_key: str = ""
     timeout_seconds: float = 60.0
+    client: ChatClient | None = None
+    telemetry: PolicyTelemetry | None = None
 
     def decide(
         self,
@@ -68,9 +70,6 @@ class OpenAICompatibleSpecialistPolicy:
         question: str,
         allowed_skills: tuple[str, ...],
     ) -> SpecialistDecision:
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
         payload = {
             "workstream": workstream.value,
             "question": question,
@@ -80,42 +79,49 @@ class OpenAICompatibleSpecialistPolicy:
                 "allowed_skills. rationale is public and short."
             ),
         }
-        response = httpx.post(
-            f"{self.base_url.rstrip('/')}/chat/completions",
-            headers=headers,
-            json={
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a specialist business-analysis agent. "
-                            "Choose only the supplied analytical skills. "
-                            "Do not reveal chain-of-thought."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": json.dumps(payload, ensure_ascii=False),
-                    },
-                ],
-                "temperature": 0.0,
-                "stream": False,
-            },
-            timeout=self.timeout_seconds,
+        if self.telemetry is not None:
+            self.telemetry.record_call()
+        client = self.client or OpenAICompatibleChatClient(
+            base_url=self.base_url,
+            model=self.model,
+            api_key=self.api_key,
+            timeout_seconds=self.timeout_seconds,
         )
-        response.raise_for_status()
-        raw = str(response.json()["choices"][0]["message"]["content"])
-        value = self._parse_json(raw)
-        decision = SpecialistDecision.model_validate(value)
-        allowed = set(allowed_skills)
-        skills: list[str] = []
-        for skill in decision.skills:
-            if skill in allowed and skill not in skills:
-                skills.append(skill)
-        if not skills:
-            skills = list(allowed_skills)
-        return decision.model_copy(update={"skills": skills})
+        try:
+            raw = client.complete(
+                system=(
+                    "You are a specialist business-analysis agent. Choose only "
+                    "the supplied analytical skills. Return bounded JSON; do not "
+                    "reveal chain-of-thought."
+                ),
+                user=json.dumps(payload, ensure_ascii=False),
+            ).content
+            value = self._parse_json(raw)
+            raw_skills = value.get("skills", [])
+            if not isinstance(raw_skills, list):
+                raise ValueError("Specialist skills must be a list")
+            allowed = set(allowed_skills)
+            invalid = 0
+            skills: list[str] = []
+            for raw_skill in raw_skills:
+                skill = str(raw_skill)
+                if skill not in allowed:
+                    invalid += 1
+                    continue
+                if skill not in skills:
+                    skills.append(skill)
+            if self.telemetry is not None:
+                self.telemetry.record_invalid(invalid)
+            if not skills:
+                skills = list(allowed_skills)
+            return SpecialistDecision(
+                skills=skills,
+                rationale=str(value.get("rationale", ""))[:500],
+            )
+        except Exception:
+            if self.telemetry is not None:
+                self.telemetry.record_failure()
+            raise
 
     @staticmethod
     def _parse_json(raw: str) -> dict[str, Any]:
