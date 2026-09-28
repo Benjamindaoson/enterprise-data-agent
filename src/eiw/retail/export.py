@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from html import escape
+import json
 
 from eiw.retail.models import RetailAnalysisResponse
 
@@ -39,6 +40,15 @@ def render_report_html(response: RetailAnalysisResponse) -> str:
         for action in response.report.actions
     )
 
+    chart_blocks = "".join(
+        f"<section class='chart-block'><div id='report-chart-{index}' class='chart'></div></section>"
+        for index, _ in enumerate(response.charts)
+    )
+    chart_payload = json.dumps(
+        [chart.option for chart in response.charts],
+        ensure_ascii=False,
+    ).replace("</", "<\\/")
+
     kpis = response.kpis
     sales = float(kpis.get("current_sales") or 0.0)
     sales_change = float(kpis.get("sales_change_pct") or 0.0)
@@ -63,6 +73,7 @@ h1,h2{{font-family:Georgia,serif;font-weight:500}}h1{{font-size:40px;margin:8px 
 .kpi{{padding:16px;border-right:1px solid #dfe5e8}}.kpi:last-child{{border-right:0}}.kpi span{{font-size:10px;text-transform:uppercase;color:#687983}}.kpi b{{display:block;font:24px Georgia,serif;margin-top:4px}}
 ul{{padding-left:20px}}li{{margin:8px 0;line-height:1.5}}table{{width:100%;border-collapse:collapse;font-size:12px}}th,td{{padding:10px;border-bottom:1px solid #e4e8ea;text-align:left;vertical-align:top}}th{{font-size:10px;text-transform:uppercase;color:#687983}}
 .action{{display:grid;grid-template-columns:44px 1fr;border-top:1px solid #dfe5e8;padding:15px 0;gap:10px}}.action>span{{color:#b94b35;font-weight:800}}.action h3{{margin:0 0 6px;font-size:15px}}.action p{{margin:4px 0;font-size:12px;line-height:1.45}}.action small{{color:#687983}}
+.chart-grid{{display:grid;grid-template-columns:1fr 1fr;gap:14px}}.chart-block{{border:1px solid #dfe5e8;padding:12px;break-inside:avoid}}.chart{{height:320px}}
 .footer{{margin-top:36px;padding-top:14px;border-top:1px solid #dfe5e8;color:#687983;font-size:10px}}
 @media print{{body{{background:white}}main{{margin:0;max-width:none;padding:0}}}}
 </style>
@@ -78,10 +89,20 @@ ul{{padding-left:20px}}li{{margin:8px 0;line-height:1.5}}table{{width:100%;borde
 <div class="kpi"><span>Avg basket</span><b>${average_basket:,.2f}</b></div>
 </section>
 <h2>Executive summary</h2><ul>{items(response.report.executive_summary)}</ul>
+<h2>Decision charts</h2><div class="chart-grid">{chart_blocks}</div>
 <h2>Key business drivers</h2>
 <table><thead><tr><th>Finding</th><th>Driver</th><th>Impact</th><th>Score</th></tr></thead><tbody>{driver_rows}</tbody></table>
 <h2>Opportunities</h2><ul>{items(response.report.opportunities) if response.report.opportunities else "<li>No ranked opportunity met the current threshold.</li>"}</ul>
 <h2>Priority actions</h2>{action_rows}
 <h2>Monitoring</h2><ul>{items(response.report.monitoring)}</ul>
 <div class="footer">Generated from typed analytical outputs. Merchandising associations are not presented as causal effects without matched or experimental evidence.</div>
-</main></body></html>"""
+</main>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+const options={chart_payload};
+options.forEach((option,index)=>{{
+  const node=document.getElementById("report-chart-"+index);
+  if(node){{const chart=echarts.init(node);chart.setOption(option);}}
+}});
+</script>
+</body></html>"""
