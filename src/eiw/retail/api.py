@@ -13,8 +13,8 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from eiw.retail.benchmark import RetailBenchmarkRunner
-from eiw.retail.data import RetailDataEngine
 from eiw.retail.charts import ChartPlanner
+from eiw.retail.data import RetailDataEngine
 from eiw.retail.models import ChartRestyleRequest, RetailAnalysisRequest, RuntimeEvent
 from eiw.retail.runtime import RetailBARuntime
 
