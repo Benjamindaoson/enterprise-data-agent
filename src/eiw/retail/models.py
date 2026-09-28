@@ -26,6 +26,8 @@ class RetailAnalysisRequest(BaseModel):
     previous_weeks: list[int] = Field(default_factory=list)
     top_k: int = Field(default=8, ge=3, le=20)
     max_workstreams: int = Field(default=5, ge=1, le=5)
+    parent_task_id: str | None = Field(default=None, max_length=128)
+    focus: dict[str, str] = Field(default_factory=dict)
 
 
 class BusinessQuestionContext(BaseModel):
@@ -112,6 +114,7 @@ class ExecutiveReport(BaseModel):
 
 class RetailAnalysisResponse(BaseModel):
     task_id: str
+    parent_task_id: str | None = None
     status: str
     dataset: dict[str, Any]
     question: str
