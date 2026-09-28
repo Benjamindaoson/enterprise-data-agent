@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from eiw.production.persistence import ProductionStore
+from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.code_analysis import RetailCodeAnalyst
@@ -84,9 +85,23 @@ def _build_runtime() -> RetailBARuntime:
 def create_retail_router(
     *,
     production_store: ProductionStore | None = None,
+    business_runtime: BusinessAgentRuntime | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/ba/retail", tags=["ba-retail"])
     runtime = _build_runtime()
+    if business_runtime is None:
+        business_runtime = BusinessAgentRuntime(
+            analysis_service=None,
+            production_store=production_store,
+        )
+    try:
+        registered = business_runtime.domain_runtime(runtime.domain_id)
+    except KeyError:
+        business_runtime.register_domain(runtime)
+    else:
+        if not isinstance(registered, RetailBARuntime):
+            raise TypeError("retail domain_id is registered by an incompatible runtime")
+        runtime = registered
     history: dict[str, RetailAnalysisResponse] = {}
     history_lock = threading.Lock()
 
@@ -196,7 +211,7 @@ def create_retail_router(
     @router.post("/analyze")
     def analyze(request: RetailAnalysisRequest) -> dict[str, object]:
         resolved = inherit(request)
-        response = runtime.analyze(resolved)
+        response = business_runtime.analyze_domain("retail", resolved)
         remember(response)
         return response.model_dump(mode="json")
 
@@ -217,7 +232,7 @@ def create_retail_router(
 
         def run() -> None:
             try:
-                response = runtime.analyze(resolved, on_event=emit)
+                response = business_runtime.analyze_domain("retail", resolved, on_event=emit)
                 remember(response)
                 channel.put({"kind": "result", "payload": response.model_dump(mode="json")})
             except Exception as exc:  # pragma: no cover - defensive API boundary
