@@ -27,6 +27,7 @@ jobs:
           src/eiw/training
           src/eiw/runtime/governance.py
           src/eiw/runtime/memory.py
+          src/eiw/runtime/orchestrator.py
           src/eiw/runtime/skills.py
           src/eiw/nl2sql/retrieval.py
           src/eiw/nl2sql/schema_retriever.py
@@ -43,6 +44,7 @@ jobs:
           tests/unit/test_llm_agent_contracts.py
           tests/unit/test_production_runtime.py
           tests/unit/test_public_business_data.py
+          tests/unit/test_runtime_orchestrator.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
           scripts/run_business_agent_benchmark.py
