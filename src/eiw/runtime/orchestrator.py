@@ -19,6 +19,7 @@ from uuid import uuid4
 from eiw.business.models import BusinessTaskRequest, BusinessTaskResponse
 from eiw.business.operations import BusinessOperationsService
 from eiw.production.persistence import ProductionStore
+from eiw.runtime.domain import DomainEventCallback, DomainRuntime
 from eiw.runtime.memory import MemoryKind, MemoryRecord, MemoryStore
 from eiw.runtime.skills import SkillRegistry, default_skill_registry
 from eiw.workspace.analysis import AnalysisService
@@ -68,11 +69,12 @@ class BusinessAgentRuntime:
     def __init__(
         self,
         *,
-        analysis_service: AnalysisService,
+        analysis_service: AnalysisService | None,
         business_service: BusinessOperationsService | None = None,
         skills: SkillRegistry | None = None,
         memory: MemoryStore | None = None,
         production_store: ProductionStore | None = None,
+        domain_runtimes: list[DomainRuntime] | None = None,
     ) -> None:
         self.analysis_service = analysis_service
         self.business_service = business_service or BusinessOperationsService()
@@ -81,6 +83,9 @@ class BusinessAgentRuntime:
         self.production_store = production_store
         self._events: list[RuntimeTraceEvent] = []
         self._trajectory_steps: dict[str, int] = {}
+        self._domain_runtimes: dict[str, DomainRuntime] = {}
+        for domain_runtime in domain_runtimes or []:
+            self.register_domain(domain_runtime)
 
     def capabilities(self) -> dict[str, Any]:
         """Return capabilities from the runtime that actually serves requests."""
@@ -93,6 +98,10 @@ class BusinessAgentRuntime:
                 "analysis_lane": "deterministic_semantic_analytics",
                 "agent_learning_lane": "offline_sft_grpo_evaluation",
                 "external_writes": "proposal_or_approval_gated",
+            },
+            "domains": {
+                domain_id: runtime.capabilities()
+                for domain_id, runtime in sorted(self._domain_runtimes.items())
             },
             "business_scenarios": [
                 "ANALYTICS",
@@ -130,6 +139,9 @@ class BusinessAgentRuntime:
         lineage: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run the canonical governed analytical lane."""
+
+        if self.analysis_service is None:
+            raise RuntimeError("The generic analytical lane is not configured")
 
         invocation_id = f"run_{uuid4().hex[:12]}"
         self._record(
@@ -236,6 +248,59 @@ class BusinessAgentRuntime:
             )
         )
         return response
+
+    def register_domain(self, runtime: DomainRuntime, *, replace: bool = False) -> None:
+        """Register one vertical under the single canonical application runtime."""
+
+        domain_id = runtime.domain_id.strip()
+        if not domain_id:
+            raise ValueError("domain runtime must expose a non-empty domain_id")
+        existing = self._domain_runtimes.get(domain_id)
+        if existing is not None and existing is not runtime and not replace:
+            raise ValueError(f"domain runtime already registered: {domain_id}")
+        self._domain_runtimes[domain_id] = runtime
+
+    def domain_runtime(self, domain_id: str) -> DomainRuntime:
+        """Return a registered vertical or fail closed."""
+
+        try:
+            return self._domain_runtimes[domain_id]
+        except KeyError as exc:
+            raise KeyError(f"unknown domain runtime: {domain_id}") from exc
+
+    def analyze_domain(
+        self,
+        domain_id: str,
+        request: Any,
+        *,
+        on_event: DomainEventCallback | None = None,
+    ) -> Any:
+        """Route a vertical request through BusinessAgentRuntime before delegation."""
+
+        runtime = self.domain_runtime(domain_id)
+        invocation_id = f"domain_{uuid4().hex[:12]}"
+        self._record(
+            "DOMAIN_RUNTIME_STARTED",
+            f"Domain runtime started: {domain_id}.",
+            payload={"domain_id": domain_id, "invocation_id": invocation_id},
+        )
+        result = runtime.analyze(request, on_event=on_event)
+        task_id = getattr(result, "task_id", None)
+        status = getattr(result, "status", None)
+        if isinstance(result, dict):
+            task_id = task_id or result.get("task_id")
+            status = status or result.get("status") or result.get("state")
+        self._record(
+            "DOMAIN_RUNTIME_COMPLETED",
+            f"Domain runtime completed: {domain_id}.",
+            task_id=str(task_id) if task_id else None,
+            payload={
+                "domain_id": domain_id,
+                "invocation_id": invocation_id,
+                "status": status,
+            },
+        )
+        return result
 
     def events(self, *, task_id: str | None = None) -> list[dict[str, Any]]:
         """Return observable runtime events, optionally scoped to one task.
