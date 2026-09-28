@@ -7,6 +7,7 @@ import re
 from datetime import UTC, date, datetime
 from hashlib import sha256
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any, Literal
 
 import yaml  # type: ignore[import-untyped]
@@ -14,7 +15,6 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 
-from eiw.runtime.domain import DomainEventCallback
 from eiw.semantic.package import (
     Availability,
     DimensionDefinition,
@@ -24,6 +24,8 @@ from eiw.semantic.package import (
 )
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+
+DomainEventCallback = Callable[[Any], None]
 
 
 class PostgresConnectorConfig(BaseModel):
@@ -438,17 +440,16 @@ class PostgresEnterpriseConnector:
         )
 
     def _execute_readonly(self, sql: str) -> list[dict[str, Any]]:
-        with self.engine.connect() as connection:
-            with connection.begin():
-                if self.engine.dialect.name == "postgresql":
-                    connection.execute(text("SET TRANSACTION READ ONLY"))
-                    connection.execute(
-                        text(
-                            f"SET LOCAL statement_timeout = "
-                            f"{int(self.config.statement_timeout_ms)}"
-                        )
+        with self.engine.connect() as connection, connection.begin():
+            if self.engine.dialect.name == "postgresql":
+                connection.execute(text("SET TRANSACTION READ ONLY"))
+                connection.execute(
+                    text(
+                        f"SET LOCAL statement_timeout = "
+                        f"{int(self.config.statement_timeout_ms)}"
                     )
-                rows = connection.execute(text(sql)).mappings().all()
+                )
+            rows = connection.execute(text(sql)).mappings().all()
         return [dict(row) for row in rows]
 
     def _evidence(
