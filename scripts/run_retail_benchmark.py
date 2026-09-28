@@ -42,9 +42,9 @@ def main() -> int:
             return 2
         if float(result["action_coverage"]) < 1.0:
             return 3
-        if float(result["driver_recall_at_k"]) < 0.5:
+        if float(result["driver_recall_at_k"]) < 0.90:
             return 4
-        if float(result["semantic_coverage"]) < 0.8:
+        if float(result["semantic_coverage"]) < 0.95:
             return 5
         if float(result["numeric_accuracy"]) < 1.0:
             return 6
