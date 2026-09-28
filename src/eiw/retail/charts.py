@@ -130,6 +130,33 @@ class ChartPlanner:
                 )
         return [self._qa(chart) for chart in charts]
 
+    def focus_chart(
+        self,
+        focus_result: dict[str, object],
+        *,
+        insight_id: str,
+    ) -> ChartArtifact | None:
+        rows = list(focus_result.get("rows") or [])
+        if not rows:
+            return None
+        focus_dimension = str(focus_result.get("focus_dimension") or "scope")
+        focus_value = str(focus_result.get("focus_value") or "")
+        breakdown = str(focus_result.get("breakdown_dimension") or "segment")
+        rows = rows[:10]
+        return self._qa(
+            self._bar(
+                title=(
+                    f"Focused drill-down: {focus_dimension} {focus_value} "
+                    f"by {breakdown}"
+                ),
+                subtitle="Sales movement versus the comparison period",
+                categories=[str(row["segment"]) for row in rows],
+                values=[round(float(row.get("delta") or 0.0), 2) for row in rows],
+                series_name="Sales change",
+                insight_ids=[insight_id],
+            )
+        )
+
     @staticmethod
     def _artifact_rows(result: WorkstreamResult, artifact_type: str) -> list[dict[str, object]]:
         for artifact in result.artifacts:
