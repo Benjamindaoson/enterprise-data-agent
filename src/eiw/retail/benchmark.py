@@ -323,7 +323,7 @@ class RetailBenchmarkRunner:
                 expected_driver_terms=(top_commodity,) if top_commodity else (),
                 expected_metrics=("sales_value", "units"),
                 expected_dimensions=("commodity", "week"),
-                expected_intents=("recommend",),
+                expected_intents=("decompose", "recommend"),
                 required_sections=("business-performance", "diagnostics"),
             ),
             RetailBenchmarkCase(
@@ -355,8 +355,8 @@ class RetailBenchmarkRunner:
             RetailBenchmarkCase(
                 case_id="retail-customer-income",
                 question=(
-                    "Find customer income segment opportunities and explain the "
-                    "largest observed movement."
+                    "Find customer income segment sales opportunities and explain "
+                    "the largest observed sales movement."
                 ),
                 expected_metrics=("sales_value",),
                 expected_dimensions=("income", "store", "commodity"),
