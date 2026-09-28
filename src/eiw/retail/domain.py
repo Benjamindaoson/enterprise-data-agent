@@ -13,7 +13,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from eiw.retail.data import RetailDataEngine
+from eiw.retail.guard import RequestDisposition, RetailRequestGuard
 from eiw.retail.models import RetailAnalysisRequest, RetailAnalysisResponse, RuntimeEvent
+from eiw.runtime.domain import DomainClarificationRequired, DomainRequestRejected
 from eiw.retail.runtime import EventCallback, RetailBARuntime
 from eiw.retail.specialist_policy import OpenAICompatibleSpecialistPolicy
 from eiw.retail.supervisor import OpenAICompatibleSupervisor
@@ -24,8 +26,14 @@ class RetailDomainRuntime:
 
     domain_id = "retail"
 
-    def __init__(self, agent: RetailBARuntime) -> None:
+    def __init__(
+        self,
+        agent: RetailBARuntime,
+        *,
+        guard: RetailRequestGuard | None = None,
+    ) -> None:
         self.agent = agent
+        self.guard = guard or RetailRequestGuard()
 
     @property
     def data(self) -> RetailDataEngine:
@@ -43,6 +51,7 @@ class RetailDomainRuntime:
                 if not self.data.label.startswith("retail-demo")
                 else "deterministic-demo"
             ),
+            "request_guard": "RetailRequestGuard-v1",
         }
 
     def analyze(
@@ -53,8 +62,37 @@ class RetailDomainRuntime:
     ) -> RetailAnalysisResponse:
         if not isinstance(request, RetailAnalysisRequest):
             raise TypeError("RetailDomainRuntime requires RetailAnalysisRequest")
+
+        decision = self.guard.assess(request, self.data)
+        if decision.disposition == RequestDisposition.REJECT:
+            raise DomainRequestRejected(decision.reason, code=decision.code)
+        if decision.disposition == RequestDisposition.CLARIFY:
+            raise DomainClarificationRequired(decision.reason, code=decision.code)
+
         callback = cast(EventCallback | None, on_event)
-        return self.agent.analyze(request, on_event=callback)
+        response = self.agent.analyze(request, on_event=callback)
+        if decision.disposition != RequestDisposition.QUALIFY:
+            return response
+
+        warning = (
+            "Causal attribution is not supported by this observational retail "
+            "dataset; reported promotion/campaign patterns are associations."
+        )
+        report = response.report.model_copy(
+            update={"executive_summary": [warning, *response.report.executive_summary]}
+        )
+        qualification = RuntimeEvent(
+            event_type="request_qualified",
+            message=warning,
+            progress=0.01,
+            payload={"code": decision.code},
+        )
+        return response.model_copy(
+            update={
+                "report": report,
+                "events": [qualification, *response.events],
+            }
+        )
 
 
 def build_retail_domain_runtime() -> RetailDomainRuntime:

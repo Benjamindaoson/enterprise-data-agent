@@ -11,6 +11,8 @@ on:
       - "scripts/fetch_completejourney_cc0.py"
       - "scripts/run_retail_benchmark.py"
       - "scripts/run_retail_ablation.py"
+      - "scripts/run_retail_adversarial_benchmark.py"
+      - "evaluation/retail/frozen_holdout_v1.jsonl"
       - "scripts/benchmark_retail_scale.py"
       - "src/eiw/retail/**"
       - "src/eiw/web/static/ba-demo.html"
@@ -78,6 +80,14 @@ jobs:
           --output artifacts/retail-real-benchmark.json
           --assert-smoke
 
+      - name: Run frozen adversarial holdout on real data
+        run: >
+          python scripts/run_retail_adversarial_benchmark.py
+          --suite frozen
+          --data-dir data/retail
+          --output artifacts/retail-adversarial-frozen.json
+          --assert-gate
+
       - name: Run rolling-window RetailAnalystBench
         run: >
           python scripts/run_retail_benchmark.py
@@ -136,6 +146,7 @@ jobs:
             artifacts/retail-real-scale.json
             artifacts/retail-harness-ablation.json
             artifacts/retail-rolling-benchmark.json
+            artifacts/retail-adversarial-frozen.json
             artifacts/ba-demo/ba-agent-before-run.png
             artifacts/ba-demo/ba-agent-real-data.png
             artifacts/ba-demo/ba-agent-real-data.webm

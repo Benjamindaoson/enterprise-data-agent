@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from eiw.production.persistence import ProductionStore
+from eiw.runtime.domain import DomainRuntimeError
 from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.retail.domain import RetailDomainRuntime, build_retail_domain_runtime
 from eiw.retail.benchmark import RetailBenchmarkRunner
@@ -160,10 +161,16 @@ def create_retail_router(
     @router.post("/analyze")
     def analyze(request: RetailAnalysisRequest) -> dict[str, object]:
         resolved = inherit(request)
-        response = cast(
-            RetailAnalysisResponse,
-            business_runtime.analyze_domain("retail", resolved),
-        )
+        try:
+            response = cast(
+                RetailAnalysisResponse,
+                business_runtime.analyze_domain("retail", resolved),
+            )
+        except DomainRuntimeError as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={"code": exc.code, "message": str(exc)},
+            ) from exc
         remember(response)
         return response.model_dump(mode="json")
 
@@ -194,6 +201,17 @@ def create_retail_router(
                 )
                 remember(response)
                 channel.put({"kind": "result", "payload": response.model_dump(mode="json")})
+            except DomainRuntimeError as exc:
+                channel.put(
+                    {
+                        "kind": "error",
+                        "payload": {
+                            "message": str(exc),
+                            "code": exc.code,
+                            "status_code": exc.status_code,
+                        },
+                    }
+                )
             except Exception as exc:  # pragma: no cover - defensive API boundary
                 channel.put({"kind": "error", "payload": {"message": str(exc)}})
             finally:
