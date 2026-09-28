@@ -66,7 +66,22 @@ class InsightMiner:
                 abs(float(row.get("delta") or 0.0))
                 for row in result.rows
             ) or 1.0
-            for row in result.rows[:4]:
+            primary_rows = list(result.rows[:4])
+            negative_rows = [
+                row
+                for row in result.rows
+                if float(row.get("delta") or 0.0) < 0
+            ][:3]
+            driver_rows: list[dict[str, Any]] = []
+            seen_segments: set[str] = set()
+            for row in [*primary_rows, *negative_rows]:
+                segment_key = str(row.get("segment"))
+                if segment_key in seen_segments:
+                    continue
+                seen_segments.add(segment_key)
+                driver_rows.append(row)
+
+            for row in driver_rows:
                 delta = float(row["delta"])
                 if abs(delta) < 1e-9:
                     continue
@@ -403,16 +418,30 @@ class InsightMiner:
                 }
             return False
 
+        diagnose = "diagnose" in context.intents
         for dimension in requested:
-            candidate = next(
-                (
-                    item
-                    for item in ranked
-                    if item.insight_id not in selected_ids
-                    and covers(item, dimension)
-                ),
-                None,
-            )
+            eligible = [
+                item
+                for item in ranked
+                if item.insight_id not in selected_ids
+                and covers(item, dimension)
+            ]
+            candidate = None
+            if diagnose:
+                candidate = next(
+                    (
+                        item
+                        for item in eligible
+                        if any(
+                            float(row.get("delta") or 0.0) < 0
+                            for row in item.evidence
+                            if isinstance(row, dict) and "delta" in row
+                        )
+                    ),
+                    None,
+                )
+            if candidate is None:
+                candidate = eligible[0] if eligible else None
             if candidate is not None:
                 selected.append(candidate)
                 selected_ids.add(candidate.insight_id)
