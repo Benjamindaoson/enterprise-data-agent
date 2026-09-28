@@ -137,7 +137,39 @@ The web demo uses this path when a user clicks **继续调查** or clicks a char
 element. Store focus drills to commodities; commodity/product focus drills to
 stores, and the resulting focused insight/chart is placed first.
 
-## 8. Optional DeepAnalyze code analyst
+## 8. First-party AI Coding worker
+
+The preferred open-ended analysis path is now first-party. Point it at any
+OpenAI-compatible model endpoint:
+
+```bash
+export EIW_RETAIL_CODE_MODEL_URL=http://127.0.0.1:8001/v1
+export EIW_RETAIL_CODE_MODEL=qwen3
+export EIW_RETAIL_CODE_MODEL_API_KEY=
+```
+
+The model receives only a bounded analytical snapshot schema plus a few sample
+rows and returns a public `code + explanation` object. The generated code runs
+inside the repository-owned Docker sandbox with:
+
+- network disabled;
+- read-only root filesystem;
+- dropped Linux capabilities;
+- `no-new-privileges`;
+- memory, CPU and PID limits;
+- only the bounded CSV mounted read-only;
+- a JSON-serializable `result` output contract.
+
+The endpoint remains:
+
+```text
+POST /api/v1/ba/retail/code-analysis
+```
+
+When `EIW_RETAIL_CODE_MODEL_URL` is configured, this first-party path takes
+priority.
+
+## 9. Optional DeepAnalyze bootstrap fallback
 
 Download DeepAnalyze-8B separately and set:
 
@@ -160,7 +192,7 @@ export EIW_DEEPANALYZE_URL=http://127.0.0.1:8200/v1
 The BA endpoint `POST /api/v1/ba/retail/code-analysis` sends only a bounded
 store × commodity snapshot to the optional code analyst.
 
-## 9. Upstream policy
+## 10. Upstream policy
 
 See:
 
