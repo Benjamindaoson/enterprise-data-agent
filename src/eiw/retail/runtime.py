@@ -9,8 +9,10 @@ from uuid import uuid4
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.graph import RetailInvestigationGraph
+from eiw.retail.guardrails import GuardrailAction, RetailGuardrailDecision, RetailRequestGuard
 from eiw.retail.insight import InsightMiner
 from eiw.retail.models import (
+    ExecutiveReport,
     RetailAnalysisRequest,
     RetailAnalysisResponse,
     RuntimeEvent,
@@ -18,6 +20,7 @@ from eiw.retail.models import (
 )
 from eiw.retail.planner import InvestigationPlanner
 from eiw.retail.report import RetailReportBuilder
+from eiw.retail.semantics import RetailSemanticEngine
 from eiw.retail.skills import RetailAnalyticalWorkers
 from eiw.retail.specialist_policy import SpecialistPolicy
 from eiw.retail.supervisor import SupervisorPolicy
@@ -46,6 +49,8 @@ class RetailBARuntime:
         self.charts = ChartPlanner()
         self.reports = RetailReportBuilder()
         self.planner = InvestigationPlanner(supervisor_policy)
+        self.guard = RetailRequestGuard()
+        self.semantic = RetailSemanticEngine()
 
     def capabilities(self) -> dict[str, object]:
         """Expose the executable vertical contract to BusinessAgentRuntime."""
@@ -55,6 +60,7 @@ class RetailBARuntime:
             "runtime": "RetailBARuntime",
             "orchestration": "langgraph-supervisor-specialists",
             "execution": "typed-analytical-skills",
+            "preflight_guardrails": True,
             "data": self.data.status(),
         }
 
@@ -96,10 +102,34 @@ class RetailBARuntime:
         current, previous = self._periods(request)
         emit(
             "analysis_started",
-            "Business question accepted; starting the autonomous investigation graph.",
+            "Business question accepted; evaluating the governed analysis boundary.",
             progress=0.02,
             payload={"current_weeks": current, "previous_weeks": previous},
         )
+        guardrail = self.guard.evaluate(
+            request,
+            available_weeks=self._available_weeks(),
+        )
+        emit(
+            "guardrail_evaluated",
+            guardrail.reason,
+            progress=0.04,
+            payload=guardrail.model_dump(mode="json"),
+        )
+        if guardrail.action in {
+            GuardrailAction.CLARIFY,
+            GuardrailAction.DATA_UNAVAILABLE,
+            GuardrailAction.REFUSE,
+        }:
+            return self._guarded_response(
+                task_id=task_id,
+                request=request,
+                current=current,
+                previous=previous,
+                events=events,
+                decision=guardrail,
+                started=started,
+            )
 
         graph_started = perf_counter()
         graph = RetailInvestigationGraph(
@@ -235,6 +265,8 @@ class RetailBARuntime:
             charts=charts,
             report=report,
             events=events,
+            guardrail=guardrail.model_dump(mode="json"),
+            limitations=list(guardrail.limitations),
             timings_ms={
                 "investigation_graph": round(graph_ms, 3),
                 "insight_mining": round(insight_ms, 3),
@@ -242,6 +274,70 @@ class RetailBARuntime:
                 "report": round(report_ms, 3),
                 "total": round(total_ms, 3),
             },
+        )
+
+    def _available_weeks(self) -> set[int]:
+        try:
+            rows = self.data.query_readonly(
+                "SELECT DISTINCT week_no FROM retail_transactions ORDER BY week_no"
+            )
+        except Exception:
+            return set()
+        return {int(row["week_no"]) for row in rows if row.get("week_no") is not None}
+
+    def _guarded_response(
+        self,
+        *,
+        task_id: str,
+        request: RetailAnalysisRequest,
+        current: list[int],
+        previous: list[int],
+        events: list[RuntimeEvent],
+        decision: RetailGuardrailDecision,
+        started: float,
+    ) -> RetailAnalysisResponse:
+        status = {
+            GuardrailAction.CLARIFY: "NEEDS_CLARIFICATION",
+            GuardrailAction.DATA_UNAVAILABLE: "DATA_UNAVAILABLE",
+            GuardrailAction.REFUSE: "REFUSED",
+        }[decision.action]
+        semantics = self.semantic.resolve(request)
+        report = ExecutiveReport(
+            title="Retail Business Analysis — governed boundary",
+            executive_summary=[decision.reason],
+            key_drivers=[],
+            opportunities=[],
+            actions=[],
+            monitoring=list(decision.limitations),
+            sections=[],
+        )
+        total_ms = (perf_counter() - started) * 1000.0
+        blocked = RuntimeEvent(
+            event_type="analysis_stopped",
+            message=decision.reason,
+            progress=1.0,
+            payload={"status": status, **decision.model_dump(mode="json")},
+            elapsed_ms=round(total_ms, 3),
+        )
+        events.append(blocked)
+        return RetailAnalysisResponse(
+            task_id=task_id,
+            parent_task_id=request.parent_task_id,
+            status=status,
+            dataset=self.data.status(),
+            question=request.question,
+            current_weeks=current,
+            previous_weeks=previous,
+            semantics=semantics,
+            kpis={},
+            workstreams=[],
+            insights=[],
+            charts=[],
+            report=report,
+            events=events,
+            guardrail=decision.model_dump(mode="json"),
+            limitations=list(decision.limitations),
+            timings_ms={"total": round(total_ms, 3)},
         )
 
     def _periods(self, request: RetailAnalysisRequest) -> tuple[list[int], list[int]]:
