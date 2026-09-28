@@ -48,11 +48,15 @@ class RetailAnalyticalWorkers:
             if worst
             else "No store contribution was available."
         )
+        cross_scan = self.data.cross_dimension_scan(current, previous, limit=20)
         return WorkstreamResult(
             name=WorkstreamName.STORE,
             summary=summary,
             rows=rows,
-            artifacts=[{"type": "store_anomalies", "rows": anomalies}],
+            artifacts=[
+                {"type": "store_anomalies", "rows": anomalies},
+                {"type": "store_commodity_scan", "rows": cross_scan},
+            ],
         )
 
     def product(self, current: list[int], previous: list[int]) -> WorkstreamResult:
@@ -63,10 +67,12 @@ class RetailAnalyticalWorkers:
             if worst
             else "No product contribution was available."
         )
+        price_volume = self.data.price_volume_decomposition(current, previous, limit=12)
         return WorkstreamResult(
             name=WorkstreamName.PRODUCT,
             summary=summary,
             rows=rows,
+            artifacts=[{"type": "price_volume_decomposition", "rows": price_volume}],
         )
 
     def promotion(self, current: list[int], previous: list[int]) -> WorkstreamResult:
