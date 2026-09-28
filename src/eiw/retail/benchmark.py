@@ -150,11 +150,12 @@ class RetailBenchmarkRunner:
             ]
             semantic_hits = 0
             for kind, value in expected_semantics:
-                if kind == "metric" and value in response.semantics.metrics:
-                    semantic_hits += 1
-                elif kind == "dimension" and value in response.semantics.dimensions:
-                    semantic_hits += 1
-                elif kind == "intent" and value in response.semantics.intents:
+                matched = (
+                    (kind == "metric" and value in response.semantics.metrics)
+                    or (kind == "dimension" and value in response.semantics.dimensions)
+                    or (kind == "intent" and value in response.semantics.intents)
+                )
+                if matched:
                     semantic_hits += 1
             semantic_coverage = (
                 semantic_hits / len(expected_semantics)
