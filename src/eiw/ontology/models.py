@@ -122,7 +122,7 @@ class OntologyState(OntologyModel):
         return hashlib.sha256(encoded).hexdigest()
 
     @model_validator(mode="after")
-    def references_are_valid(self) -> "OntologyState":
+    def references_are_valid(self) -> OntologyState:
         for mapping in self.mappings.values():
             if mapping.term_id not in self.terms:
                 raise ValueError(f"mapping references unknown term: {mapping.term_id}")
