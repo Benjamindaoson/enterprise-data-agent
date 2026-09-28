@@ -52,6 +52,7 @@ jobs:
           tests/unit/test_retail_charts.py
           tests/unit/test_retail_semantics.py
           tests/unit/test_retail_export.py
+          tests/unit/test_retail_code_analysis.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
