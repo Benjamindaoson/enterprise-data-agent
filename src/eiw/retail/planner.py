@@ -20,7 +20,25 @@ class InvestigationPlanner:
             selected.append(WorkstreamName.PRODUCT)
         if any(token in question for token in ("promotion", "promo", "display", "mailer", "促销", "陈列")):
             selected.append(WorkstreamName.PROMOTION)
-        if any(token in question for token in ("customer", "basket", "household", "客户", "顾客", "购物篮")):
+        if any(
+            token in question
+            for token in (
+                "customer",
+                "basket",
+                "household",
+                "income",
+                "age",
+                "campaign",
+                "coupon",
+                "客户",
+                "顾客",
+                "购物篮",
+                "收入",
+                "年龄",
+                "活动",
+                "优惠券",
+            )
+        ):
             selected.append(WorkstreamName.CUSTOMER)
 
         if len(selected) == 1:
@@ -50,7 +68,23 @@ class InvestigationPlanner:
 
         if WorkstreamName.CUSTOMER not in completed_names and (
             diagnostic_question
-            or any(token in question for token in ("customer", "basket", "客户", "顾客", "购物篮"))
+            or any(
+                token in question
+                for token in (
+                    "customer",
+                    "basket",
+                    "household",
+                    "income",
+                    "campaign",
+                    "coupon",
+                    "客户",
+                    "顾客",
+                    "购物篮",
+                    "收入",
+                    "活动",
+                    "优惠券",
+                )
+            )
         ):
             next_steps.append(WorkstreamName.CUSTOMER)
 
