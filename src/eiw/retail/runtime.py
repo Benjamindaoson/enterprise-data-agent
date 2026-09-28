@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from time import perf_counter
-from typing import Callable
 from uuid import uuid4
 
 from eiw.retail.charts import ChartPlanner
@@ -95,12 +95,10 @@ class RetailBARuntime:
                 )
                 futures[executor.submit(self.workers.run, name, current, previous)] = name
 
-            finished = 0
-            for future in as_completed(futures):
+            for finished, future in enumerate(as_completed(futures), start=1):
                 name = futures[future]
                 result = future.result()
                 results.append(result)
-                finished += 1
                 emit(
                     "workstream_completed",
                     result.summary,
