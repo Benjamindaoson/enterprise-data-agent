@@ -28,3 +28,20 @@ def test_merchandising_and_basket_queries_are_executable() -> None:
     assert merchandising
     assert {row["display_location"] for row in merchandising} >= {"FRONT END CAP", "NO DISPLAY"}
     assert affinity
+
+
+def test_cross_dimension_scan_and_price_volume_decomposition() -> None:
+    data = RetailDataEngine.demo()
+
+    scan = data.cross_dimension_scan([7, 8], [5, 6], limit=20)
+    decomposition = data.price_volume_decomposition([7, 8], [5, 6], limit=10)
+
+    assert scan
+    assert any(
+        row["store_id"] in {3, 4}
+        and row["commodity"] == "SUN CARE"
+        and row["sales_delta"] < 0
+        for row in scan
+    )
+    assert decomposition
+    assert all(abs(float(row["reconciliation_error"])) < 1e-8 for row in decomposition)
