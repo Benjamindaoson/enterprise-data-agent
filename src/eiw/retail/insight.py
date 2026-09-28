@@ -199,6 +199,92 @@ class InsightMiner:
                 )
             )
 
+        customer = by_name.get(WorkstreamName.CUSTOMER)
+        if customer:
+            income_rows: list[dict[str, Any]] = []
+            coupon_rows: list[dict[str, Any]] = []
+            for artifact in customer.artifacts:
+                if artifact.get("type") == "demographic_income":
+                    income_rows = list(artifact.get("rows", []))
+                elif artifact.get("type") == "coupon_funnel":
+                    coupon_rows = list(artifact.get("rows", []))
+
+            if income_rows:
+                row = max(
+                    income_rows,
+                    key=lambda item: abs(float(item.get("delta") or 0.0)),
+                )
+                delta = float(row.get("delta") or 0.0)
+                share = float(row.get("share_of_absolute_change") or 0.0)
+                title = f"Income segment {row['segment']} has the largest customer-mix sales movement"
+                candidates.append(
+                    Insight(
+                        insight_id=_fingerprint("customer_segment_driver", title),
+                        kind="customer_segment_driver",
+                        title=title,
+                        finding=(
+                            f"Observed sales for the segment moved {delta:+,.1f} versus "
+                            "the comparison window."
+                        ),
+                        driver="Descriptive customer-segment movement",
+                        business_impact=(
+                            f"The segment accounts for {share:.0%} of absolute observed "
+                            "income-segment sales movement."
+                        ),
+                        recommended_action=(
+                            "Inspect basket composition and store/product mix for this "
+                            "segment before designing a targeted intervention."
+                        ),
+                        score=_score(
+                            impact=min(1.0, share * 2.0),
+                            surprise=min(1.0, abs(delta) / 5000.0),
+                            support=0.85,
+                            actionability=0.80,
+                        ),
+                        support=0.85,
+                        dimensions={"income": str(row["segment"])},
+                        evidence=[row],
+                    )
+                )
+
+            if coupon_rows:
+                best = max(
+                    coupon_rows,
+                    key=lambda item: float(item.get("household_redemption_rate") or 0.0),
+                )
+                rate = float(best.get("household_redemption_rate") or 0.0)
+                targeted = int(best.get("targeted_households") or 0)
+                title = f"Campaign {best['campaign_id']} has the highest observed household redemption rate"
+                candidates.append(
+                    Insight(
+                        insight_id=_fingerprint("coupon_funnel", title),
+                        kind="coupon_funnel",
+                        title=title,
+                        finding=(
+                            f"{rate:.1%} of targeted households have an observed coupon "
+                            "redemption in the public campaign records."
+                        ),
+                        driver="Observed campaign-to-redemption funnel",
+                        business_impact=(
+                            "This identifies a campaign pattern for follow-up; it does "
+                            "not estimate incremental campaign lift."
+                        ),
+                        recommended_action=(
+                            "Compare audience, offer mix and pre-campaign purchase "
+                            "behavior before changing campaign allocation."
+                        ),
+                        score=_score(
+                            impact=min(1.0, rate * 4.0),
+                            surprise=min(1.0, rate * 5.0),
+                            support=min(1.0, targeted / 500.0),
+                            actionability=0.75,
+                        ),
+                        support=min(1.0, targeted / 500.0),
+                        dimensions={"campaign": str(best["campaign_id"])},
+                        evidence=[best],
+                    )
+                )
+
         store = by_name.get(WorkstreamName.STORE)
         if store:
             anomalies: list[dict[str, Any]] = []
