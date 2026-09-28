@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -67,7 +68,11 @@ def create_app() -> FastAPI:
     database_url = os.getenv("EIW_DATABASE_URL")
     production_store = ProductionStore(database_url) if database_url else None
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
-    static_dir = Path(__file__).parent / "web" / "static"
+    # In PyInstaller onefile mode, _MEIPASS points to the extracted bundle directory
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        static_dir = Path(sys._MEIPASS) / "eiw" / "web" / "static"
+    else:
+        static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/", response_class=HTMLResponse)
