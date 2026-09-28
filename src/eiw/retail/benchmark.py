@@ -236,8 +236,10 @@ class RetailBenchmarkRunner:
         current, previous = self.runtime.data.week_bounds()
         store_rows = self._gold_contribution("store", current, previous)
         commodity_rows = self._gold_contribution("commodity", current, previous)
-        store = self._first_negative(store_rows)
-        commodity = self._first_negative(commodity_rows)
+        negative_store = self._first_negative(store_rows)
+        negative_commodity = self._first_negative(commodity_rows)
+        top_store = str(store_rows[0]["segment"]) if store_rows else None
+        top_commodity = str(commodity_rows[0]["segment"]) if commodity_rows else None
         cross = self._gold_cross_driver(current, previous)
         display = self._gold_display(current)
 
@@ -263,7 +265,9 @@ class RetailBenchmarkRunner:
                     "Why did recent sales decline and what should management do next?"
                 ),
                 expected_driver_terms=tuple(
-                    value for value in (store, commodity) if value
+                    value
+                    for value in (negative_store, negative_commodity)
+                    if value
                 ),
                 expected_metrics=("sales_value",),
                 expected_dimensions=("store", "commodity", "week"),
@@ -273,7 +277,7 @@ class RetailBenchmarkRunner:
             RetailBenchmarkCase(
                 case_id="retail-store-drivers",
                 question="Why did recent sales change by store? Identify the biggest drivers.",
-                expected_driver_terms=(store,) if store else (),
+                expected_driver_terms=(top_store,) if top_store else (),
                 expected_metrics=("sales_value",),
                 expected_dimensions=("store", "commodity", "week"),
                 expected_intents=("diagnose",),
@@ -285,7 +289,7 @@ class RetailBenchmarkRunner:
                     "Why did recent sales change by category? Identify the largest "
                     "commodity drivers."
                 ),
-                expected_driver_terms=(commodity,) if commodity else (),
+                expected_driver_terms=(top_commodity,) if top_commodity else (),
                 expected_metrics=("sales_value",),
                 expected_dimensions=("commodity", "store", "week"),
                 expected_intents=("diagnose",),
@@ -316,7 +320,7 @@ class RetailBenchmarkRunner:
                     "Decompose recent sales change into price and volume by category "
                     "and recommend the next action."
                 ),
-                expected_driver_terms=(commodity,) if commodity else (),
+                expected_driver_terms=(top_commodity,) if top_commodity else (),
                 expected_metrics=("sales_value", "units"),
                 expected_dimensions=("commodity", "week"),
                 expected_intents=("recommend",),
@@ -366,7 +370,7 @@ class RetailBenchmarkRunner:
                     "category drivers, and recommend next actions."
                 ),
                 expected_driver_terms=tuple(
-                    value for value in (store, commodity) if value
+                    value for value in (top_store, top_commodity) if value
                 ),
                 expected_metrics=("sales_value",),
                 expected_dimensions=("store", "commodity", "week"),
