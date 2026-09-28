@@ -91,14 +91,42 @@ class RetailAnalyticalWorkers:
     def customer(self, current: list[int], previous: list[int]) -> WorkstreamResult:
         customers = self.data.customer_segments(current, limit=10)
         pairs = self.data.basket_affinity(current, limit=10)
+        income = self.data.demographic_contribution(
+            "income",
+            current,
+            previous,
+            limit=10,
+        )
+        household_comp = self.data.demographic_contribution(
+            "household_comp",
+            current,
+            previous,
+            limit=10,
+        )
+        coupon_funnel = self.data.coupon_funnel(limit=10)
         summary = (
             f"Top customer generated {float(customers[0]['sales']):.1f} sales in the analysis window."
             if customers
             else "No customer observations were available."
         )
+        if income:
+            biggest = income[0]
+            summary += (
+                f" Income segment {biggest['segment']} has the largest observed "
+                f"period sales movement ({float(biggest['delta']):+,.1f})."
+            )
         return WorkstreamResult(
             name=WorkstreamName.CUSTOMER,
             summary=summary,
             rows=customers,
-            artifacts=[{"type": "basket_affinity", "rows": pairs}],
+            artifacts=[
+                {"type": "basket_affinity", "rows": pairs},
+                {"type": "demographic_income", "rows": income},
+                {"type": "demographic_household_comp", "rows": household_comp},
+                {
+                    "type": "coupon_funnel",
+                    "rows": coupon_funnel,
+                    "note": "Observed campaign targeting/redemption; not incremental causal lift.",
+                },
+            ],
         )
