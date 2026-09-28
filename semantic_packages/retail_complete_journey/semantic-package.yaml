@@ -1,6 +1,6 @@
 package:
   id: retail_complete_journey
-  version: "1.0.0"
+  version: "1.1.0"
   title: Retail Complete Journey
   timezone: America/Chicago
   currency: USD
@@ -15,6 +15,15 @@ facts:
   - id: promotions
     source: retail_promotions
     grain: product-store-week
+  - id: demographics
+    source: retail_demographics
+    grain: household
+  - id: campaign_membership
+    source: retail_campaigns
+    grain: campaign-household
+  - id: coupon_redemptions
+    source: retail_coupon_redemptions
+    grain: campaign-household-coupon
 
 metrics:
   - id: sales_value
@@ -80,6 +89,26 @@ dimensions:
     source: retail_promotions.display_location
     grain: product-store-week
     attributes: [display_location]
+  - id: income
+    label: Household Income
+    source: retail_demographics.income
+    grain: household
+    attributes: [income]
+  - id: age
+    label: Household Age Band
+    source: retail_demographics.age
+    grain: household
+    attributes: [age]
+  - id: household_comp
+    label: Household Composition
+    source: retail_demographics.household_comp
+    grain: household
+    attributes: [household_comp]
+  - id: campaign
+    label: Campaign
+    source: retail_campaigns.campaign_id
+    grain: campaign-household
+    attributes: [campaign_id]
 
 join_policies:
   - id: transaction_to_product
@@ -90,12 +119,22 @@ join_policies:
     left: [retail_transactions.product_id, retail_transactions.store_id, retail_transactions.week_no]
     right: [retail_promotions.product_id, retail_promotions.store_id, retail_promotions.week_no]
     cardinality: many_to_one
+  - id: transaction_to_demographics
+    left: retail_transactions.household_key
+    right: retail_demographics.household_key
+    cardinality: many_to_one
+  - id: campaign_to_household
+    left: retail_campaigns.household_key
+    right: retail_demographics.household_key
+    cardinality: many_to_one
 
 business_rules:
   - id: merchandising_association_not_causality
     description: Observed display or mailer performance must be described as association unless matched or experimental analysis supports causal language.
   - id: negative_discount_encoding
     description: Source discount columns may be negative; discount amount metrics use absolute magnitude.
+  - id: campaign_redemption_not_incremental_lift
+    description: Campaign targeting and coupon redemption are observed funnel facts and must not be described as incremental causal lift without a valid control design.
 
 quality_rules:
   - id: non_negative_sales
