@@ -33,7 +33,7 @@ class RetailDataEngine:
         self.label = label
 
     @classmethod
-    def demo(cls) -> "RetailDataEngine":
+    def demo(cls) -> RetailDataEngine:
         conn = duckdb.connect(":memory:")
         conn.execute(
             """
@@ -128,7 +128,7 @@ class RetailDataEngine:
         return cls(conn, label="retail-demo-fixture")
 
     @classmethod
-    def from_complete_journey(cls, root: Path) -> "RetailDataEngine":
+    def from_complete_journey(cls, root: Path) -> RetailDataEngine:
         root = root.expanduser().resolve()
         if not root.exists():
             raise FileNotFoundError(root)
