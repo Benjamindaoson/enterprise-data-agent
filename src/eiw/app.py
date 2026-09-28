@@ -77,7 +77,7 @@ def create_app() -> FastAPI:
     )
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.4.0", description="Production-oriented BA Agent with governed analytics, autonomous retail investigation, insight mining, visualization and decision reporting.")
     app.include_router(
-        create_retail_router(production_store=production_store)
+        create_retail_router(runtime=runtime, production_store=production_store)
     )
     bundle_root = getattr(sys, "_MEIPASS", None)
     if getattr(sys, "frozen", False) and bundle_root:

@@ -7,12 +7,13 @@ import os
 import queue
 import threading
 from collections.abc import Iterator
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from eiw.production.persistence import ProductionStore
+from eiw.runtime.orchestrator import BusinessAgentRuntime
+from eiw.retail.domain import RetailDomainRuntime, build_retail_domain_runtime
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.code_analysis import RetailCodeAnalyst
@@ -21,7 +22,6 @@ from eiw.retail.code_worker import (
     FirstPartyRetailCodeAnalyst,
     OpenAICompatibleCodeGenerator,
 )
-from eiw.retail.data import RetailDataEngine
 from eiw.retail.export import render_report_html, render_report_pdf
 from eiw.retail.models import (
     ChartRestyleRequest,
@@ -30,63 +30,27 @@ from eiw.retail.models import (
     RetailAnalysisResponse,
     RuntimeEvent,
 )
-from eiw.retail.runtime import RetailBARuntime
-from eiw.retail.specialist_policy import OpenAICompatibleSpecialistPolicy
-from eiw.retail.supervisor import OpenAICompatibleSupervisor
 from eiw.retail.upstream import DeepAnalyzeWorker
 
-
-def _build_runtime() -> RetailBARuntime:
-    configured = os.getenv("EIW_RETAIL_DATA_DIR", "").strip()
-    candidates = [Path(configured)] if configured else []
-    candidates.append(Path("data/retail"))
-
-    data = RetailDataEngine.demo()
-    for path in candidates:
-        if not path.exists():
-            continue
-        has_core_data = any(
-            (path / name).exists()
-            for name in (
-                "transactions.parquet",
-                "transaction_data.parquet",
-                "transactions.csv",
-                "transaction_data.csv",
-            )
-        )
-        if has_core_data:
-            data = RetailDataEngine.from_complete_journey(path)
-            break
-
-    supervisor_url = os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip()
-    supervisor = None
-    if supervisor_url:
-        supervisor = OpenAICompatibleSupervisor(
-            base_url=supervisor_url,
-            model=os.getenv("EIW_RETAIL_SUPERVISOR_MODEL", "qwen3"),
-            api_key=os.getenv("EIW_RETAIL_SUPERVISOR_API_KEY", ""),
-        )
-    specialist_url = os.getenv("EIW_RETAIL_SPECIALIST_URL", "").strip()
-    specialist = None
-    if specialist_url:
-        specialist = OpenAICompatibleSpecialistPolicy(
-            base_url=specialist_url,
-            model=os.getenv("EIW_RETAIL_SPECIALIST_MODEL", "qwen3"),
-            api_key=os.getenv("EIW_RETAIL_SPECIALIST_API_KEY", ""),
-        )
-    return RetailBARuntime(
-        data,
-        supervisor_policy=supervisor,
-        specialist_policy=specialist,
-    )
 
 
 def create_retail_router(
     *,
+    runtime: BusinessAgentRuntime | None = None,
     production_store: ProductionStore | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1/ba/retail", tags=["ba-retail"])
-    runtime = _build_runtime()
+    business_runtime = runtime or BusinessAgentRuntime(
+        analysis_service=None,
+        production_store=production_store,
+    )
+    if not business_runtime.has_domain("retail"):
+        business_runtime.register_domain(build_retail_domain_runtime())
+    domain = cast(
+        RetailDomainRuntime,
+        business_runtime.domain_runtime("retail"),
+    )
+    retail_agent = domain.agent
     history: dict[str, RetailAnalysisResponse] = {}
     history_lock = threading.Lock()
 
@@ -144,8 +108,8 @@ def create_retail_router(
         return {
             "product": "Business Analysis Agent",
             "vertical": "Retail Intelligence",
-            "dataset": runtime.data.status(),
-            "mode": "real-data" if not runtime.data.label.startswith("retail-demo") else "deterministic-demo",
+            "dataset": domain.data.status(),
+            "mode": "real-data" if not domain.data.label.startswith("retail-demo") else "deterministic-demo",
         }
 
     @router.get("/capabilities")
@@ -196,7 +160,10 @@ def create_retail_router(
     @router.post("/analyze")
     def analyze(request: RetailAnalysisRequest) -> dict[str, object]:
         resolved = inherit(request)
-        response = runtime.analyze(resolved)
+        response = cast(
+            RetailAnalysisResponse,
+            business_runtime.analyze_domain("retail", resolved),
+        )
         remember(response)
         return response.model_dump(mode="json")
 
@@ -217,7 +184,14 @@ def create_retail_router(
 
         def run() -> None:
             try:
-                response = runtime.analyze(resolved, on_event=emit)
+                response = cast(
+                    RetailAnalysisResponse,
+                    business_runtime.analyze_domain(
+                        "retail",
+                        resolved,
+                        on_event=cast(Any, emit),
+                    ),
+                )
                 remember(response)
                 channel.put({"kind": "result", "payload": response.model_dump(mode="json")})
             except Exception as exc:  # pragma: no cover - defensive API boundary
@@ -238,7 +212,7 @@ def create_retail_router(
 
     @router.post("/code-analysis")
     def code_analysis(request: CodeAnalysisRequest) -> dict[str, object]:
-        default_current, default_previous = runtime.data.week_bounds()
+        default_current, default_previous = domain.data.week_bounds()
         current = request.current_weeks or default_current
         previous = request.previous_weeks or default_previous
 
@@ -255,7 +229,7 @@ def create_retail_router(
                 model=os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3"),
                 api_key=os.getenv("EIW_RETAIL_CODE_MODEL_API_KEY", ""),
             )
-            analyst = FirstPartyRetailCodeAnalyst(runtime.data, generator, sandbox)
+            analyst = FirstPartyRetailCodeAnalyst(domain.data, generator, sandbox)
             return analyst.analyze(
                 request.instruction,
                 current_weeks=current,
@@ -271,7 +245,7 @@ def create_retail_router(
                     status_code=503,
                     detail="DeepAnalyze API is unavailable",
                 )
-            analyst = RetailCodeAnalyst(runtime.data, worker)
+            analyst = RetailCodeAnalyst(domain.data, worker)
             return analyst.analyze(
                 request.instruction,
                 current_weeks=current,
@@ -314,6 +288,6 @@ def create_retail_router(
 
     @router.post("/benchmark")
     def benchmark() -> dict[str, object]:
-        return RetailBenchmarkRunner(runtime).run()
+        return RetailBenchmarkRunner(retail_agent).run()
 
     return router
