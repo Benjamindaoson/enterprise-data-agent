@@ -31,6 +31,7 @@ function addEvent(evt){
   const timing=evt.elapsed_ms==null?"":` · ${(evt.elapsed_ms/1000).toFixed(2)}s`;
   el.innerHTML=`<b>${escapeHtml(evt.message)}</b><small>${escapeHtml(evt.workstream || evt.event_type)}${timing}</small>`;
   activity.prepend(el);
+  while(activity.children.length>18) activity.lastElementChild?.remove();
   setTimeout(()=>el.classList.remove("active"),1300);
 }
 
