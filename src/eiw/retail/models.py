@@ -28,6 +28,18 @@ class RetailAnalysisRequest(BaseModel):
     max_workstreams: int = Field(default=5, ge=1, le=5)
 
 
+class BusinessQuestionContext(BaseModel):
+    metrics: list[str]
+    dimensions: list[str]
+    time_grain: str
+    entities: dict[str, str] = Field(default_factory=dict)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    intents: list[str] = Field(default_factory=list)
+    semantic_package_id: str
+    semantic_package_version: str
+    semantic_content_hash: str
+
+
 class RuntimeEvent(BaseModel):
     event_type: str
     message: str
@@ -97,6 +109,7 @@ class RetailAnalysisResponse(BaseModel):
     question: str
     current_weeks: list[int]
     previous_weeks: list[int]
+    semantics: BusinessQuestionContext
     kpis: dict[str, Any]
     workstreams: list[WorkstreamResult]
     insights: list[Insight]
