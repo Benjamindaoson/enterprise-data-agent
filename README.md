@@ -37,9 +37,33 @@ Decision-oriented charts
 Executive Business Review + action cards
 ```
 
-Run the deterministic end-to-end demo at `/ba`. Configure `EIW_RETAIL_DATA_DIR` to point at a local dunnhumby Complete Journey checkout; without it the product uses a deterministic CI fixture and labels the dataset accordingly.
+Run the end-to-end demo at `/ba`. A deterministic fixture is available for zero-setup development, while the real-data path can download and materialize the public CC0 `completejourney` distribution automatically:
 
-The upstream bootstrap branch pins DeepAnalyze, Microsoft Data Formulator and WrenAI as temporary acceleration components under `third_party/`. First-party contracts live under `src/eiw/retail/`; upstream implementations will be replaced one capability at a time behind those contracts after benchmark parity is established.
+```bash
+make setup-retail-data
+make retail-data
+EIW_RETAIL_DATA_DIR=$PWD/data/retail make dev
+```
+
+The pinned real-data baseline currently contains **1,469,307 transaction lines**, **20,940,529 promotion states**, **92,331 products**, **801 demographic households**, **6,589 campaign memberships**, **116,204 coupon records**, and **2,102 coupon redemptions**. Source commit, source/Parquet SHA-256 hashes, row counts and column manifests are recorded by the ingestion pipeline.
+
+The upstream bootstrap branch pins DeepAnalyze, Microsoft Data Formulator and WrenAI as temporary acceleration components under `third_party/`. First-party contracts live under `src/eiw/retail/`; upstream implementations are replaced one capability at a time behind those contracts only after benchmark parity is established.
+
+### Measured Retail BA baseline
+
+`RetailAnalystBench-v1` uses **10 deterministic BA cases with independent read-only SQL gold**, covering KPI summary, decline diagnosis, store/product drivers, cross-dimensional drill-down, price-volume decomposition, merchandising, customer/basket analysis, customer segments and executive review.
+
+| Metric | Pinned CC0 Complete Journey |
+| --- | ---: |
+| Driver Recall@K | **1.000** |
+| Semantic Coverage | **1.000** |
+| Numeric Accuracy | **1.000** |
+| Report Completeness | **1.000** |
+| Action Coverage | **1.000** |
+| Mean time to first insight | **356 ms** |
+| End-to-end P95 | **401 ms** |
+
+A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **392 ms mean**, **399 ms P95**, and **2.55 requests/s**. These latency figures are CI smoke measurements, not production-capacity claims or external SoTA results. See [real-data benchmark notes](docs/BA_AGENT_REAL_DATA_RESULTS.md).
 
 ## What this project is
 
@@ -105,7 +129,7 @@ See [Demo Console](docs/DEMO.md) for details.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **578 passed / 17 skipped** |
+| Core CI | **595 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
 | PostgreSQL + Redis integration | **6 passed** |
 | Hard benchmark acceptance gate | **PASS** |
