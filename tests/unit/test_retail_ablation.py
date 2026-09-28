@@ -5,7 +5,7 @@ from eiw.retail.data import RetailDataEngine
 from eiw.retail.runtime import RetailBARuntime
 
 
-def test_retail_harness_ablation_reports_same-operator_comparison() -> None:
+def test_retail_harness_ablation_reports_same_operator_comparison() -> None:
     result = RetailHarnessAblationRunner(
         RetailBARuntime(RetailDataEngine.demo())
     ).run()
