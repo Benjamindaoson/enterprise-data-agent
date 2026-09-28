@@ -55,6 +55,17 @@ def render_report_html(response: RetailAnalysisResponse) -> str:
     units = float(kpis.get("current_units") or 0.0)
     baskets = int(kpis.get("current_baskets") or 0)
     average_basket = float(kpis.get("avg_basket_value") or 0.0)
+    dataset_source = response.dataset.get("source") or {}
+    counts = response.dataset.get("counts") or {}
+    source_license = str(dataset_source.get("license") or "")
+    source_commit = str(dataset_source.get("source_commit") or "")
+    source_suffix = ""
+    if source_license:
+        source_suffix += f" · {source_license}"
+    if source_commit:
+        source_suffix += f" · source {source_commit[:7]}"
+    total_ms = float(response.timings_ms.get("total") or 0.0)
+    row_count = int(counts.get("retail_transactions") or 0)
 
     return f"""<!doctype html>
 <html lang="en">
@@ -81,7 +92,7 @@ ul{{padding-left:20px}}li{{margin:8px 0;line-height:1.5}}table{{width:100%;borde
 <body><main>
 <div class="eyebrow">BA Agent · Retail Intelligence</div>
 <h1>{escape(response.report.title)}</h1>
-<div class="meta">Task {escape(response.task_id)} · dataset {escape(str(response.dataset.get("label", "")))} · weeks {escape(str(response.current_weeks))}</div>
+<div class="meta">Task {escape(response.task_id)} · dataset {escape(str(response.dataset.get("label", "")))}{escape(source_suffix)} · {row_count:,} transactions · weeks {escape(str(response.current_weeks))} · generated in {total_ms:.0f} ms</div>
 <section class="kpis">
 <div class="kpi"><span>Sales</span><b>${sales:,.0f}</b><small>{sales_change:+.1f}% vs prior</small></div>
 <div class="kpi"><span>Units</span><b>{units:,.0f}</b></div>
