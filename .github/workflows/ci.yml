@@ -65,6 +65,7 @@ jobs:
           scripts/run_retail_benchmark.py
           scripts/prepare_complete_journey.py
           scripts/benchmark_retail_scale.py
+          scripts/fetch_completejourney_cc0.py
       - name: Tests
         run: >
           python -m pytest -q
