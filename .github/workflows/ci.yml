@@ -191,4 +191,6 @@ jobs:
           test -d third_party/wrenai/sdk
           test -d third_party/wrenai/skills
           grep -q "Apache License 2.0" third_party/wrenai/LICENSE
+      - name: Validate BA Agent compose stack
+        run: docker compose -f docker-compose.ba.yml config >/dev/null
 
