@@ -1,7 +1,7 @@
 const $ = (q) => document.querySelector(q);
 const activity = $("#activity"), charts = $("#charts"), insightList = $("#insightList");
 const runBtn = $("#runBtn"), question = $("#question"), report = $("#report");
-let clock = null, startedAt = 0;
+let clock = null, startedAt = 0, currentResult = null;
 
 function addEvent(evt){
   const el=document.createElement("div"); el.className="event active";
@@ -53,12 +53,21 @@ function renderCharts(items){
 }
 function renderReport(r){
   report.classList.remove("hidden");
-  report.innerHTML=`<h2>${r.title}</h2>
+  report.innerHTML=`<div class="report-toolbar"><button id="exportReport">导出管理层报告</button></div><h2>${r.title}</h2>
   <h3>Executive summary</h3><ul>${r.executive_summary.map(x=>`<li>${x}</li>`).join("")}</ul>
   <h3>Priority actions</h3>
   ${r.actions.map(a=>`<div class="action"><b>${a.priority}</b><div><strong>${a.action}</strong><p>${a.rationale}</p><small>Monitor: ${a.monitor_kpi}</small></div></div>`).join("")}`;
+  $("#exportReport").onclick=exportReport;
+}
+async function exportReport(){
+  if(!currentResult) return;
+  const res=await fetch("/api/v1/ba/retail/report/html",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(currentResult)});
+  if(!res.ok){addEvent({message:"报告导出失败",event_type:"error"});return;}
+  const html=await res.text(), blob=new Blob([html],{type:"text/html"}), url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`BA-Agent-${currentResult.task_id}.html`; a.click(); URL.revokeObjectURL(url);
 }
 function renderResult(r){
+  currentResult=r;
   renderKpis(r.kpis); renderInsights(r.insights); renderCharts(r.charts); renderReport(r.report);
   $("#hero").classList.remove("waiting");
   $("#hero").innerHTML=`<p>Executive finding</p><h2>${r.insights[0]?.title || "分析完成"}</h2>`;
@@ -68,7 +77,7 @@ async function loadStatus(){
   $("#datasetStatus").textContent=`${j.dataset.label} · ${Number(j.dataset.counts.retail_transactions).toLocaleString()} rows`;
 }
 async function run(){
-  runBtn.disabled=true; activity.innerHTML=""; charts.innerHTML=""; insightList.innerHTML=""; report.classList.add("hidden"); $("#kpis").innerHTML="";
+  runBtn.disabled=true; currentResult=null; activity.innerHTML=""; charts.innerHTML=""; insightList.innerHTML=""; report.classList.add("hidden"); $("#kpis").innerHTML="";
   $("#hero").className="hero-card"; $("#hero").innerHTML="<p>Investigation running</p><h2>多个分析工作流正在并行扫描经营数据…</h2>";
   startedAt=performance.now(); clock=setInterval(()=>{$("#elapsed").textContent=((performance.now()-startedAt)/1000).toFixed(1)+"s"},100);
   try{
