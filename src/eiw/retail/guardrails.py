@@ -186,7 +186,49 @@ class RetailRequestGuard:
             )
 
         normalized = question.strip(" ?.!。！？")
-        if normalized in self._AMBIGUOUS_EXACT or len(normalized.split()) <= 2:
+        vague_phrase = any(
+            phrase in normalized
+            for phrase in (
+                "analyze this",
+                "analyse this",
+                "what's wrong",
+                "what is wrong",
+                "what happened",
+                "tell me more",
+                "look into this",
+                "investigate",
+                "check this",
+                "analyze it",
+                "any issues",
+                "thoughts",
+                "look at this",
+                "分析一下",
+                "看看这个",
+                "怎么回事",
+            )
+        )
+        business_anchor = any(
+            token in normalized
+            for token in (
+                "sales",
+                "revenue",
+                "store",
+                "category",
+                "commodity",
+                "product",
+                "promotion",
+                "customer",
+                "basket",
+                "销售",
+                "门店",
+                "品类",
+                "促销",
+                "客户",
+            )
+        )
+        if normalized in self._AMBIGUOUS_EXACT or len(normalized.split()) <= 2 or (
+            vague_phrase and not business_anchor
+        ):
             return RetailGuardrailDecision(
                 action=GuardrailAction.CLARIFY,
                 reason="The business question is too underspecified to choose a defensible analysis.",
