@@ -61,6 +61,7 @@ jobs:
           --data-dir data/retail
           --output artifacts/retail-real-benchmark.json
           --assert-smoke
+          --assert-smoke
 
       - name: Run small real-data latency smoke
         run: >
