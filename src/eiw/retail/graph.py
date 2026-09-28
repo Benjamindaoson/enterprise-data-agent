@@ -196,6 +196,7 @@ class RetailInvestigationGraph:
                     payload={
                         "specialist": profile.name,
                         "row_count": len(result.rows),
+                        "metrics": result.metrics,
                         "wave": wave,
                     },
                 )
