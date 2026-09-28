@@ -153,6 +153,11 @@ class BusinessAgentRuntime:
             "lane": "deterministic_semantic_analytics",
         }
         result["runtime"] = runtime_metadata
+        # AnalysisService owns the workspace store; persist the runtime envelope
+        # back into the same task record instead of maintaining parallel state.
+        workspace_store = getattr(self.analysis_service, "store", None)
+        if workspace_store is not None:
+            workspace_store.put_task(result)
 
         self._record(
             "RUNTIME_COMPLETED",
@@ -233,7 +238,21 @@ class BusinessAgentRuntime:
         return response
 
     def events(self, *, task_id: str | None = None) -> list[dict[str, Any]]:
-        """Return observable runtime events, optionally scoped to one task."""
+        """Return observable runtime events, optionally scoped to one task.
+
+        When PostgreSQL persistence is configured and a task is requested, the
+        durable trajectory is authoritative so events remain available after a
+        process restart.
+        """
+
+        if self.production_store is not None and task_id is not None:
+            rows = self.production_store.load_trajectory(f"runtime:{task_id}")
+            if rows:
+                return [
+                    dict(row.get("payload", {}))
+                    for row in rows
+                    if row.get("payload")
+                ]
 
         selected = [
             event
