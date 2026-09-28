@@ -62,11 +62,31 @@ The pinned real-data baseline currently contains **1,469,307 transaction lines**
 
 The current Retail Intelligence product path is first-party. DeepAnalyze, Microsoft Data Formulator and WrenAI were evaluated during bootstrap, but their source trees have been removed after first-party replacements passed the project benchmark and integration gates. An externally operated DeepAnalyze API remains an optional compatibility fallback only.
 
+### Canonical runtime boundary
+
+There is one application-level runtime:
+
+```text
+FastAPI / product surface
+        ↓
+BusinessAgentRuntime          ← canonical application runtime
+        ↓
+RetailDomainRuntime           ← domain adapter / policy boundary
+        ↓
+RetailBARuntime               ← domain-internal investigation agent
+        ↓
+Supervisor → specialists → typed analytical Skills
+```
+
+`RetailBARuntime` is no longer a second application-level canonical runtime. The FastAPI Retail routes register and invoke the Retail domain through `BusinessAgentRuntime.analyze_domain(...)`, so runtime events, domain registration and application orchestration have one owner while the Retail package keeps ownership of its domain graph.
+
 ### Retail runtime architecture
 
 ```mermaid
 flowchart TD
-    U[Business question / follow-up] --> S[Business Semantic Engine]
+    U[Business question / follow-up] --> BAR[BusinessAgentRuntime]
+    BAR --> DR[RetailDomainRuntime]
+    DR --> S[Business Semantic Engine]
     S --> SUP[Supervisor]
     SUP --> O[Overview Analyst]
     SUP --> ST[Store Analyst]
@@ -113,7 +133,7 @@ free-form hidden reasoning.
 
 ### Multi-Agent orchestration
 
-The Retail runtime uses a LangGraph investigation loop with a Supervisor and
+The Retail domain Agent uses a LangGraph investigation loop with a Supervisor and
 parallel specialist analysts for performance, stores, products, promotion and
 customers. The benchmarked default planner is deterministic for reproducibility;
 an optional OpenAI-compatible Supervisor can select/re-plan workstreams with an
@@ -151,6 +171,45 @@ A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **302 ms
 ### Rolling-window robustness
 
 A second `RetailAnalystBench-Rolling-v1` suite evaluates **30 BA cases across 5 historical windows**, instead of testing only the latest period. On the pinned real-data run it preserved **1.000 Driver Recall@K, Semantic Coverage, Numeric Accuracy, Report Completeness and Action Coverage** across all 30 cases; P95 end-to-end latency was **377 ms**. This is still an internal benchmark, but it reduces the risk of a one-window overfit.
+
+### Adversarial robustness
+
+`RetailAdversarialBench-v1` adds **210 adversarial questions across 14 failure families**:
+
+- **168 development cases** (12 per family);
+- **42 frozen holdout cases** (3 per family) stored as JSONL with a pinned SHA-256 checksum;
+- paraphrase, ambiguity, impossible requests, missing data, unsupported causality, conflicting dimensions, unavailable time ranges, unseen combinations, schema distractors, unsafe prompts, prompt injection, irrelevant requests, multi-turn follow-up, and malformed model responses.
+
+The current development gate passed **164 / 168 (97.62%)** cases; the four retained misses are all in one missing-data paraphrase family and are intentionally not hidden behind a perfect aggregate. The pinned Complete Journey real-data workflow separately ran the frozen 42-case holdout with **42 / 42 (100%) pass rate, 1.000 security resistance, and 1.000 malformed-model fallback recovery**. Combined, the two partitions pass **206 / 210** cases. This remains an internal robustness benchmark, not an external SoTA claim.
+
+### Model-lane benchmark
+
+The repository now has one comparison harness for four execution lanes:
+
+| Lane | What changes |
+| --- | --- |
+| deterministic | no model policy |
+| single-agent | one model call chooses workstreams + bounded skills |
+| supervisor | model plans/re-plans; deterministic specialists execute |
+| supervisor + specialists | model supervisor plus model skill selection |
+
+The runner records **success, estimated cost, latency, invalid-tool/choice rate, re-plan rate, model calls, tokens and fallback count**. A manual GitHub Actions workflow is wired for **Qwen-, GPT-, and Claude-compatible endpoints**. Live provider scores are intentionally **not claimed until credentials/endpoints are configured and that workflow is actually run**.
+
+### Enterprise PostgreSQL connector
+
+A governed PostgreSQL connector now implements the full enterprise path:
+
+```text
+connect
+→ catalog introspection
+→ semantic-package validation/inference
+→ schema/table/column allowlists
+→ read-only bounded aggregate analysis
+→ evidence hash + semantic hash
+→ decision report
+```
+
+The integration test runs against a real PostgreSQL 16 service in CI, verifies catalog introspection, semantic-package validation, allowlisted aggregation, evidence lineage and permission rejection. Production integration is currently **8 passed** including the PostgreSQL connector, Redis, durable runtime and Docker code sandbox.
 
 ### Harness ablation
 
@@ -241,9 +300,9 @@ is the product demo used by the real-data Playwright proof.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **613 passed / 17 skipped** |
+| Core CI | **621 passed / 18 skipped** |
 | Post-training tests | **7 passed** |
-| PostgreSQL + Redis + Docker code sandbox integration | **7 passed** |
+| PostgreSQL + Redis + Docker code sandbox + enterprise connector integration | **8 passed** |
 | Hard benchmark acceptance gate | **PASS** |
 | UCI real-data benchmark | **587,120 rows parsed in CI** |
 
@@ -1020,17 +1079,17 @@ The normal GitHub Actions workflow contains four independent jobs:
 
 | Job | What it verifies |
 | --- | --- |
-| **core** | lint, core tests, hard reference policies |
+| **core** | lint, 621-test core suite, hard policies, Retail benchmark, 210-case adversarial gate |
 | **post-training-smoke** | trajectory, SFT, GRPO, Hard-v1 acceptance |
 | **real-data-benchmark** | official Bank Marketing + Online Retail ingestion |
-| **production-integration** | PostgreSQL + Redis round trips |
+| **production-integration** | PostgreSQL connector + durable PostgreSQL/Redis + Docker sandbox |
 
 Current verified snapshot:
 
 ```text
-Core CI                578 passed / 17 skipped
+Core CI                621 passed / 18 skipped
 Training CI              7 passed
-Production integration   7 passed
+Production integration   8 passed
 Hard-v1 acceptance       PASS
 RealData-v1              PASS
 ```

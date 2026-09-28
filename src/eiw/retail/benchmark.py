@@ -36,6 +36,7 @@ class RetailBenchmarkResult:
     has_action: float
     time_to_first_insight_ms: float
     elapsed_ms: float
+    replanned: float
 
 
 class RetailBenchmarkRunner:
@@ -683,6 +684,13 @@ class RetailBenchmarkRunner:
                     has_action=1.0 if response.report.actions else 0.0,
                     time_to_first_insight_ms=float(first_insight),
                     elapsed_ms=elapsed_ms,
+                    replanned=1.0
+                    if any(
+                        event.event_type == "replan_ready"
+                        and bool(event.payload.get("workstreams"))
+                        for event in response.events
+                    )
+                    else 0.0,
                 )
             )
 
@@ -718,6 +726,7 @@ class RetailBenchmarkRunner:
                 result.report_completeness for result in results
             ),
             "action_coverage": fmean(result.has_action for result in results),
+            "replan_rate": fmean(result.replanned for result in results),
             "mean_time_to_first_insight_ms": fmean(
                 result.time_to_first_insight_ms for result in results
             ),

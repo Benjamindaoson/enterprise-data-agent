@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from eiw.business.models import BusinessTaskRequest
+from eiw.connectors.api import create_postgres_connector_router
 from eiw.business.operations import BusinessOperationsService
 from eiw.production.persistence import ProductionStore
 from eiw.retail.api import create_retail_router
@@ -77,8 +78,9 @@ def create_app() -> FastAPI:
     )
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.4.0", description="Production-oriented BA Agent with governed analytics, autonomous retail investigation, insight mining, visualization and decision reporting.")
     app.include_router(
-        create_retail_router(production_store=production_store)
+        create_retail_router(runtime=runtime, production_store=production_store)
     )
+    app.include_router(create_postgres_connector_router())
     bundle_root = getattr(sys, "_MEIPASS", None)
     if getattr(sys, "frozen", False) and bundle_root:
         static_dir = Path(bundle_root) / "eiw" / "web" / "static"

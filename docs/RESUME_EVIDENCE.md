@@ -86,7 +86,7 @@ open-ended analysis.
 **Proof**
 
 - real Docker sandbox is exercised by production-integration CI
-- PostgreSQL + Redis + Docker code-sandbox integration: **7 passed**
+- PostgreSQL + Redis + Docker code-sandbox integration: **8 passed**
 
 ## 4. Autonomous Insight Mining
 
@@ -186,13 +186,105 @@ Pinned public CC0 Complete Journey:
 
 **CI / production proof**
 
-- Core CI: **613 passed / 17 skipped**
-- PostgreSQL + Redis + Docker code-sandbox integration: **7 passed**
+- Core CI: **621 passed / 18 skipped**
+- PostgreSQL + Redis + Docker code-sandbox integration: **8 passed**
 - 3-request / concurrency-1 real-data smoke: **406.82 ms mean**, **407.37 ms
   P95**, **2.46 req/s**
 
 These latency values are GitHub Actions smoke measurements, not production
 capacity or external SoTA claims.
+
+## 7. Canonical Runtime Unification
+
+**Resume capability**
+
+One application-level runtime owns domain dispatch instead of exposing parallel canonical runtimes.
+
+**Implementation**
+
+- `src/eiw/runtime/domain.py`
+- `src/eiw/runtime/orchestrator.py`
+- `src/eiw/retail/domain.py`
+- Retail API path: `BusinessAgentRuntime → RetailDomainRuntime → RetailBARuntime`
+
+**Proof**
+
+- domain registration / dispatch unit coverage in `tests/unit/test_domain_runtime.py`
+- final core CI on this hardening branch: **621 passed / 18 skipped**
+
+## 8. Adversarial Evaluation + Frozen Holdout
+
+**Resume capability**
+
+The Agent is release-gated against ambiguity, missing data, unsupported causality, unavailable periods, prompt injection, unsafe requests, multi-turn state and malformed model outputs instead of only happy-path questions.
+
+**Implementation**
+
+- `src/eiw/retail/guard.py`
+- `src/eiw/retail/adversarial.py`
+- `evaluation/retail/frozen_holdout_v1.jsonl`
+- checksum-pinned frozen holdout prevents silent mutation
+
+**Proof**
+
+- **210 total adversarial cases / 14 categories**
+- **168 development + 42 frozen holdout**
+- development gate: **164 / 168 passed (97.62%)**
+- pinned Complete Journey real-data frozen holdout: **42 / 42 passed (100%)**
+- security resistance: **1.000**
+- malformed-model fallback recovery: **1.000**
+- combined development + frozen result: **206 / 210 passed**
+- evidence workflow: GitHub Actions run **36437826206**, artifact **10976531496**
+
+The four development misses are retained as an explicit known weakness in one missing-data paraphrase family; the frozen holdout is not used as a tuning set.
+
+## 9. Comparative Model-Agent Lanes
+
+**Resume capability**
+
+The same BA workload can compare deterministic, single-agent, supervisor and supervisor+specialists policies under one metric schema.
+
+**Implementation**
+
+- `src/eiw/retail/model_lane_benchmark.py`
+- `src/eiw/retail/model_telemetry.py`
+- `src/eiw/retail/single_agent_policy.py`
+- `.github/workflows/retail-model-lane.yml`
+
+**Measured fields**
+
+- task success
+- estimated provider cost
+- end-to-end latency
+- invalid tool / choice rate
+- re-plan rate
+- model calls / tokens
+- deterministic fallback count
+
+**Claim boundary**
+
+Qwen / GPT / Claude-compatible live endpoints are wired, but **no live cross-provider scores are claimed until provider credentials are configured and the manual workflow actually runs**.
+
+## 10. Enterprise PostgreSQL Connector
+
+**Resume capability**
+
+A real enterprise connector covers `connect → introspect → semantic package → permissions → analysis → evidence → report`.
+
+**Implementation**
+
+- `src/eiw/connectors/postgres.py`
+- `src/eiw/connectors/api.py`
+- explicit schema/table/column allowlists
+- PostgreSQL read-only transaction + statement timeout
+- bounded rows and typed aggregate operations
+- semantic-package and query SHA-256 evidence
+
+**Proof**
+
+- real PostgreSQL 16 service in GitHub Actions
+- catalog introspection + semantic validation + governed aggregation + permission-denial integration test
+- production integration: **8 passed**
 
 ## Resume-writing rule
 

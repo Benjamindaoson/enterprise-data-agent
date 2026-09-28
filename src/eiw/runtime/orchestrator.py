@@ -11,6 +11,7 @@ of deterministic execution and persistence details.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -19,6 +20,7 @@ from uuid import uuid4
 from eiw.business.models import BusinessTaskRequest, BusinessTaskResponse
 from eiw.business.operations import BusinessOperationsService
 from eiw.production.persistence import ProductionStore
+from eiw.runtime.domain import DomainRuntime
 from eiw.runtime.memory import MemoryKind, MemoryRecord, MemoryStore
 from eiw.runtime.skills import SkillRegistry, default_skill_registry
 from eiw.workspace.analysis import AnalysisService
@@ -68,11 +70,12 @@ class BusinessAgentRuntime:
     def __init__(
         self,
         *,
-        analysis_service: AnalysisService,
+        analysis_service: AnalysisService | None,
         business_service: BusinessOperationsService | None = None,
         skills: SkillRegistry | None = None,
         memory: MemoryStore | None = None,
         production_store: ProductionStore | None = None,
+        domains: list[DomainRuntime] | None = None,
     ) -> None:
         self.analysis_service = analysis_service
         self.business_service = business_service or BusinessOperationsService()
@@ -81,6 +84,67 @@ class BusinessAgentRuntime:
         self.production_store = production_store
         self._events: list[RuntimeTraceEvent] = []
         self._trajectory_steps: dict[str, int] = {}
+        self._domains: dict[str, DomainRuntime] = {}
+        for domain in domains or []:
+            self.register_domain(domain)
+
+    def register_domain(self, domain: DomainRuntime) -> None:
+        """Register one domain adapter under the canonical application runtime."""
+
+        if domain.domain_id in self._domains:
+            raise ValueError(f"domain runtime already registered: {domain.domain_id}")
+        self._domains[domain.domain_id] = domain
+
+    def has_domain(self, domain_id: str) -> bool:
+        return domain_id in self._domains
+
+    def domain_runtime(self, domain_id: str) -> DomainRuntime:
+        try:
+            return self._domains[domain_id]
+        except KeyError as exc:
+            raise KeyError(f"unknown domain runtime: {domain_id}") from exc
+
+    def analyze_domain(
+        self,
+        domain_id: str,
+        request: object,
+        *,
+        on_event: Callable[[object], None] | None = None,
+    ) -> object:
+        """Route a domain request through the single application runtime."""
+
+        domain = self.domain_runtime(domain_id)
+        self._record(
+            "DOMAIN_RUNTIME_STARTED",
+            f"Domain runtime started: {domain_id}.",
+            payload={"domain_id": domain_id},
+        )
+        try:
+            response = domain.analyze(request, on_event=on_event)
+        except Exception as exc:
+            self._record(
+                "DOMAIN_RUNTIME_FAILED",
+                f"Domain runtime failed: {domain_id}.",
+                payload={
+                    "domain_id": domain_id,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            raise
+
+        task_id_value = (
+            response.get("task_id")
+            if isinstance(response, dict)
+            else getattr(response, "task_id", None)
+        )
+        task_id = str(task_id_value) if task_id_value else None
+        self._record(
+            "DOMAIN_RUNTIME_COMPLETED",
+            f"Domain runtime completed: {domain_id}.",
+            task_id=task_id,
+            payload={"domain_id": domain_id},
+        )
+        return response
 
     def capabilities(self) -> dict[str, Any]:
         """Return capabilities from the runtime that actually serves requests."""
@@ -93,6 +157,10 @@ class BusinessAgentRuntime:
                 "analysis_lane": "deterministic_semantic_analytics",
                 "agent_learning_lane": "offline_sft_grpo_evaluation",
                 "external_writes": "proposal_or_approval_gated",
+            },
+            "domains": {
+                domain_id: domain.capabilities()
+                for domain_id, domain in sorted(self._domains.items())
             },
             "business_scenarios": [
                 "ANALYTICS",
@@ -130,6 +198,9 @@ class BusinessAgentRuntime:
         lineage: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run the canonical governed analytical lane."""
+
+        if self.analysis_service is None:
+            raise RuntimeError("generic analysis service is not configured")
 
         invocation_id = f"run_{uuid4().hex[:12]}"
         self._record(
