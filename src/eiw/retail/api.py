@@ -6,8 +6,8 @@ import json
 import os
 import queue
 import threading
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
