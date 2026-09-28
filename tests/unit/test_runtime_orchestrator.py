@@ -149,3 +149,61 @@ def test_completed_runtime_event_is_persisted_when_production_store_is_configure
     assert event["task_id"] == "task-123"
     assert event["step_index"] == 0
     assert event["payload"]["event_type"] == "RUNTIME_COMPLETED"
+
+
+
+class FakeDomainResponse:
+    def __init__(self) -> None:
+        self.task_id = "domain-task-1"
+        self.status = "COMPLETED"
+
+
+class FakeDomainRuntime:
+    domain_id = "retail"
+
+    def __init__(self) -> None:
+        self.requests: list[Any] = []
+
+    def capabilities(self) -> dict[str, Any]:
+        return {"runtime": "fake-retail"}
+
+    def analyze(self, request: Any, *, on_event: Any = None) -> FakeDomainResponse:
+        self.requests.append(request)
+        if on_event is not None:
+            on_event({"event_type": "fake"})
+        return FakeDomainResponse()
+
+
+def test_domain_runtime_is_hosted_by_business_agent_runtime() -> None:
+    domain = FakeDomainRuntime()
+    runtime = BusinessAgentRuntime(
+        analysis_service=None,
+        domain_runtimes=[domain],
+    )
+
+    observed: list[Any] = []
+    result = runtime.analyze_domain(
+        "retail",
+        {"question": "why did sales decline?"},
+        on_event=observed.append,
+    )
+
+    assert result.status == "COMPLETED"
+    assert domain.requests == [{"question": "why did sales decline?"}]
+    assert observed == [{"event_type": "fake"}]
+    assert runtime.capabilities()["domains"]["retail"]["runtime"] == "fake-retail"
+    assert [event["event_type"] for event in runtime.events()] == [
+        "DOMAIN_RUNTIME_STARTED",
+        "DOMAIN_RUNTIME_COMPLETED",
+    ]
+
+
+def test_domain_only_runtime_rejects_generic_lane() -> None:
+    runtime = BusinessAgentRuntime(analysis_service=None)
+
+    try:
+        runtime.analyze("question", {})
+    except RuntimeError as exc:
+        assert "not configured" in str(exc)
+    else:
+        raise AssertionError("expected generic lane to fail closed")
