@@ -13,6 +13,7 @@ RUN uv pip install --system -r pyproject.toml
 
 # Copy source code
 COPY src/ ./src/
+COPY semantic_packages/ ./semantic_packages/
 COPY alembic/ ./alembic/
 COPY ops/ ./ops/
 COPY README.md .

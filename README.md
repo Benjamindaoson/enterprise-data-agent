@@ -5,15 +5,176 @@
 
 # BA Agent｜商业分析智能体
 
-**Business Intelligence & Autonomous Operations Agent**
+**Autonomous Business Analysis · Insight Mining · Decision Reports**
 
-A governed long-horizon **Business Analysis Agent (BA Agent)** that turns business questions into evidence-backed analysis, decisions, and approval-gated actions across **analytics, marketing budget planning, sales expansion, and monetization**.
+A production-shaped **Business Analysis Agent (BA Agent)** that understands business semantics, dispatches specialist analysts, autonomously investigates performance, discovers high-impact drivers and opportunities, and delivers interactive decision-ready reports.
 
-`BA Agent` · `Agent Harness` · `Business Intelligence` · `Autonomous Operations` · `Semantic Layer` · `Skill Runtime` · `Evaluation` · `SFT` · `GRPO / AgentRL`
+`BA Agent` · `Multi-Agent` · `LangGraph` · `Business Intelligence` · `Semantic Layer` · `Analytical Skills` · `AI Coding` · `Insight Mining` · `Evaluation`
 
 </div>
 
 ---
+
+## Why this is not Text-to-SQL / ChatBI
+
+| Typical ChatBI boundary | BA Agent capability | Measured / executable proof |
+| --- | --- | --- |
+| Question → SQL | **Business semantic reasoning** | 1.000 Semantic Coverage on 10-case + 30-case rolling suites |
+| User asks the next question | **Supervisor-driven autonomous investigation** | dynamic re-plan added specialists in 8/10 cases |
+| One SQL/tool call | **Independent specialist Agents + typed analytical Skills** | Store / Product / Promotion / Customer skill allowlists and runtime events |
+| Summarize returned rows | **Programmatic insight mining** | query-aware ranking improves Driver Recall@K from 0.90 → 1.00 in same-output ablation |
+| Table / default chart | **Decision-oriented visualization + report delivery** | real Playwright UI, HTML + A4 PDF product proof |
+| SQL exact match | **End-to-end analyst evaluation** | 30 cases × 5 historical windows with independent SQL gold |
+
+See [the resume/evidence map](docs/RESUME_EVIDENCE.md) for the exact implementation and proof behind each capability.
+
+## Retail Intelligence reference product
+
+The first high-fidelity product vertical is a **Retail Business Analysis Agent (BA Agent)**. It is intentionally broader than Text-to-SQL:
+
+```text
+Business question
+      ↓
+Business semantics
+      ↓
+Supervisor + parallel analytical workstreams
+      ↓
+SQL / deterministic analytical skills / optional code worker
+      ↓
+Store · Product · Promotion · Customer investigation
+      ↓
+Programmatic insight mining
+      ↓
+Decision-oriented charts
+      ↓
+Executive Business Review + action cards
+```
+
+Run the end-to-end demo at `/ba`. A deterministic fixture is available for zero-setup development, while the real-data path can download and materialize the public CC0 `completejourney` distribution automatically:
+
+```bash
+make setup-retail-data
+make retail-data
+EIW_RETAIL_DATA_DIR=$PWD/data/retail make dev
+```
+
+The pinned real-data baseline currently contains **1,469,307 transaction lines**, **20,940,529 promotion states**, **92,331 products**, **801 demographic households**, **6,589 campaign memberships**, **116,204 coupon records**, and **2,102 coupon redemptions**. Source commit, source/Parquet SHA-256 hashes, row counts and column manifests are recorded by the ingestion pipeline.
+
+The current Retail Intelligence product path is first-party. DeepAnalyze, Microsoft Data Formulator and WrenAI were evaluated during bootstrap, but their source trees have been removed after first-party replacements passed the project benchmark and integration gates. An externally operated DeepAnalyze API remains an optional compatibility fallback only.
+
+### Retail runtime architecture
+
+```mermaid
+flowchart TD
+    U[Business question / follow-up] --> S[Business Semantic Engine]
+    S --> SUP[Supervisor]
+    SUP --> O[Overview Analyst]
+    SUP --> ST[Store Analyst]
+    SUP --> PR[Product Analyst]
+    SUP --> PM[Promotion Analyst]
+    SUP --> CU[Customer Analyst]
+
+    O --> SK[Typed Analytical Skills]
+    ST --> SK
+    PR --> SK
+    PM --> SK
+    CU --> SK
+
+    SK --> D[(DuckDB / Parquet)]
+    SK --> C[Bounded AI Coding]
+    C --> SB[Docker Sandbox]
+
+    O --> OBS[Typed observations]
+    ST --> OBS
+    PR --> OBS
+    PM --> OBS
+    CU --> OBS
+    OBS --> SUP
+    SUP -->|Replan| ST
+    SUP -->|Replan| PR
+    SUP -->|Replan| PM
+    SUP -->|Replan| CU
+
+    OBS --> IM[Insight Mining + Query-aware Ranking]
+    IM --> CH[Chart Planner / Restyler]
+    IM --> RP[Executive Report + Actions]
+    CH --> UI[Streaming BA Workspace]
+    RP --> UI
+    UI -->|click insight / chart| U
+```
+
+The Supervisor can be deterministic for reproducible evaluation or backed by an
+OpenAI-compatible model with a strict workstream allowlist and deterministic
+fallback. Each Store / Product / Promotion / Customer specialist can also use
+its own optional model policy to choose from a bounded domain-specific Skill
+allowlist; deterministic execution remains the fallback. Specialist workstreams
+execute concurrently and exchange typed task state/results rather than
+free-form hidden reasoning.
+
+### Multi-Agent orchestration
+
+The Retail runtime uses a LangGraph investigation loop with a Supervisor and
+parallel specialist analysts for performance, stores, products, promotion and
+customers. The benchmarked default planner is deterministic for reproducibility;
+an optional OpenAI-compatible Supervisor can select/re-plan workstreams with an
+allowlisted JSON contract and automatic deterministic fallback. Specialist
+Agents optionally select their own bounded analytical Skill subsets; selected
+skills, policy source and public rationale are emitted as runtime events.
+Interactive follow-ups preserve the parent analysis window and carry an explicit focus
+(e.g. store -> commodity or commodity -> store) rather than restarting from
+chat history.
+
+### First-party AI Coding
+
+Open-ended analytical code is generated through a provider-neutral
+OpenAI-compatible adapter and executed in a repository-owned ephemeral Docker
+sandbox with network disabled, read-only root filesystem, dropped capabilities,
+`no-new-privileges`, and CPU/memory/PID limits. The production-integration CI
+runs the real Docker sandbox, not a mock.
+
+### Measured Retail BA baseline
+
+`RetailAnalystBench-v1` uses **10 deterministic BA cases with independent read-only SQL gold**, covering KPI summary, decline diagnosis, store/product drivers, cross-dimensional drill-down, price-volume decomposition, merchandising, customer/basket analysis, customer segments and executive review.
+
+| Metric | Pinned CC0 Complete Journey |
+| --- | ---: |
+| Driver Recall@K | **1.000** |
+| Semantic Coverage | **1.000** |
+| Numeric Accuracy | **1.000** |
+| Report Completeness | **1.000** |
+| Action Coverage | **1.000** |
+| Mean time to first insight | **288 ms** |
+| End-to-end P95 | **330 ms** |
+
+A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **302 ms mean**, **309 ms P95**, and **3.31 requests/s**. These latency figures are CI smoke measurements, not production-capacity claims or external SoTA results. See [real-data benchmark notes](docs/BA_AGENT_REAL_DATA_RESULTS.md).
+
+### Rolling-window robustness
+
+A second `RetailAnalystBench-Rolling-v1` suite evaluates **30 BA cases across 5 historical windows**, instead of testing only the latest period. On the pinned real-data run it preserved **1.000 Driver Recall@K, Semantic Coverage, Numeric Accuracy, Report Completeness and Action Coverage** across all 30 cases; P95 end-to-end latency was **377 ms**. This is still an internal benchmark, but it reduces the risk of a one-window overfit.
+
+### Harness ablation
+
+`RetailHarnessAblation-v1` holds the analytical workstream outputs constant
+and removes only harness behavior. On the same 10 real-data cases, naive
+intrinsic-score ranking reached **0.90 Driver Recall@K**, while query-aware
+semantic selection reached **1.00 (+10 pp)**. Dynamic re-planning added
+specialist workstreams in **8/10** cases. In the same GitHub-hosted smoke,
+parallel specialist execution averaged **330 ms** versus **462 ms** sequentially
+sequentially (**1.40× wall-clock speedup**). These are system-ablation results,
+not external SoTA claims.
+
+### Real product proof
+
+The real-data workflow now boots the BA Agent against the pinned CC0 dataset and uses Playwright to execute the browser product end to end. CI retains a proof bundle containing:
+
+- pre-run and completed UI screenshots;
+- a recorded WebM interaction;
+- Playwright trace;
+- generated executive HTML report;
+- generated A4 PDF report;
+- exact benchmark JSON, scale JSON and dataset provenance manifest.
+
+The same CI path also exercises the first-party Docker AI-Coding sandbox (network disabled, read-only root, CPU/memory/PID limits) and the stateful follow-up/drill-down contracts.
 
 ## What this project is
 
@@ -63,13 +224,14 @@ The result is not a single-call NL2SQL or ChatBI demo, but a **stateful, auditab
 
 ![Autonomous Operations Console](docs/assets/demo-console.svg)
 
-Run the presentation demo locally:
+Run the Retail Intelligence product locally:
 
 ```text
-http://127.0.0.1:8000/demo
+http://127.0.0.1:8000/ba
 ```
 
-See [Demo Console](docs/DEMO.md) for details.
+The legacy operations console remains available separately; the `/ba` surface
+is the product demo used by the real-data Playwright proof.
 
 ---
 
@@ -79,9 +241,9 @@ See [Demo Console](docs/DEMO.md) for details.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **578 passed / 17 skipped** |
+| Core CI | **613 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
-| PostgreSQL + Redis integration | **6 passed** |
+| PostgreSQL + Redis + Docker code sandbox integration | **7 passed** |
 | Hard benchmark acceptance gate | **PASS** |
 | UCI real-data benchmark | **587,120 rows parsed in CI** |
 
@@ -868,7 +1030,7 @@ Current verified snapshot:
 ```text
 Core CI                578 passed / 17 skipped
 Training CI              7 passed
-Production integration   6 passed
+Production integration   7 passed
 Hard-v1 acceptance       PASS
 RealData-v1              PASS
 ```

@@ -1,4 +1,4 @@
-.PHONY: setup setup-training setup-llm setup-production data test lint dev evaluation trajectories train-sft train-grpo flywheel-smoke benchmark-hard benchmark-real train-hard llm-dataset llm-sft llm-grpo production-test observability
+.PHONY: setup setup-training setup-llm setup-production setup-retail-data data test lint dev evaluation trajectories train-sft train-grpo flywheel-smoke benchmark-hard benchmark-real retail-data retail-benchmark retail-demo retail-scale train-hard llm-dataset llm-sft llm-grpo production-test observability
 
 setup:
 	python -m pip install -e '.[dev,postgres]'
@@ -11,6 +11,9 @@ setup-llm:
 
 setup-production:
 	python -m pip install -e '.[dev,production]'
+
+setup-retail-data:
+	python -m pip install -e '.[dev,retail-data]'
 
 data:
 	python scripts/curate_iowa_snapshot.py
@@ -68,3 +71,16 @@ production-test:
 
 observability:
 	docker compose up -d redis otel-collector prometheus grafana
+
+
+retail-data:
+	python scripts/fetch_completejourney_cc0.py data/retail
+
+retail-benchmark:
+	EIW_RETAIL_DATA_DIR=${EIW_RETAIL_DATA_DIR:-data/retail} python scripts/run_retail_benchmark.py --assert-smoke
+
+retail-demo:
+	python -m uvicorn eiw.app:app --reload
+
+retail-scale:
+	python scripts/benchmark_retail_scale.py ${EIW_RETAIL_DATA_DIR}
