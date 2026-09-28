@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from eiw.business.models import BusinessTaskRequest
 from eiw.business.operations import BusinessOperationsService
+from eiw.connectors.api import create_postgres_connector_router
 from eiw.production.persistence import ProductionStore
 from eiw.retail.api import create_retail_router
 from eiw.runtime.orchestrator import BusinessAgentRuntime
@@ -81,6 +82,9 @@ def create_app() -> FastAPI:
             production_store=production_store,
             business_runtime=runtime,
         )
+    )
+    app.include_router(
+        create_postgres_connector_router(business_runtime=runtime)
     )
     bundle_root = getattr(sys, "_MEIPASS", None)
     if getattr(sys, "frozen", False) and bundle_root:
