@@ -40,3 +40,16 @@ def test_merchandising_language_does_not_overclaim_causality() -> None:
     ).lower()
     assert "association" in text
     assert "matched" in text
+
+
+def test_runtime_replans_after_initial_diagnostic_wave() -> None:
+    runtime = RetailBARuntime(RetailDataEngine.demo())
+    response = runtime.analyze(
+        RetailAnalysisRequest(question="Why did recent sales decline?")
+    )
+
+    event_types = [event.event_type for event in response.events]
+    assert "replan_started" in event_types
+    assert "replan_ready" in event_types
+    assert WorkstreamName.PROMOTION in {item.name for item in response.workstreams}
+    assert WorkstreamName.CUSTOMER in {item.name for item in response.workstreams}
