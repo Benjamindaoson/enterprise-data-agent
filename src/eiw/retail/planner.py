@@ -1,24 +1,89 @@
 """Business investigation planning and replanning.
 
-The planner exposes only business workstream decisions. It does not expose or
-persist private model reasoning.
+The planner exposes only public business workstream decisions. It can use an
+optional model-driven Supervisor, while deterministic planning remains the
+reproducible default and fallback.
 """
 
 from __future__ import annotations
 
 from eiw.retail.models import RetailAnalysisRequest, WorkstreamName, WorkstreamResult
+from eiw.retail.supervisor import SupervisorPolicy
 
 
 class InvestigationPlanner:
+    def __init__(self, policy: SupervisorPolicy | None = None) -> None:
+        self.policy = policy
+        self.last_source = "deterministic"
+        self.last_rationale = ""
+
     def initial_plan(self, request: RetailAnalysisRequest) -> list[WorkstreamName]:
+        if self.policy is not None:
+            try:
+                decision = self.policy.decide(
+                    stage="initial",
+                    question=request.question,
+                    completed=[],
+                    max_workstreams=request.max_workstreams,
+                )
+                self.last_source = "model"
+                self.last_rationale = decision.rationale
+                return self._dedupe(
+                    [WorkstreamName.OVERVIEW, *decision.workstreams]
+                )[: request.max_workstreams]
+            except Exception:
+                self.last_source = "deterministic-fallback"
+                self.last_rationale = (
+                    "Model supervisor unavailable; deterministic planner used."
+                )
+
         question = request.question.lower()
         selected = [WorkstreamName.OVERVIEW]
 
-        if any(token in question for token in ("store", "门店", "region", "区域", "sales", "销售", "performance", "经营", "why", "为什么")):
+        if any(
+            token in question
+            for token in (
+                "store",
+                "门店",
+                "region",
+                "区域",
+                "sales",
+                "销售",
+                "performance",
+                "经营",
+                "why",
+                "为什么",
+            )
+        ):
             selected.append(WorkstreamName.STORE)
-        if any(token in question for token in ("product", "sku", "category", "品类", "商品", "sales", "销售", "performance", "经营", "why", "为什么")):
+        if any(
+            token in question
+            for token in (
+                "product",
+                "sku",
+                "category",
+                "品类",
+                "商品",
+                "sales",
+                "销售",
+                "performance",
+                "经营",
+                "why",
+                "为什么",
+            )
+        ):
             selected.append(WorkstreamName.PRODUCT)
-        if any(token in question for token in ("promotion", "promo", "display", "mailer", "促销", "陈列")):
+        if any(
+            token in question
+            for token in (
+                "promotion",
+                "promo",
+                "display",
+                "mailer",
+                "促销",
+                "陈列",
+            )
+        ):
             selected.append(WorkstreamName.PROMOTION)
         if any(
             token in question
@@ -44,6 +109,9 @@ class InvestigationPlanner:
         if len(selected) == 1:
             selected.extend([WorkstreamName.STORE, WorkstreamName.PRODUCT])
 
+        if self.policy is None:
+            self.last_source = "deterministic"
+            self.last_rationale = ""
         return self._dedupe(selected)[: request.max_workstreams]
 
     def replan(
@@ -52,17 +120,75 @@ class InvestigationPlanner:
         completed: list[WorkstreamResult],
     ) -> list[WorkstreamName]:
         completed_names = {item.name for item in completed}
+        remaining = max(0, request.max_workstreams - len(completed_names))
+        if remaining <= 0:
+            return []
+
+        if self.policy is not None:
+            try:
+                decision = self.policy.decide(
+                    stage="replan",
+                    question=request.question,
+                    completed=completed,
+                    max_workstreams=remaining,
+                )
+                self.last_source = "model"
+                self.last_rationale = decision.rationale
+                return self._dedupe(
+                    [
+                        name
+                        for name in decision.workstreams
+                        if name not in completed_names
+                    ]
+                )[:remaining]
+            except Exception:
+                self.last_source = "deterministic-fallback"
+                self.last_rationale = (
+                    "Model supervisor unavailable; deterministic replanning used."
+                )
+
         question = request.question.lower()
         next_steps: list[WorkstreamName] = []
 
-        overview = next((item for item in completed if item.name == WorkstreamName.OVERVIEW), None)
-        sales_change = float(overview.metrics.get("sales_change_pct") or 0.0) if overview else 0.0
-        diagnostic_question = any(token in question for token in ("why", "为什么", "原因", "经营", "performance", "sales", "销售"))
+        overview = next(
+            (
+                item
+                for item in completed
+                if item.name == WorkstreamName.OVERVIEW
+            ),
+            None,
+        )
+        sales_change = (
+            float(overview.metrics.get("sales_change_pct") or 0.0)
+            if overview
+            else 0.0
+        )
+        diagnostic_question = any(
+            token in question
+            for token in (
+                "why",
+                "为什么",
+                "原因",
+                "经营",
+                "performance",
+                "sales",
+                "销售",
+            )
+        )
 
         if WorkstreamName.PROMOTION not in completed_names and (
             sales_change < -1.0
             or diagnostic_question
-            or any(token in question for token in ("promotion", "promo", "display", "促销", "陈列"))
+            or any(
+                token in question
+                for token in (
+                    "promotion",
+                    "promo",
+                    "display",
+                    "促销",
+                    "陈列",
+                )
+            )
         ):
             next_steps.append(WorkstreamName.PROMOTION)
 
@@ -88,11 +214,12 @@ class InvestigationPlanner:
         ):
             next_steps.append(WorkstreamName.CUSTOMER)
 
-        remaining = max(0, request.max_workstreams - len(completed_names))
+        if self.policy is None:
+            self.last_source = "deterministic"
+            self.last_rationale = ""
         return self._dedupe(next_steps)[:remaining]
 
     def plan(self, request: RetailAnalysisRequest) -> list[WorkstreamName]:
-        """Compatibility alias for callers that only need a one-shot plan."""
         return self.initial_plan(request)
 
     @staticmethod
