@@ -15,6 +15,11 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.code_analysis import RetailCodeAnalyst
+from eiw.retail.code_worker import (
+    DockerCodeSandbox,
+    FirstPartyRetailCodeAnalyst,
+    OpenAICompatibleCodeGenerator,
+)
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.export import render_report_html
 from eiw.retail.models import (
@@ -109,14 +114,23 @@ def create_retail_router() -> APIRouter:
         df = DataFormulatorBridge(repo_root / "third_party" / "data-formulator")
         deep_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
         deep = DeepAnalyzeWorker(base_url=deep_url) if deep_url else None
+        code_url = os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip()
+        sandbox = DockerCodeSandbox()
         wren = WrenCliAdapter()
         return {
             "checked_out": manifest,
             "data_formulator": df.manifest(),
+            "first_party_code_worker": {
+                "configured": bool(code_url),
+                "docker_available": sandbox.available(),
+                "model_base_url": code_url or None,
+                "model": os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3") if code_url else None,
+            },
             "deepanalyze": {
                 "configured": bool(deep_url),
                 "healthy": deep.health() if deep else False,
                 "base_url": deep_url or None,
+                "role": "bootstrap fallback",
             },
             "wren": {
                 "cli_available": wren.available(),
@@ -170,22 +184,53 @@ def create_retail_router() -> APIRouter:
 
     @router.post("/code-analysis")
     def code_analysis(request: CodeAnalysisRequest) -> dict[str, object]:
-        base_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
-        if not base_url:
-            raise HTTPException(
-                status_code=503,
-                detail="EIW_DEEPANALYZE_URL is not configured",
-            )
-        worker = DeepAnalyzeWorker(base_url=base_url)
-        if not worker.health():
-            raise HTTPException(status_code=503, detail="DeepAnalyze API is unavailable")
         default_current, default_previous = runtime.data.week_bounds()
-        analyst = RetailCodeAnalyst(runtime.data, worker)
-        return analyst.analyze(
-            request.instruction,
-            current_weeks=request.current_weeks or default_current,
-            previous_weeks=request.previous_weeks or default_previous,
-            max_rows=request.max_rows,
+        current = request.current_weeks or default_current
+        previous = request.previous_weeks or default_previous
+
+        code_url = os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip()
+        if code_url:
+            sandbox = DockerCodeSandbox()
+            if not sandbox.available():
+                raise HTTPException(
+                    status_code=503,
+                    detail="Docker is required for the first-party code-analysis sandbox",
+                )
+            generator = OpenAICompatibleCodeGenerator(
+                base_url=code_url,
+                model=os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3"),
+                api_key=os.getenv("EIW_RETAIL_CODE_MODEL_API_KEY", ""),
+            )
+            analyst = FirstPartyRetailCodeAnalyst(runtime.data, generator, sandbox)
+            return analyst.analyze(
+                request.instruction,
+                current_weeks=current,
+                previous_weeks=previous,
+                max_rows=request.max_rows,
+            )
+
+        deep_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
+        if deep_url:
+            worker = DeepAnalyzeWorker(base_url=deep_url)
+            if not worker.health():
+                raise HTTPException(
+                    status_code=503,
+                    detail="DeepAnalyze API is unavailable",
+                )
+            analyst = RetailCodeAnalyst(runtime.data, worker)
+            return analyst.analyze(
+                request.instruction,
+                current_weeks=current,
+                previous_weeks=previous,
+                max_rows=request.max_rows,
+            )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Configure EIW_RETAIL_CODE_MODEL_URL for the first-party code worker "
+                "or EIW_DEEPANALYZE_URL for the bootstrap fallback"
+            ),
         )
 
     @router.post("/charts/restyle")
