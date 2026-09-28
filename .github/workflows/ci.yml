@@ -24,6 +24,7 @@ jobs:
         run: >
           python -m ruff check
           src/eiw/business
+          src/eiw/connectors
           src/eiw/benchmark
           src/eiw/flywheel
           src/eiw/llm_agent
@@ -64,6 +65,7 @@ jobs:
           tests/unit/test_retail_specialist_agents.py
           tests/unit/test_retail_adversarial.py
           tests/unit/test_retail_model_lane.py
+          tests/integration/test_postgres_connector.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
@@ -182,4 +184,5 @@ jobs:
           tests/unit/test_production_runtime.py
           tests/integration/test_production_services.py
           tests/integration/test_retail_code_sandbox.py
+          tests/integration/test_postgres_connector.py
           -q
