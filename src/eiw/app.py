@@ -65,13 +65,14 @@ def create_app() -> FastAPI:
     service = AnalysisService(store, data, artifact_root)
     business_service = BusinessOperationsService()
     skill_registry = default_skill_registry()
+    database_url = os.getenv("EIW_DATABASE_URL")
+    production_store = ProductionStore(database_url) if database_url else None
     runtime = BusinessAgentRuntime(
         analysis_service=service,
         business_service=business_service,
         skills=skill_registry,
+        production_store=production_store,
     )
-    database_url = os.getenv("EIW_DATABASE_URL")
-    production_store = ProductionStore(database_url) if database_url else None
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
