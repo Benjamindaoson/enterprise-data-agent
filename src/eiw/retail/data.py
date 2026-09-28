@@ -8,8 +8,8 @@ an in-memory deterministic fixture in CI.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from statistics import fmean, pstdev
 from typing import Any
