@@ -25,6 +25,7 @@ from eiw.retail.models import (
     RuntimeEvent,
 )
 from eiw.retail.runtime import RetailBARuntime
+from eiw.retail.supervisor import OpenAICompatibleSupervisor
 from eiw.retail.upstream import (
     DataFormulatorBridge,
     DeepAnalyzeWorker,
@@ -37,6 +38,8 @@ def _build_runtime() -> RetailBARuntime:
     configured = os.getenv("EIW_RETAIL_DATA_DIR", "").strip()
     candidates = [Path(configured)] if configured else []
     candidates.append(Path("data/retail"))
+
+    data = RetailDataEngine.demo()
     for path in candidates:
         if not path.exists():
             continue
@@ -50,8 +53,18 @@ def _build_runtime() -> RetailBARuntime:
             )
         )
         if has_core_data:
-            return RetailBARuntime(RetailDataEngine.from_complete_journey(path))
-    return RetailBARuntime(RetailDataEngine.demo())
+            data = RetailDataEngine.from_complete_journey(path)
+            break
+
+    supervisor_url = os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip()
+    supervisor = None
+    if supervisor_url:
+        supervisor = OpenAICompatibleSupervisor(
+            base_url=supervisor_url,
+            model=os.getenv("EIW_RETAIL_SUPERVISOR_MODEL", "qwen3"),
+            api_key=os.getenv("EIW_RETAIL_SUPERVISOR_API_KEY", ""),
+        )
+    return RetailBARuntime(data, supervisor_policy=supervisor)
 
 
 def create_retail_router() -> APIRouter:
