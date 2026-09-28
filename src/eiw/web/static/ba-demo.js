@@ -96,11 +96,12 @@ function appendChart(input){
 function renderCharts(items){charts.innerHTML="";items.forEach(appendChart)}
 function renderReport(r){
   report.classList.remove("hidden");
-  report.innerHTML=`<div class="report-toolbar"><button id="exportReport">导出管理层报告</button></div><h2>${escapeHtml(r.title)}</h2>
+  report.innerHTML=`<div class="report-toolbar"><button id="exportReport">导出 HTML</button><button id="exportPdf">导出 PDF</button></div><h2>${escapeHtml(r.title)}</h2>
   <h3>Executive summary</h3><ul>${r.executive_summary.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ul>
   <h3>Priority actions</h3>
   ${r.actions.map(a=>`<div class="action"><b>${escapeHtml(a.priority)}</b><div><strong>${escapeHtml(a.action)}</strong><p>${escapeHtml(a.rationale)}</p><small>Monitor: ${escapeHtml(a.monitor_kpi)}</small></div></div>`).join("")}`;
   $("#exportReport").onclick=exportReport;
+  $("#exportPdf").onclick=exportPdf;
 }
 async function exportReport(){
   if(!currentResult) return;
@@ -108,6 +109,13 @@ async function exportReport(){
   if(!res.ok){addEvent({message:"报告导出失败",event_type:"error"});return;}
   const html=await res.text(), blob=new Blob([html],{type:"text/html"}), url=URL.createObjectURL(blob);
   const a=document.createElement("a"); a.href=url; a.download=`BA-Agent-${currentResult.task_id}.html`; a.click(); URL.revokeObjectURL(url);
+}
+async function exportPdf(){
+  if(!currentResult) return;
+  const res=await fetch("/api/v1/ba/retail/report/pdf",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(currentResult)});
+  if(!res.ok){addEvent({message:"PDF 导出不可用，请安装 Playwright reporting dependency",event_type:"error"});return;}
+  const blob=await res.blob(), url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`BA-Agent-${currentResult.task_id}.pdf`; a.click(); URL.revokeObjectURL(url);
 }
 function renderResult(r){
   currentResult=r;
