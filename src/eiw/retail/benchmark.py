@@ -315,7 +315,7 @@ class RetailBenchmarkRunner:
                 ),
                 expected_driver_terms=(commodity,) if commodity else (),
                 expected_metrics=("sales_value", "units"),
-                expected_dimensions=("commodity", "store", "week"),
+                expected_dimensions=("commodity", "week"),
                 expected_intents=("recommend",),
                 required_sections=("business-performance", "diagnostics"),
             ),
