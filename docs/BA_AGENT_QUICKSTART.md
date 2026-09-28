@@ -74,6 +74,15 @@ docker compose -f docker-compose.ba.yml --profile upstream-ui up --build
 - BA Agent: http://localhost:8000/ba
 - Data Formulator: http://localhost:5567
 
+To mount real retail data into the container, set both the host mount and the
+container path:
+
+```bash
+RETAIL_DATA_DIR=/absolute/path/to/retail \
+EIW_RETAIL_DATA_DIR=/data/retail \
+docker compose -f docker-compose.ba.yml --profile upstream-ui up --build
+```
+
 Data Formulator remains a pinned MIT-licensed upstream during bootstrap. Its
 Data Thread / visualization / sandbox patterns are being replaced behind
 first-party product contracts after parity is established.
