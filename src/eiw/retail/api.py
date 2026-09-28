@@ -23,6 +23,12 @@ from eiw.retail.models import (
     RuntimeEvent,
 )
 from eiw.retail.runtime import RetailBARuntime
+from eiw.retail.upstream import (
+    DataFormulatorBridge,
+    DeepAnalyzeWorker,
+    WrenCliAdapter,
+    upstream_manifest,
+)
 
 
 def _build_runtime() -> RetailBARuntime:
@@ -45,6 +51,28 @@ def create_retail_router() -> APIRouter:
             "vertical": "Retail Intelligence",
             "dataset": runtime.data.status(),
             "mode": "real-data" if not runtime.data.label.startswith("retail-demo") else "deterministic-demo",
+        }
+
+    @router.get("/upstreams")
+    def upstreams() -> dict[str, object]:
+        repo_root = Path(__file__).resolve().parents[3]
+        manifest = upstream_manifest(repo_root)
+        df = DataFormulatorBridge(repo_root / "third_party" / "data-formulator")
+        deep_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
+        deep = DeepAnalyzeWorker(base_url=deep_url) if deep_url else None
+        wren = WrenCliAdapter()
+        return {
+            "checked_out": manifest,
+            "data_formulator": df.manifest(),
+            "deepanalyze": {
+                "configured": bool(deep_url),
+                "healthy": deep.health() if deep else False,
+                "base_url": deep_url or None,
+            },
+            "wren": {
+                "cli_available": wren.available(),
+                "integration_mode": "isolated-cli-or-sidecar",
+            },
         }
 
     @router.post("/analyze")
