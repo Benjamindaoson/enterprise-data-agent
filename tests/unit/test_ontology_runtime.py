@@ -4,9 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from eiw.ontology.builder import SemanticPackageOntologyBuilder
-from eiw.ontology.runtime import OntologyRuntime
-from eiw.ontology.store import OntologyStore
+from eiw.ontology import (
+    OntologyRuntime,
+    OntologyStore,
+    SemanticPackageOntologyBuilder,
+)
 from eiw.semantic.package import load_semantic_package
 
 
