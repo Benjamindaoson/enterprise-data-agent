@@ -14,6 +14,7 @@ htmlcov/
 data/raw/
 data/curated/
 data/fixtures/generated/
+data/retail/
 artifacts/
 .eiw/
 evaluation/results/*.json
