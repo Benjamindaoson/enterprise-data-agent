@@ -97,7 +97,47 @@ Data Formulator remains a pinned MIT-licensed upstream during bootstrap. Its
 Data Thread / visualization / sandbox patterns are being replaced behind
 first-party product contracts after parity is established.
 
-## 6. Optional DeepAnalyze code analyst
+## 6. Optional model-driven Supervisor
+
+The benchmarked default planner is deterministic. To let a real
+OpenAI-compatible model choose the first specialist wave and re-plan after
+typed intermediate observations, configure:
+
+```bash
+export EIW_RETAIL_SUPERVISOR_URL=http://127.0.0.1:8001/v1
+export EIW_RETAIL_SUPERVISOR_MODEL=qwen3
+export EIW_RETAIL_SUPERVISOR_API_KEY=
+python -m uvicorn eiw.app:app --reload
+```
+
+The Supervisor only returns a bounded public decision:
+
+```json
+{"workstreams":["product","promotion"],"rationale":"short public rationale"}
+```
+
+The allowlist is enforced, already-completed workstreams are removed during
+re-planning, and any model/API failure automatically falls back to the
+deterministic planner. No hidden chain-of-thought is stored or exposed.
+
+## 7. Stateful interactive drill-down
+
+Every analysis response has a `task_id`. A follow-up can reference it and
+carry an explicit business focus while preserving the original period window:
+
+```json
+{
+  "question": "Continue into store 429 and explain the category drivers.",
+  "parent_task_id": "retail-...",
+  "focus": {"store": "429"}
+}
+```
+
+The web demo uses this path when a user clicks **继续调查** or clicks a chart
+element. Store focus drills to commodities; commodity/product focus drills to
+stores, and the resulting focused insight/chart is placed first.
+
+## 8. Optional DeepAnalyze code analyst
 
 Download DeepAnalyze-8B separately and set:
 
@@ -120,7 +160,7 @@ export EIW_DEEPANALYZE_URL=http://127.0.0.1:8200/v1
 The BA endpoint `POST /api/v1/ba/retail/code-analysis` sends only a bounded
 store × commodity snapshot to the optional code analyst.
 
-## 7. Upstream policy
+## 9. Upstream policy
 
 See:
 
