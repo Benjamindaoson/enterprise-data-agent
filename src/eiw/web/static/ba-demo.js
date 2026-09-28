@@ -2,6 +2,7 @@ const $ = (q) => document.querySelector(q);
 const activity = $("#activity"), charts = $("#charts"), insightList = $("#insightList");
 const runBtn = $("#runBtn"), question = $("#question"), report = $("#report");
 let clock = null, startedAt = 0, currentResult = null;
+let pendingParentTaskId = null, pendingFocus = {};
 const WORKSTREAMS=["overview","store","product","promotion","customer"];
 
 function setWorkstreamState(name,state,message=""){
@@ -48,7 +49,12 @@ function appendInsight(x){
   if(document.querySelector(`[data-insight-id="${CSS.escape(x.insight_id)}"]`)) return;
   const el=document.createElement("article"); el.className="insight-card"; el.dataset.insightId=x.insight_id;
   el.innerHTML=`<span class="score">Insight score ${Math.round(x.score*100)}</span><h3>${escapeHtml(x.title)}</h3><p>${escapeHtml(x.finding)}</p><button>继续调查</button>`;
-  el.querySelector("button").onclick=()=>{question.value=`继续调查：${x.title}。重点解释驱动因素和下一步行动。`; question.focus();};
+  el.querySelector("button").onclick=()=>{
+    pendingParentTaskId=currentResult?.task_id||null;
+    pendingFocus={...(x.dimensions||{})};
+    question.value=`继续调查：${x.title}。重点解释驱动因素、影响范围和下一步行动。`;
+    run();
+  };
   insightList.appendChild(el);
   $("#insightCount").textContent=insightList.children.length;
 }
@@ -67,7 +73,18 @@ function appendChart(input){
   option.textStyle={fontFamily:'Inter, sans-serif',color:"#0f1f2b"};
   const chart=echarts.init(document.getElementById(id)); chart.setOption(option);
   new ResizeObserver(()=>chart.resize()).observe(card);
-  chart.on("click",(params)=>{question.value=`继续下钻 ${params.name}，解释它对经营表现的影响，并给出行动建议。`;});
+  chart.on("click",(params)=>{
+    const linked=(x.insight_ids||[])
+      .map(id=>(currentResult?.insights||[]).find(item=>item.insight_id===id))
+      .find(Boolean);
+    pendingParentTaskId=currentResult?.task_id||null;
+    pendingFocus={...(linked?.dimensions||{})};
+    if(!Object.keys(pendingFocus).length && params.name){
+      pendingFocus={commodity:String(params.name)};
+    }
+    question.value=`继续下钻 ${params.name}，解释这个切片的主要驱动因素，并给出下一步行动。`;
+    run();
+  });
   card.querySelector(".chart-restyle").onclick=async()=>{
     const instruction=prompt("怎么改这张图？例如：换成折线图 / 改成横向排名");
     if(!instruction) return;
@@ -115,7 +132,12 @@ async function run(){
   $("#hero").className="hero-card"; $("#hero").innerHTML="<p>Investigation running</p><h2>多个分析工作流正在并行扫描经营数据…</h2>";
   startedAt=performance.now(); clock=setInterval(()=>{$("#elapsed").textContent=((performance.now()-startedAt)/1000).toFixed(1)+"s"},100);
   try{
-    const res=await fetch("/api/v1/ba/retail/analyze/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:question.value})});
+    const requestBody={
+      question:question.value,
+      parent_task_id:pendingParentTaskId,
+      focus:pendingFocus
+    };
+    const res=await fetch("/api/v1/ba/retail/analyze/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(requestBody)});
     const reader=res.body.getReader(), decoder=new TextDecoder(); let buffer="";
     while(true){
       const {value,done}=await reader.read(); if(done) break; buffer+=decoder.decode(value,{stream:true});
@@ -129,7 +151,11 @@ async function run(){
           if(msg.payload.event_type==="insight_discovered") appendInsight(msg.payload.payload);
           if(msg.payload.event_type==="chart_ready") appendChart(msg.payload.payload);
         }
-        if(msg.kind==="result") renderResult(msg.payload);
+        if(msg.kind==="result"){
+          renderResult(msg.payload);
+          pendingParentTaskId=msg.payload.task_id;
+          pendingFocus={};
+        }
       }
     }
   }catch(err){
