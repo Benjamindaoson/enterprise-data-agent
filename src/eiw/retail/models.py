@@ -28,6 +28,11 @@ class RetailAnalysisRequest(BaseModel):
     max_workstreams: int = Field(default=5, ge=1, le=5)
 
 
+class ChartRestyleRequest(BaseModel):
+    chart: "ChartArtifact"
+    instruction: str = Field(min_length=2, max_length=500)
+
+
 class RuntimeEvent(BaseModel):
     event_type: str
     message: str
