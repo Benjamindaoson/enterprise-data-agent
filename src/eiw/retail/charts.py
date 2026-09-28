@@ -345,7 +345,23 @@ class ChartPlanner:
         title = dict(option.get("title", {}))
         if not title.get("text"):
             title["text"] = chart.title
+        text_style = dict(title.get("textStyle", {}))
+        text_style.setdefault("fontSize", 14)
+        text_style.setdefault("fontWeight", 600)
+        text_style.setdefault("width", 430)
+        text_style.setdefault("overflow", "break")
+        title["textStyle"] = text_style
+        subtext_style = dict(title.get("subtextStyle", {}))
+        subtext_style.setdefault("fontSize", 10)
+        subtext_style.setdefault("width", 430)
+        subtext_style.setdefault("overflow", "break")
+        title["subtextStyle"] = subtext_style
         option["title"] = title
+
+        grid = dict(option.get("grid", {}))
+        grid.setdefault("containLabel", True)
+        option["grid"] = grid
+
         series = list(option.get("series", []))
         if not series:
             raise ValueError(f"chart {chart.chart_id} has no series")
