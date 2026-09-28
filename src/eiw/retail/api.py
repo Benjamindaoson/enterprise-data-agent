@@ -35,9 +35,21 @@ from eiw.retail.upstream import (
 
 def _build_runtime() -> RetailBARuntime:
     configured = os.getenv("EIW_RETAIL_DATA_DIR", "").strip()
-    if configured:
-        path = Path(configured)
-        if path.exists():
+    candidates = [Path(configured)] if configured else []
+    candidates.append(Path("data/retail"))
+    for path in candidates:
+        if not path.exists():
+            continue
+        has_core_data = any(
+            (path / name).exists()
+            for name in (
+                "transactions.parquet",
+                "transaction_data.parquet",
+                "transactions.csv",
+                "transaction_data.csv",
+            )
+        )
+        if has_core_data:
             return RetailBARuntime(RetailDataEngine.from_complete_journey(path))
     return RetailBARuntime(RetailDataEngine.demo())
 
