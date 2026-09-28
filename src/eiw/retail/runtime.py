@@ -10,6 +10,8 @@ from eiw.retail.charts import ChartPlanner
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.graph import RetailInvestigationGraph
 from eiw.retail.insight import InsightMiner
+from eiw.retail.planner import InvestigationPlanner
+from eiw.retail.supervisor import SupervisorPolicy
 from eiw.retail.models import (
     RetailAnalysisRequest,
     RetailAnalysisResponse,
@@ -25,12 +27,18 @@ EventCallback = Callable[[RuntimeEvent], None]
 class RetailBARuntime:
     """Production-facing BA runtime built around an explicit LangGraph loop."""
 
-    def __init__(self, data: RetailDataEngine) -> None:
+    def __init__(
+        self,
+        data: RetailDataEngine,
+        *,
+        supervisor_policy: SupervisorPolicy | None = None,
+    ) -> None:
         self.data = data
         self.workers = RetailAnalyticalWorkers(data)
         self.insights = InsightMiner()
         self.charts = ChartPlanner()
         self.reports = RetailReportBuilder()
+        self.planner = InvestigationPlanner(supervisor_policy)
 
     def analyze(
         self,
@@ -76,7 +84,11 @@ class RetailBARuntime:
         )
 
         graph_started = perf_counter()
-        graph = RetailInvestigationGraph(self.workers, emit=record)
+        graph = RetailInvestigationGraph(
+            self.workers,
+            emit=record,
+            planner=self.planner,
+        )
         graph_state = graph.run(
             request,
             current_weeks=current,
