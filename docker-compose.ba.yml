@@ -10,7 +10,7 @@ services:
       - "8000:8000"
     environment:
       EIW_MODEL_PROVIDER: deterministic
-      EIW_RETAIL_DATA_DIR: /data/retail
+      EIW_RETAIL_DATA_DIR: ${EIW_RETAIL_DATA_DIR:-}
       EIW_DEEPANALYZE_URL: ${EIW_DEEPANALYZE_URL:-}
     volumes:
       - ${RETAIL_DATA_DIR:-./data/retail}:/data/retail:ro
