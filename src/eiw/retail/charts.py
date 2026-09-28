@@ -189,11 +189,23 @@ class ChartPlanner:
         option = {
             "title": {"text": title, "subtext": subtitle, "left": 0},
             "tooltip": {"position": "top"},
-            "grid": {"left": 80, "right": 30, "top": 92, "bottom": 90},
+            "grid": {
+                "left": 20,
+                "right": 20,
+                "top": 98,
+                "bottom": 92,
+                "containLabel": True,
+            },
             "xAxis": {
                 "type": "category",
                 "data": commodities,
-                "axisLabel": {"rotate": 25},
+                "axisLabel": {
+                    "rotate": 35,
+                    "fontSize": 9,
+                    "width": 84,
+                    "overflow": "truncate",
+                    "hideOverlap": True,
+                },
                 "splitArea": {"show": True},
             },
             "yAxis": {
@@ -244,8 +256,24 @@ class ChartPlanner:
             },
             "tooltip": {"trigger": "axis"},
             "legend": {"top": 52},
-            "grid": {"left": 70, "right": 25, "top": 92, "bottom": 80},
-            "xAxis": {"type": "category", "data": categories, "axisLabel": {"rotate": 24}},
+            "grid": {
+                "left": 20,
+                "right": 20,
+                "top": 96,
+                "bottom": 82,
+                "containLabel": True,
+            },
+            "xAxis": {
+                "type": "category",
+                "data": categories,
+                "axisLabel": {
+                    "rotate": 28,
+                    "fontSize": 9,
+                    "width": 82,
+                    "overflow": "truncate",
+                    "hideOverlap": True,
+                },
+            },
             "yAxis": {"type": "value", "splitLine": {"lineStyle": {"color": "#e8ecef"}}},
             "series": [
                 {"name": "Volume effect", "type": "bar", "data": volume, "barMaxWidth": 24},
@@ -276,17 +304,51 @@ class ChartPlanner:
             option = {
                 "title": {"text": title, "subtext": subtitle, "left": 0},
                 "tooltip": {"trigger": "axis"},
-                "grid": {"left": 140, "right": 30, "top": 86, "bottom": 40},
-                "xAxis": {"type": "value", "splitLine": {"lineStyle": {"color": "#e8ecef"}}},
-                "yAxis": {"type": "category", "data": categories, "axisTick": {"show": False}},
+                "grid": {
+                    "left": 22,
+                    "right": 24,
+                    "top": 92,
+                    "bottom": 38,
+                    "containLabel": True,
+                },
+                "xAxis": {
+                    "type": "value",
+                    "splitLine": {"lineStyle": {"color": "#e8ecef"}},
+                },
+                "yAxis": {
+                    "type": "category",
+                    "data": categories,
+                    "axisTick": {"show": False},
+                    "axisLabel": {
+                        "fontSize": 9,
+                        "width": 132,
+                        "overflow": "truncate",
+                    },
+                },
                 "series": [{"name": series_name, "type": "bar", "data": values, "barMaxWidth": 22}],
             }
         else:
             option = {
                 "title": {"text": title, "subtext": subtitle, "left": 0},
                 "tooltip": {"trigger": "axis"},
-                "grid": {"left": 70, "right": 30, "top": 86, "bottom": 70},
-                "xAxis": {"type": "category", "data": categories, "axisLabel": {"rotate": 20}},
+                "grid": {
+                    "left": 20,
+                    "right": 24,
+                    "top": 92,
+                    "bottom": 72,
+                    "containLabel": True,
+                },
+                "xAxis": {
+                    "type": "category",
+                    "data": categories,
+                    "axisLabel": {
+                        "rotate": 22,
+                        "fontSize": 9,
+                        "width": 94,
+                        "overflow": "truncate",
+                        "hideOverlap": True,
+                    },
+                },
                 "yAxis": {"type": "value", "splitLine": {"lineStyle": {"color": "#e8ecef"}}},
                 "series": [{"name": series_name, "type": "bar", "data": values, "barMaxWidth": 28}],
             }
