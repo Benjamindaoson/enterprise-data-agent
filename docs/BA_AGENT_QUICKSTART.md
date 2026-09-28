@@ -159,7 +159,10 @@ POST /api/v1/ba/retail/code-analysis
 ```
 
 When `EIW_RETAIL_CODE_MODEL_URL` is configured, this first-party path takes
-priority.
+priority. The current Docker sandbox launcher is intended for a host-run BA API
+(or CI runner) with access to a Docker daemon. The default containerized BA API
+does **not** mount the host Docker socket; this avoids turning the application
+container into a privileged container-management surface.
 
 ## 9. Optional external DeepAnalyze fallback
 
