@@ -69,3 +69,15 @@ Replacement order after the integrated demo works:
 5. Remove the upstream dependency only after parity or improvement is demonstrated.
 
 This prevents a rewrite from silently degrading product quality.
+
+
+## Replacement progress
+
+- Data Formulator visualization/product shell: first-party BA demo, chart
+  planner/restyler, report export and Playwright product proof are implemented.
+- Wren semantic concepts: first-party versioned retail semantic package and
+  governed analytical data contracts are implemented.
+- DeepAnalyze code lane: a first-party OpenAI-compatible code generator plus
+  Docker-isolated execution worker is implemented and preferred; DeepAnalyze
+  remains only as a bootstrap fallback/reference until the replacement has
+  broader model benchmarks.
