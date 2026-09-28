@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from time import perf_counter
 from uuid import uuid4
 
@@ -20,20 +19,25 @@ from eiw.retail.models import (
 from eiw.retail.planner import InvestigationPlanner
 from eiw.retail.report import RetailReportBuilder
 from eiw.retail.skills import RetailAnalyticalWorkers
+from eiw.retail.team import RetailAnalysisTeam, SpecialistProfile
 
 EventCallback = Callable[[RuntimeEvent], None]
 
 
 class RetailBARuntime:
-    """Supervisor + typed analytical worker runtime.
+    """Supervisor + specialist analytical worker runtime.
 
-    The public event stream exposes actions and results, never private chain-of-thought.
+    The supervisor launches an initial analytical wave, observes typed results,
+    replans when deeper investigation is warranted, and then produces ranked
+    insights, visualizations and a decision-ready report. Public events expose
+    operations and results, never private chain-of-thought.
     """
 
     def __init__(self, data: RetailDataEngine) -> None:
         self.data = data
         self.planner = InvestigationPlanner()
         self.workers = RetailAnalyticalWorkers(data)
+        self.team = RetailAnalysisTeam(self.workers)
         self.insights = InsightMiner()
         self.charts = ChartPlanner()
         self.reports = RetailReportBuilder()
@@ -74,52 +78,96 @@ class RetailBARuntime:
             progress=0.02,
             payload={"current_weeks": current, "previous_weeks": previous},
         )
-        plan = self.planner.plan(request)
+
+        initial = self.planner.initial_plan(request)
         emit(
             "plan_ready",
-            f"Launching {len(plan)} analytical workstreams.",
+            f"Launching the first wave with {len(initial)} specialist workstreams.",
             progress=0.08,
-            payload={"workstreams": [item.value for item in plan]},
+            payload={"workstreams": [item.value for item in initial], "wave": 1},
         )
 
         workstream_started = perf_counter()
         results: list[WorkstreamResult] = []
-        with ThreadPoolExecutor(max_workers=max(1, len(plan))) as executor:
-            futures = {}
-            for name in plan:
-                emit(
-                    "workstream_started",
-                    f"{name.value.title()} analysis started.",
-                    workstream=name,
-                    progress=0.10,
-                )
-                futures[executor.submit(self.workers.run, name, current, previous)] = name
+        completed_count = 0
 
-            for finished, future in enumerate(as_completed(futures), start=1):
-                name = futures[future]
-                result = future.result()
-                results.append(result)
-                emit(
-                    "workstream_completed",
-                    result.summary,
-                    workstream=name,
-                    progress=0.10 + 0.45 * finished / len(plan),
-                    payload={"row_count": len(result.rows)},
-                )
+        def on_started(profile: SpecialistProfile) -> None:
+            emit(
+                "workstream_started",
+                f"{profile.name} started: {profile.mission}",
+                workstream=profile.workstream,
+                progress=0.10,
+                payload={"specialist": profile.name, "wave": 1 if not results else 2},
+            )
 
-        results.sort(key=lambda item: plan.index(item.name))
+        def on_completed(profile: SpecialistProfile, result: WorkstreamResult) -> None:
+            nonlocal completed_count
+            completed_count += 1
+            emit(
+                "workstream_completed",
+                result.summary,
+                workstream=profile.workstream,
+                progress=min(0.48, 0.10 + 0.10 * completed_count),
+                payload={"specialist": profile.name, "row_count": len(result.rows)},
+            )
+
+        results.extend(
+            self.team.run_wave(
+                initial,
+                current,
+                previous,
+                on_started=on_started,
+                on_completed=on_completed,
+            )
+        )
+
+        emit(
+            "replan_started",
+            "Supervisor is deciding whether the current evidence warrants another analysis wave.",
+            progress=0.50,
+        )
+        follow_up = self.planner.replan(request, results)
+        if follow_up:
+            emit(
+                "replan_ready",
+                f"Launching {len(follow_up)} additional specialist workstreams.",
+                progress=0.53,
+                payload={"workstreams": [item.value for item in follow_up], "wave": 2},
+            )
+            results.extend(
+                self.team.run_wave(
+                    follow_up,
+                    current,
+                    previous,
+                    on_started=on_started,
+                    on_completed=on_completed,
+                )
+            )
+        else:
+            emit(
+                "replan_skipped",
+                "Current analysis is sufficient; no additional workstream is required.",
+                progress=0.53,
+            )
+
+        ordered_names = [*initial, *follow_up]
+        results.sort(key=lambda item: ordered_names.index(item.name))
         workstream_ms = (perf_counter() - workstream_started) * 1000.0
 
         overview = next((item for item in results if item.name == WorkstreamName.OVERVIEW), None)
         kpis = dict(overview.metrics) if overview else {}
-        emit("insight_mining_started", "Scanning analytical results for high-impact findings.", progress=0.60)
+        emit(
+            "insight_mining_started",
+            "Scanning analytical results for high-impact findings.",
+            progress=0.64,
+        )
         insight_started = perf_counter()
         insights = self.insights.mine(results, top_k=request.top_k)
         insight_ms = (perf_counter() - insight_started) * 1000.0
         emit(
             "insights_ready",
             f"Ranked {len(insights)} business findings.",
-            progress=0.72,
+            progress=0.75,
             payload={"insight_ids": [item.insight_id for item in insights]},
         )
 
@@ -129,7 +177,7 @@ class RetailBARuntime:
         emit(
             "charts_ready",
             f"Prepared {len(charts)} decision-oriented chart specifications.",
-            progress=0.84,
+            progress=0.86,
         )
 
         report_started = perf_counter()
