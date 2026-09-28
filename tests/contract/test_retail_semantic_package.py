@@ -2,7 +2,6 @@ from pathlib import Path
 
 from eiw.semantic.package import load_semantic_package
 
-
 PACKAGE = Path("semantic_packages/retail_complete_journey/semantic-package.yaml")
 
 
