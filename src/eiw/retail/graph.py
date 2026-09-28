@@ -41,8 +41,9 @@ class RetailInvestigationGraph:
         *,
         emit: EventEmitter,
         planner: InvestigationPlanner | None = None,
+        semantic_engine: RetailSemanticEngine | None = None,
     ) -> None:
-        self.semantic = RetailSemanticEngine()
+        self.semantic = semantic_engine or RetailSemanticEngine()
         self.planner = planner or InvestigationPlanner()
         self.team = RetailAnalysisTeam(workers)
         self.emit = emit

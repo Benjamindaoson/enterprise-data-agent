@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from eiw.ontology.runtime import OntologyRuntime
 from eiw.retail.models import BusinessQuestionContext, RetailAnalysisRequest
 from eiw.semantic.package import SemanticPackage, load_semantic_package
 
@@ -19,8 +20,16 @@ class RetailSemanticEngine:
     same BusinessQuestionContext contract.
     """
 
-    def __init__(self, package: SemanticPackage | None = None) -> None:
+    def __init__(
+        self,
+        package: SemanticPackage | None = None,
+        *,
+        ontology: OntologyRuntime | None = None,
+        ontology_id: str = "retail",
+    ) -> None:
         self.package = package or load_semantic_package(_DEFAULT_PACKAGE)
+        self.ontology = ontology
+        self.ontology_id = ontology_id
         self._metric_ids = {metric.id for metric in self.package.metrics}
         self._dimension_ids = {dimension.id for dimension in self.package.dimensions}
 
@@ -29,6 +38,48 @@ class RetailSemanticEngine:
         metrics: list[str] = []
         dimensions: list[str] = []
         intents: list[str] = []
+        ontology_term_ids: list[str] = []
+        ontology_constraint_ids: list[str] = []
+
+        if self.ontology is not None:
+            try:
+                hits = self.ontology.browse(
+                    self.ontology_id,
+                    request.question,
+                    semantic_types={"metric", "dimension"},
+                    limit=8,
+                )
+                for hit in hits:
+                    ontology_term_ids.append(hit.term_id)
+                    if (
+                        hit.semantic_type == "metric"
+                        and hit.canonical_id in self._metric_ids
+                    ):
+                        self._append_if(
+                            metrics,
+                            str(hit.canonical_id),
+                            True,
+                        )
+                    if (
+                        hit.semantic_type == "dimension"
+                        and hit.canonical_id in self._dimension_ids
+                    ):
+                        self._append_if(
+                            dimensions,
+                            str(hit.canonical_id),
+                            True,
+                        )
+                    resolution = self.ontology.resolve(
+                        self.ontology_id,
+                        [hit.term_id],
+                        include_evidence=False,
+                    )
+                    ontology_constraint_ids.extend(
+                        item.constraint_id for item in resolution.constraints
+                    )
+            except KeyError:
+                ontology_term_ids = []
+                ontology_constraint_ids = []
 
         self._append_if(metrics, "sales_value", any(t in question for t in ("sales", "revenue", "销售", "营收", "业绩")))
         self._append_if(metrics, "units", any(t in question for t in ("unit", "volume", "销量", "件数")))
@@ -144,6 +195,8 @@ class RetailSemanticEngine:
             constraints={
                 "max_workstreams": request.max_workstreams,
                 "top_k": request.top_k,
+                "ontology_term_ids": sorted(set(ontology_term_ids)),
+                "ontology_constraint_ids": sorted(set(ontology_constraint_ids)),
                 "diagnostic_direction": (
                     "negative"
                     if any(

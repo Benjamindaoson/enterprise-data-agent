@@ -19,6 +19,7 @@ from uuid import uuid4
 
 from eiw.business.models import BusinessTaskRequest, BusinessTaskResponse
 from eiw.business.operations import BusinessOperationsService
+from eiw.ontology.runtime import OntologyRuntime
 from eiw.production.persistence import ProductionStore
 from eiw.runtime.domain import DomainRuntime
 from eiw.runtime.memory import MemoryKind, MemoryRecord, MemoryStore
@@ -76,12 +77,14 @@ class BusinessAgentRuntime:
         memory: MemoryStore | None = None,
         production_store: ProductionStore | None = None,
         domains: list[DomainRuntime] | None = None,
+        ontology_runtime: OntologyRuntime | None = None,
     ) -> None:
         self.analysis_service = analysis_service
         self.business_service = business_service or BusinessOperationsService()
         self.skills = skills or default_skill_registry()
         self.memory = memory or MemoryStore()
         self.production_store = production_store
+        self.ontology_runtime = ontology_runtime
         self._events: list[RuntimeTraceEvent] = []
         self._trajectory_steps: dict[str, int] = {}
         self._domains: dict[str, DomainRuntime] = {}
@@ -97,6 +100,41 @@ class BusinessAgentRuntime:
 
     def has_domain(self, domain_id: str) -> bool:
         return domain_id in self._domains
+
+    def browse_ontology(
+        self,
+        ontology_id: str,
+        query: str,
+        *,
+        semantic_types: set[str] | None = None,
+        limit: int = 8,
+    ) -> list[dict[str, Any]]:
+        if self.ontology_runtime is None:
+            return []
+        return [
+            item.model_dump(mode="json")
+            for item in self.ontology_runtime.browse(
+                ontology_id,
+                query,
+                semantic_types=semantic_types,
+                limit=limit,
+            )
+        ]
+
+    def resolve_ontology(
+        self,
+        ontology_id: str,
+        term_ids: list[str],
+        *,
+        include_evidence: bool = True,
+    ) -> dict[str, Any] | None:
+        if self.ontology_runtime is None:
+            return None
+        return self.ontology_runtime.resolve(
+            ontology_id,
+            term_ids,
+            include_evidence=include_evidence,
+        ).model_dump(mode="json")
 
     def domain_runtime(self, domain_id: str) -> DomainRuntime:
         try:
@@ -158,6 +196,11 @@ class BusinessAgentRuntime:
                 "agent_learning_lane": "offline_sft_grpo_evaluation",
                 "external_writes": "proposal_or_approval_gated",
             },
+            "ontology": (
+                self.ontology_runtime.manifests()
+                if self.ontology_runtime is not None
+                else {}
+            ),
             "domains": {
                 domain_id: domain.capabilities()
                 for domain_id, domain in sorted(self._domains.items())

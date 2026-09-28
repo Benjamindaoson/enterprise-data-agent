@@ -351,6 +351,83 @@ class EnterprisePostgresConnector:
             report=report,
         )
 
+    def probe_column(
+        self,
+        schema: str,
+        table_name: str,
+        column_name: str,
+    ) -> dict[str, Any]:
+        """Profile one allowlisted column without returning raw sample values."""
+
+        self._validate_identifier(table_name)
+        self._validate_identifier(column_name)
+        catalog = self.introspect()
+        allowed_catalog: dict[str, set[str]] = {}
+        type_names: dict[tuple[str, str], str] = {}
+        nullable: dict[tuple[str, str], bool] = {}
+        for schema_item in catalog["schemas"]:
+            if schema_item["name"] != schema:
+                continue
+            for table in schema_item["tables"]:
+                name = str(table["name"])
+                allowed_catalog[name] = {
+                    str(column["name"]) for column in table["columns"]
+                }
+                for column in table["columns"]:
+                    key = (name, str(column["name"]))
+                    type_names[key] = str(column["type"])
+                    nullable[key] = bool(column["nullable"])
+        self._validate_catalog_ref(
+            schema,
+            table_name,
+            column_name,
+            allowed_catalog,
+        )
+
+        metadata = MetaData()
+        table = Table(
+            table_name,
+            metadata,
+            schema=schema,
+            autoload_with=self.engine,
+        )
+        column = table.c[column_name]
+        statement = select(
+            func.count().label("row_count"),
+            func.count(column).label("non_null_count"),
+            func.count(func.distinct(column)).label("distinct_count"),
+        ).select_from(table)
+        compiled = statement.compile(
+            dialect=self.engine.dialect,
+            compile_kwargs={"literal_binds": False},
+        )
+        query_template = str(compiled)
+        query_sha = hashlib.sha256(query_template.encode("utf-8")).hexdigest()
+
+        with self.engine.begin() as connection:
+            if self.engine.dialect.name == "postgresql":
+                connection.exec_driver_sql("SET LOCAL TRANSACTION READ ONLY")
+                connection.exec_driver_sql(
+                    f"SET LOCAL statement_timeout = {self.policy.statement_timeout_ms}"
+                )
+            row = connection.execute(statement).mappings().one()
+
+        row_count = int(row["row_count"] or 0)
+        non_null_count = int(row["non_null_count"] or 0)
+        return {
+            "schema": schema,
+            "table": table_name,
+            "column": column_name,
+            "type": type_names.get((table_name, column_name), str(column.type)),
+            "nullable": nullable.get((table_name, column_name), True),
+            "row_count": row_count,
+            "non_null_count": non_null_count,
+            "null_count": max(0, row_count - non_null_count),
+            "distinct_count": int(row["distinct_count"] or 0),
+            "query_sha256": query_sha,
+            "raw_values_returned": False,
+        }
+
     def _validate_catalog_ref(
         self,
         schema: str,

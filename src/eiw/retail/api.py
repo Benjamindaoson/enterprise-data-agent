@@ -46,7 +46,11 @@ def create_retail_router(
         production_store=production_store,
     )
     if not business_runtime.has_domain("retail"):
-        business_runtime.register_domain(build_retail_domain_runtime())
+        business_runtime.register_domain(
+            build_retail_domain_runtime(
+                ontology_runtime=business_runtime.ontology_runtime,
+            )
+        )
     domain = cast(
         RetailDomainRuntime,
         business_runtime.domain_runtime("retail"),

@@ -20,7 +20,7 @@ class PostgresAnalysisEnvelope(BaseModel):
     request: ConnectorAnalysisRequest
 
 
-def _connector_from_env() -> EnterprisePostgresConnector:
+def connector_from_env() -> EnterprisePostgresConnector:
     database_url = os.getenv("EIW_ENTERPRISE_POSTGRES_URL", "").strip()
     schemas = {
         item.strip()
@@ -72,7 +72,7 @@ def create_postgres_connector_router() -> APIRouter:
     @router.get("/catalog")
     def catalog() -> dict[str, object]:
         try:
-            return _connector_from_env().introspect()
+            return connector_from_env().introspect()
         except HTTPException:
             raise
         except Exception as exc:
@@ -81,7 +81,7 @@ def create_postgres_connector_router() -> APIRouter:
     @router.get("/semantic-template")
     def semantic_template() -> dict[str, object]:
         try:
-            return _connector_from_env().infer_semantic_package().model_dump(mode="json")
+            return connector_from_env().infer_semantic_package().model_dump(mode="json")
         except HTTPException:
             raise
         except Exception as exc:
@@ -90,7 +90,7 @@ def create_postgres_connector_router() -> APIRouter:
     @router.post("/analyze")
     def analyze(envelope: PostgresAnalysisEnvelope) -> dict[str, object]:
         try:
-            result = _connector_from_env().analyze(
+            result = connector_from_env().analyze(
                 envelope.semantic_package,
                 envelope.request,
             )

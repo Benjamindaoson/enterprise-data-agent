@@ -13,12 +13,17 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from eiw.business.models import BusinessTaskRequest
-from eiw.connectors.api import create_postgres_connector_router
+from eiw.connectors.api import connector_from_env, create_postgres_connector_router
 from eiw.business.operations import BusinessOperationsService
+from eiw.ontology.api import create_ontology_router
+from eiw.ontology.builder import SemanticPackageOntologyBuilder
+from eiw.ontology.runtime import OntologyRuntime
+from eiw.ontology.store import OntologyStore
 from eiw.production.persistence import ProductionStore
 from eiw.retail.api import create_retail_router
 from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.runtime.skills import default_skill_registry
+from eiw.semantic.package import load_semantic_package
 from eiw.workspace.analysis import DEFAULT_USER, AnalysisService
 from eiw.workspace.data import DIMENSIONS, METRICS, IowaData
 from eiw.workspace.store import WorkspaceStore
@@ -70,17 +75,42 @@ def create_app() -> FastAPI:
     skill_registry = default_skill_registry()
     database_url = os.getenv("EIW_DATABASE_URL")
     production_store = ProductionStore(database_url) if database_url else None
+
+    ontology_store = OntologyStore(artifact_root / "ontology-store.json")
+    if not ontology_store.has("retail"):
+        retail_package_path = (
+            Path(__file__).resolve().parents[2]
+            / "semantic_packages"
+            / "retail_complete_journey"
+            / "semantic-package.yaml"
+        )
+        retail_package = load_semantic_package(retail_package_path)
+        initial_ontology = SemanticPackageOntologyBuilder().build(
+            retail_package,
+            ontology_id="retail",
+            version=retail_package.package.version,
+        )
+        ontology_store.put(initial_ontology, make_current=True)
+    ontology_runtime = OntologyRuntime(ontology_store)
+
     runtime = BusinessAgentRuntime(
         analysis_service=service,
         business_service=business_service,
         skills=skill_registry,
         production_store=production_store,
+        ontology_runtime=ontology_runtime,
     )
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.4.0", description="Production-oriented BA Agent with governed analytics, autonomous retail investigation, insight mining, visualization and decision reporting.")
     app.include_router(
         create_retail_router(runtime=runtime, production_store=production_store)
     )
     app.include_router(create_postgres_connector_router())
+    app.include_router(
+        create_ontology_router(
+            ontology_runtime,
+            postgres_connector_factory=connector_from_env,
+        )
+    )
     bundle_root = getattr(sys, "_MEIPASS", None)
     if getattr(sys, "frozen", False) and bundle_root:
         static_dir = Path(bundle_root) / "eiw" / "web" / "static"

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from time import perf_counter
 from uuid import uuid4
 
+from eiw.ontology.runtime import OntologyRuntime
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.graph import RetailInvestigationGraph
@@ -18,6 +19,7 @@ from eiw.retail.models import (
 )
 from eiw.retail.planner import InvestigationPlanner
 from eiw.retail.report import RetailReportBuilder
+from eiw.retail.semantics import RetailSemanticEngine
 from eiw.retail.skills import RetailAnalyticalWorkers
 from eiw.retail.specialist_policy import SpecialistPolicy
 from eiw.retail.supervisor import SupervisorPolicy
@@ -34,6 +36,8 @@ class RetailBARuntime:
         *,
         supervisor_policy: SupervisorPolicy | None = None,
         specialist_policy: SpecialistPolicy | None = None,
+        ontology_runtime: OntologyRuntime | None = None,
+        ontology_id: str = "retail",
     ) -> None:
         self.data = data
         self.workers = RetailAnalyticalWorkers(
@@ -44,6 +48,10 @@ class RetailBARuntime:
         self.charts = ChartPlanner()
         self.reports = RetailReportBuilder()
         self.planner = InvestigationPlanner(supervisor_policy)
+        self.semantic_engine = RetailSemanticEngine(
+            ontology=ontology_runtime,
+            ontology_id=ontology_id,
+        )
 
     def analyze(
         self,
@@ -93,6 +101,7 @@ class RetailBARuntime:
             self.workers,
             emit=record,
             planner=self.planner,
+            semantic_engine=self.semantic_engine,
         )
         graph_state = graph.run(
             request,

@@ -12,6 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
+from eiw.ontology.runtime import OntologyRuntime
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.guard import RequestDisposition, RetailRequestGuard
 from eiw.retail.models import RetailAnalysisRequest, RetailAnalysisResponse, RuntimeEvent
@@ -95,7 +96,10 @@ class RetailDomainRuntime:
         )
 
 
-def build_retail_domain_runtime() -> RetailDomainRuntime:
+def build_retail_domain_runtime(
+    *,
+    ontology_runtime: OntologyRuntime | None = None,
+) -> RetailDomainRuntime:
     """Build the retail domain from environment-backed production configuration."""
 
     configured = os.getenv("EIW_RETAIL_DATA_DIR", "").strip()
@@ -142,5 +146,6 @@ def build_retail_domain_runtime() -> RetailDomainRuntime:
             data,
             supervisor_policy=supervisor,
             specialist_policy=specialist,
+            ontology_runtime=ontology_runtime,
         )
     )
