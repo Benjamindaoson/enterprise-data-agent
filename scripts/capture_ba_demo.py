@@ -58,6 +58,11 @@ async def capture(base_url: str, output_dir: Path) -> None:
         download = await download_info.value
         await download.save_as(str(output_dir / "ba-agent-executive-report.html"))
 
+        async with page.expect_download() as pdf_download_info:
+            await page.click("#exportPdf")
+        pdf_download = await pdf_download_info.value
+        await pdf_download.save_as(str(output_dir / "ba-agent-executive-report.pdf"))
+
         status_text = await page.locator("#datasetStatus").inner_text()
         hero_text = await page.locator("#hero").inner_text()
         (output_dir / "demo-proof.txt").write_text(
