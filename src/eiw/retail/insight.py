@@ -418,6 +418,16 @@ class InsightMiner:
                 }
             return False
 
+        preferred_kind = {
+            "store": "store_driver",
+            "product": "commodity_driver",
+            "commodity": "commodity_driver",
+            "display": "merchandising",
+            "income": "customer_segment_driver",
+            "age": "customer_segment_driver",
+            "household_comp": "customer_segment_driver",
+            "campaign": "coupon_funnel",
+        }
         diagnose = "diagnose" in context.intents
         for dimension in requested:
             eligible = [
@@ -426,12 +436,18 @@ class InsightMiner:
                 if item.insight_id not in selected_ids
                 and covers(item, dimension)
             ]
+            preferred = [
+                item
+                for item in eligible
+                if item.kind == preferred_kind.get(dimension)
+            ]
+            pool = preferred or eligible
             candidate = None
             if diagnose:
                 candidate = next(
                     (
                         item
-                        for item in eligible
+                        for item in pool
                         if any(
                             float(row.get("delta") or 0.0) < 0
                             for row in item.evidence
@@ -441,10 +457,26 @@ class InsightMiner:
                     None,
                 )
             if candidate is None:
-                candidate = eligible[0] if eligible else None
+                candidate = pool[0] if pool else None
             if candidate is not None:
                 selected.append(candidate)
                 selected_ids.add(candidate.insight_id)
+                if len(selected) >= top_k:
+                    return selected
+
+        if "decompose" in context.intents:
+            decomposition = next(
+                (
+                    item
+                    for item in ranked
+                    if item.insight_id not in selected_ids
+                    and item.kind == "price_volume"
+                ),
+                None,
+            )
+            if decomposition is not None:
+                selected.append(decomposition)
+                selected_ids.add(decomposition.insight_id)
                 if len(selected) >= top_k:
                     return selected
 
