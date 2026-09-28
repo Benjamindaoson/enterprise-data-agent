@@ -13,7 +13,6 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from eiw.production.persistence import ProductionStore
-from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.code_analysis import RetailCodeAnalyst
@@ -35,6 +34,7 @@ from eiw.retail.runtime import RetailBARuntime
 from eiw.retail.specialist_policy import OpenAICompatibleSpecialistPolicy
 from eiw.retail.supervisor import OpenAICompatibleSupervisor
 from eiw.retail.upstream import DeepAnalyzeWorker
+from eiw.runtime.orchestrator import BusinessAgentRuntime
 
 
 def _build_runtime() -> RetailBARuntime:
