@@ -97,6 +97,47 @@ class ChartPlanner:
             insight_ids=insight_ids,
         )
 
+    def restyle(self, chart: ChartArtifact, instruction: str) -> ChartArtifact:
+        """Apply safe presentation-only changes without mutating chart data."""
+        normalized = instruction.lower()
+        option = dict(chart.option)
+        series = [dict(item) for item in option.get("series", [])]
+        if not series:
+            raise ValueError("chart has no series")
+
+        wants_line = any(token in normalized for token in ("line", "折线", "趋势"))
+        wants_bar = any(token in normalized for token in ("bar", "柱", "条形"))
+        wants_horizontal = any(token in normalized for token in ("horizontal", "横", "排名"))
+
+        if wants_line:
+            for item in series:
+                item["type"] = "line"
+                item.pop("barMaxWidth", None)
+                item["smooth"] = False
+            option["series"] = series
+            return self._qa(
+                chart.model_copy(update={"chart_type": "line", "option": option})
+            )
+
+        if wants_bar:
+            for item in series:
+                item["type"] = "bar"
+                item["barMaxWidth"] = 24
+                item.pop("smooth", None)
+            option["series"] = series
+
+        if wants_horizontal:
+            x_axis = dict(option.get("xAxis", {}))
+            y_axis = dict(option.get("yAxis", {}))
+            if x_axis.get("type") == "category":
+                option["xAxis"] = {"type": "value", "splitLine": {"lineStyle": {"color": "#e8ecef"}}}
+                option["yAxis"] = {"type": "category", "data": x_axis.get("data", []), "axisTick": {"show": False}}
+                option["grid"] = {"left": 140, "right": 30, "top": 86, "bottom": 40}
+            elif y_axis.get("type") == "category":
+                pass
+
+        return self._qa(chart.model_copy(update={"option": option}))
+
     def _qa(self, chart: ChartArtifact) -> ChartArtifact:
         option = dict(chart.option)
         title = dict(option.get("title", {}))
