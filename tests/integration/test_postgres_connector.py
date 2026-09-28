@@ -17,7 +17,9 @@ from eiw.connectors.postgres import (
 
 @pytest.mark.integration
 def test_postgres_connector_full_enterprise_flow() -> None:
-    database_url = os.environ["EIW_TEST_DATABASE_URL"]
+    database_url = os.getenv("EIW_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("EIW_TEST_DATABASE_URL is required for PostgreSQL integration")
     engine = create_engine(database_url, future=True)
 
     with engine.begin() as connection:
