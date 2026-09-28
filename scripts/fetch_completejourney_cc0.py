@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 from pathlib import Path
@@ -189,10 +190,8 @@ def materialize(
     if not keep_r_files:
         for path in raw_dir.glob("*"):
             path.unlink()
-        try:
+        with contextlib.suppress(OSError):
             raw_dir.rmdir()
-        except OSError:
-            pass
 
     return manifest
 
