@@ -36,13 +36,19 @@ function renderCharts(items){
   charts.innerHTML="";
   items.forEach((x,i)=>{
     const card=document.createElement("div"); card.className="chart-card";
-    const id=`chart-${i}-${Date.now()}`; card.innerHTML=`<div id="${id}" class="chart"></div>`; charts.appendChild(card);
+    const id=`chart-${i}-${Date.now()}`; card.innerHTML=`<div id="${id}" class="chart"></div><button class="chart-restyle">改图</button>`; charts.appendChild(card);
     const option=JSON.parse(JSON.stringify(x.option));
     option.color=["#126e64","#b94b35","#a57a25","#56758a"];
     option.textStyle={fontFamily:'Inter, sans-serif',color:"#0f1f2b"};
     const chart=echarts.init(document.getElementById(id)); chart.setOption(option);
     new ResizeObserver(()=>chart.resize()).observe(card);
     chart.on("click",(params)=>{question.value=`继续下钻 ${params.name}，解释它对经营表现的影响，并给出行动建议。`;});
+    card.querySelector(".chart-restyle").onclick=async()=>{
+      const instruction=prompt("怎么改这张图？例如：换成折线图 / 改成横向排名");
+      if(!instruction) return;
+      const res=await fetch("/api/v1/ba/retail/charts/restyle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chart:x,instruction})});
+      const updated=await res.json(); x=updated; chart.setOption(updated.option,true);
+    };
   });
 }
 function renderReport(r){
