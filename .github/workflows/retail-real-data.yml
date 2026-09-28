@@ -10,6 +10,9 @@ on:
       - "scripts/run_retail_benchmark.py"
       - "scripts/benchmark_retail_scale.py"
       - "src/eiw/retail/**"
+      - "src/eiw/web/static/ba-demo.html"
+      - "src/eiw/web/static/ba-demo.js"
+      - "src/eiw/web/static/ba-demo.css"
       - "pyproject.toml"
       - ".github/workflows/retail-real-data.yml"
 
