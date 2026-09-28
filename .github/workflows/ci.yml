@@ -165,6 +165,7 @@ jobs:
           python -m pytest
           tests/unit/test_production_runtime.py
           tests/integration/test_production_services.py
+          tests/integration/test_retail_code_sandbox.py
           -q
 
   upstream-bootstrap:
