@@ -79,7 +79,7 @@ See [Demo Console](docs/DEMO.md) for details.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **573 passed / 17 skipped** |
+| Core CI | **578 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
 | PostgreSQL + Redis integration | **6 passed** |
 | Hard benchmark acceptance gate | **PASS** |
@@ -866,7 +866,7 @@ The normal GitHub Actions workflow contains four independent jobs:
 Current verified snapshot:
 
 ```text
-Core CI                536 passed / 2 skipped
+Core CI                578 passed / 17 skipped
 Training CI              7 passed
 Production integration   6 passed
 Hard-v1 acceptance       PASS
