@@ -194,7 +194,7 @@ def apply_patch(
     for item in patch.upsert_relations:
         relations[item.relation_id] = item
 
-    schema_payload = parent.schema.model_dump(mode="json")
+    schema_payload = parent.schema_state.model_dump(mode="json")
     if patch.schema_update:
         schema_payload.update(patch.schema_update)
     if patch.tool_update:
@@ -231,7 +231,7 @@ def apply_patch(
         version=candidate_version,
         parent_version=parent.version,
         source_kind="trajectory_evolution",
-        schema=OntologySchemaState.model_validate(schema_payload),
+        schema_state=OntologySchemaState.model_validate(schema_payload),
         terms=normalized_terms,
         mappings=mappings,
         constraints=constraints,
