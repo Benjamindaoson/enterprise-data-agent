@@ -121,6 +121,7 @@ class RetailRequestGuard:
         "100% certainty",
         "with certainty",
         "perfectly predict",
+        "perfectly accurate",
         "必然预测",
         "百分之百预测",
     )
