@@ -61,7 +61,12 @@ jobs:
           --data-dir data/retail
           --output artifacts/retail-real-benchmark.json
           --assert-smoke
-          --assert-smoke
+
+      - name: Run BA Agent harness ablation
+        run: >
+          python scripts/run_retail_ablation.py
+          --data-dir data/retail
+          --output artifacts/retail-harness-ablation.json
 
       - name: Run small real-data latency smoke
         run: >
@@ -106,6 +111,7 @@ jobs:
             data/retail/completejourney-manifest.json
             artifacts/retail-real-benchmark.json
             artifacts/retail-real-scale.json
+            artifacts/retail-harness-ablation.json
             artifacts/ba-demo/ba-agent-before-run.png
             artifacts/ba-demo/ba-agent-real-data.png
             artifacts/ba-demo/ba-agent-real-data.webm
