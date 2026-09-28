@@ -1,0 +1,46 @@
+name: Retail live model-lane benchmark
+
+on:
+  workflow_dispatch:
+
+jobs:
+  live-model-lanes:
+    runs-on: ubuntu-latest
+    env:
+      EIW_BENCH_QWEN_BASE_URL: ${{ secrets.EIW_BENCH_QWEN_BASE_URL }}
+      EIW_BENCH_QWEN_MODEL: ${{ secrets.EIW_BENCH_QWEN_MODEL }}
+      EIW_BENCH_QWEN_API_KEY: ${{ secrets.EIW_BENCH_QWEN_API_KEY }}
+      EIW_BENCH_QWEN_INPUT_COST_PER_MILLION: ${{ vars.EIW_BENCH_QWEN_INPUT_COST_PER_MILLION }}
+      EIW_BENCH_QWEN_OUTPUT_COST_PER_MILLION: ${{ vars.EIW_BENCH_QWEN_OUTPUT_COST_PER_MILLION }}
+      EIW_BENCH_GPT_BASE_URL: ${{ secrets.EIW_BENCH_GPT_BASE_URL }}
+      EIW_BENCH_GPT_MODEL: ${{ secrets.EIW_BENCH_GPT_MODEL }}
+      EIW_BENCH_GPT_API_KEY: ${{ secrets.EIW_BENCH_GPT_API_KEY }}
+      EIW_BENCH_GPT_INPUT_COST_PER_MILLION: ${{ vars.EIW_BENCH_GPT_INPUT_COST_PER_MILLION }}
+      EIW_BENCH_GPT_OUTPUT_COST_PER_MILLION: ${{ vars.EIW_BENCH_GPT_OUTPUT_COST_PER_MILLION }}
+      EIW_BENCH_CLAUDE_BASE_URL: ${{ secrets.EIW_BENCH_CLAUDE_BASE_URL }}
+      EIW_BENCH_CLAUDE_MODEL: ${{ secrets.EIW_BENCH_CLAUDE_MODEL }}
+      EIW_BENCH_CLAUDE_API_KEY: ${{ secrets.EIW_BENCH_CLAUDE_API_KEY }}
+      EIW_BENCH_CLAUDE_INPUT_COST_PER_MILLION: ${{ vars.EIW_BENCH_CLAUDE_INPUT_COST_PER_MILLION }}
+      EIW_BENCH_CLAUDE_OUTPUT_COST_PER_MILLION: ${{ vars.EIW_BENCH_CLAUDE_OUTPUT_COST_PER_MILLION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e '.[dev,retail-data]'
+      - name: Materialize pinned Complete Journey data
+        run: python scripts/fetch_completejourney_cc0.py data/retail
+      - name: Run live Qwen / GPT / Claude-compatible model lanes
+        run: >
+          python scripts/run_retail_model_lane_benchmark.py
+          --data-dir data/retail
+          --providers qwen,gpt,claude
+          --require-live
+          --output artifacts/retail-model-lanes-live.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retail-model-lanes-live
+          path: artifacts/retail-model-lanes-live.json
+          if-no-files-found: error
+          retention-days: 30

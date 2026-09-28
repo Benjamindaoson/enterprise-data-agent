@@ -63,6 +63,7 @@ jobs:
           tests/unit/test_retail_first_party_code_worker.py
           tests/unit/test_retail_specialist_agents.py
           tests/unit/test_retail_adversarial.py
+          tests/unit/test_retail_model_lane.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
@@ -78,6 +79,7 @@ jobs:
           scripts/run_retail_ablation.py
           scripts/fetch_completejourney_cc0.py
           scripts/run_retail_adversarial_benchmark.py
+          scripts/run_retail_model_lane_benchmark.py
       - name: Tests
         run: >
           python -m pytest -q
