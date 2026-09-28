@@ -1,0 +1,78 @@
+name: Retail real-data benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/ba-agent-upstream-bootstrap
+    paths:
+      - "scripts/fetch_completejourney_cc0.py"
+      - "scripts/run_retail_benchmark.py"
+      - "scripts/benchmark_retail_scale.py"
+      - "src/eiw/retail/**"
+      - "pyproject.toml"
+      - ".github/workflows/retail-real-data.yml"
+
+jobs:
+  completejourney:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache materialized Complete Journey
+        uses: actions/cache@v4
+        with:
+          path: data/retail
+          key: completejourney-cc0-5b5d06192b9856edd04e4d405787af2f2e4a1fef-v1
+
+      - name: Install retail data stack
+        run: python -m pip install -e '.[dev,retail-data]'
+
+      - name: Download and materialize public CC0 data
+        run: python scripts/fetch_completejourney_cc0.py data/retail
+
+      - name: Verify materialized dataset
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("data/retail/completejourney-manifest.json").read_text())
+          assert manifest["source_commit"] == "5b5d06192b9856edd04e4d405787af2f2e4a1fef"
+          assert manifest["source_license"] == "CC0"
+          assert manifest["files"]["transactions"]["rows"] == 1_469_307
+          assert manifest["files"]["promotions"]["rows"] == 20_940_529
+          print(json.dumps({
+              "transactions": manifest["files"]["transactions"]["rows"],
+              "promotions": manifest["files"]["promotions"]["rows"],
+              "products": manifest["files"]["products"]["rows"],
+          }, indent=2))
+          PY
+
+      - name: Run RetailAnalystBench on real data
+        run: >
+          python scripts/run_retail_benchmark.py
+          --data-dir data/retail
+          --output artifacts/retail-real-benchmark.json
+
+      - name: Run small real-data latency smoke
+        run: >
+          python scripts/benchmark_retail_scale.py
+          data/retail
+          --requests 3
+          --concurrency 1
+          > artifacts/retail-real-scale.json
+
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: retail-real-data-benchmark
+          path: |
+            data/retail/completejourney-manifest.json
+            artifacts/retail-real-benchmark.json
+            artifacts/retail-real-scale.json
+          if-no-files-found: error
+          retention-days: 30
