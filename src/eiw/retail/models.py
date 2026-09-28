@@ -50,6 +50,7 @@ class CodeAnalysisRequest(BaseModel):
 class RuntimeEvent(BaseModel):
     event_type: str
     message: str
+    elapsed_ms: float | None = Field(default=None, ge=0.0)
     workstream: str | None = None
     progress: float | None = Field(default=None, ge=0.0, le=1.0)
     payload: dict[str, Any] = Field(default_factory=dict)
