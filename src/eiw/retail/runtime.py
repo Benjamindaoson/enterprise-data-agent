@@ -43,6 +43,10 @@ class RetailBARuntime:
         events: list[RuntimeEvent] = []
 
         def record(event: RuntimeEvent) -> None:
+            if event.elapsed_ms is None:
+                event = event.model_copy(
+                    update={"elapsed_ms": round((perf_counter() - started) * 1000.0, 3)}
+                )
             events.append(event)
             if on_event:
                 on_event(event)
@@ -99,14 +103,32 @@ class RetailBARuntime:
             progress=0.76,
             payload={"insight_ids": [item.insight_id for item in insights]},
         )
+        for index, insight in enumerate(insights):
+            record(
+                RuntimeEvent(
+                    event_type="insight_discovered",
+                    message=insight.title,
+                    progress=min(0.82, 0.765 + 0.006 * index),
+                    payload=insight.model_dump(mode="json"),
+                )
+            )
 
         chart_started = perf_counter()
         charts = self.charts.plan(results, insights)
         chart_ms = (perf_counter() - chart_started) * 1000.0
+        for index, chart in enumerate(charts):
+            record(
+                RuntimeEvent(
+                    event_type="chart_ready",
+                    message=chart.title,
+                    progress=min(0.91, 0.84 + 0.01 * index),
+                    payload=chart.model_dump(mode="json"),
+                )
+            )
         emit(
             "charts_ready",
             f"Prepared {len(charts)} decision-oriented chart specifications.",
-            progress=0.87,
+            progress=0.91,
         )
 
         report_started = perf_counter()
