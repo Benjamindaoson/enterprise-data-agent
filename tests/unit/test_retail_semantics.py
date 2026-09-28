@@ -15,3 +15,16 @@ def test_semantic_engine_resolves_business_intent_not_just_schema_terms() -> Non
     assert "diagnose" in context.intents
     assert "recommend" in context.intents
     assert context.semantic_package_id == "retail_complete_journey"
+
+
+def test_merchandising_opportunities_resolve_full_semantics() -> None:
+    engine = RetailSemanticEngine()
+    context = engine.resolve(
+        RetailAnalysisRequest(
+            question="Analyze recent promotion and display performance and identify the biggest opportunities."
+        )
+    )
+
+    assert "discount_amount" in context.metrics
+    assert "display" in context.dimensions
+    assert "discover" in context.intents
