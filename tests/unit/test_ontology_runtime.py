@@ -4,11 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from eiw.ontology import (
-    OntologyRuntime,
-    OntologyStore,
-    SemanticPackageOntologyBuilder,
-)
+import eiw.ontology as ontology
 from eiw.semantic.package import load_semantic_package
 
 
@@ -21,15 +17,15 @@ _RETAIL_PACKAGE = (
 )
 
 
-def _runtime() -> OntologyRuntime:
+def _runtime() -> ontology.OntologyRuntime:
     package = load_semantic_package(_RETAIL_PACKAGE)
-    state = SemanticPackageOntologyBuilder().build(
+    state = ontology.SemanticPackageOntologyBuilder().build(
         package,
         ontology_id="retail",
     )
-    store = OntologyStore()
+    store = ontology.OntologyStore()
     store.put(state, make_current=True)
-    return OntologyRuntime(store)
+    return ontology.OntologyRuntime(store)
 
 
 def test_semantic_package_becomes_selectively_queryable_ontology() -> None:
@@ -53,20 +49,20 @@ def test_semantic_package_becomes_selectively_queryable_ontology() -> None:
 
 def test_manifest_is_compact_and_store_versions_are_immutable(tmp_path: Path) -> None:
     package = load_semantic_package(_RETAIL_PACKAGE)
-    state = SemanticPackageOntologyBuilder().build(
+    state = ontology.SemanticPackageOntologyBuilder().build(
         package,
         ontology_id="retail",
     )
     path = tmp_path / "ontology-store.json"
-    store = OntologyStore(path)
+    store = ontology.OntologyStore(path)
     store.put(state, make_current=True)
 
-    manifest = OntologyRuntime(store).manifest("retail")
+    manifest = ontology.OntologyRuntime(store).manifest("retail")
     assert manifest["counts"]["terms"] > 0
     assert "tools" in manifest
     assert path.exists()
 
-    restored = OntologyStore(path)
+    restored = ontology.OntologyStore(path)
     assert restored.current("retail").content_hash == state.content_hash
 
     changed = state.model_copy(
