@@ -49,7 +49,22 @@ class RetailSemanticEngine:
 
         self._append_if(intents, "diagnose", any(t in question for t in ("why", "原因", "为什么", "诊断")))
         self._append_if(intents, "compare", any(t in question for t in ("compare", "versus", "vs", "对比", "比较", "环比", "同比")))
-        self._append_if(intents, "discover", any(t in question for t in ("opportunity", "anomaly", "机会", "异常", "发现")))
+        self._append_if(
+            intents,
+            "discover",
+            any(
+                t in question
+                for t in (
+                    "opportunity",
+                    "opportunities",
+                    "anomaly",
+                    "anomalies",
+                    "机会",
+                    "异常",
+                    "发现",
+                )
+            ),
+        )
         self._append_if(intents, "recommend", any(t in question for t in ("recommend", "action", "怎么办", "建议", "下一步")))
         self._append_if(intents, "report", any(t in question for t in ("report", "summary", "报告", "汇报", "总结")))
 
