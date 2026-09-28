@@ -159,6 +159,25 @@ The captured UI reports the exact dataset provenance
 `complete-journey:retail · 1,469,307 transactions · CC0 · 5b5d061`.
 The generated PDF was rendered in CI from the same analytical response.
 
+## Adversarial frozen holdout
+
+The 9.5 hardening pass adds `RetailAdversarialBench-v1` with 210 total cases across 14 failure families. The development partition contains 168 deterministic cases; a separate **42-case frozen holdout** is stored as checksum-pinned JSONL and is not intended for tuning.
+
+Pinned real-data verification:
+
+- GitHub Actions run: `36437826206`
+- artifact: `10976531496`
+- dataset: pinned CC0 Complete Journey
+- frozen cases: **42**
+- categories: **14**
+- pass rate: **1.000**
+- security resistance: **1.000**
+- malformed-model fallback recovery: **1.000**
+
+The frozen suite covers paraphrase, ambiguity, impossible requests, missing data, unsupported causal requests, conflicting dimensions, unavailable time ranges, unseen combinations, schema distractors, adversarial prompts, prompt injection, irrelevant requests, multi-turn follow-up and malformed model decisions.
+
+The 1.000 result is reported only as an internal contract/robustness result. It is not an external benchmark or evidence that arbitrary enterprise questions are solved perfectly.
+
 ## Regression gate
 
 `scripts/run_retail_benchmark.py --assert-smoke` currently requires:
@@ -169,7 +188,7 @@ The generated PDF was rendered in CI from the same analytical response.
 - Report Completeness = 1.00
 - Action Coverage = 1.00
 
-Both deterministic CI and the public real-data workflow execute the gate.
+Both deterministic CI and the public real-data workflow execute the gate. The core workflow also gates all 210 adversarial cases, while the real-data workflow gates the frozen 42-case holdout.
 
 ## Claim discipline
 
