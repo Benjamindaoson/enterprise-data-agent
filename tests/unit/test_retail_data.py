@@ -1,3 +1,6 @@
+import csv
+from pathlib import Path
+
 from eiw.retail.data import RetailDataEngine
 
 
@@ -45,3 +48,80 @@ def test_cross_dimension_scan_and_price_volume_decomposition() -> None:
     )
     assert decomposition
     assert all(abs(float(row["reconciliation_error"])) < 1e-8 for row in decomposition)
+
+
+def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def test_completejourney_cc0_lowercase_schema_is_supported(tmp_path: Path) -> None:
+    _write_csv(
+        tmp_path / "transactions.csv",
+        [
+            {
+                "household_id": "1",
+                "store_id": "10",
+                "basket_id": "100",
+                "product_id": "1000",
+                "quantity": 2,
+                "sales_value": 8.0,
+                "retail_disc": 0.5,
+                "coupon_disc": 0.0,
+                "coupon_match_disc": 0.0,
+                "week": 1,
+                "transaction_timestamp": "2017-01-01",
+            },
+            {
+                "household_id": "1",
+                "store_id": "10",
+                "basket_id": "101",
+                "product_id": "1000",
+                "quantity": 1,
+                "sales_value": 5.0,
+                "retail_disc": 0.0,
+                "coupon_disc": 0.0,
+                "coupon_match_disc": 0.0,
+                "week": 2,
+                "transaction_timestamp": "2017-01-08",
+            },
+        ],
+    )
+    _write_csv(
+        tmp_path / "products.csv",
+        [
+            {
+                "product_id": "1000",
+                "manufacturer": "1",
+                "department": "GROCERY",
+                "brand": "National",
+                "commodity": "PASTA",
+                "sub_commodity": "DRY PASTA",
+                "size": "16 OZ",
+            }
+        ],
+    )
+    _write_csv(
+        tmp_path / "promotions.csv",
+        [
+            {
+                "product_id": "1000",
+                "store_id": "10",
+                "display_location": "3",
+                "mailer_location": "A",
+                "week": 2,
+            }
+        ],
+    )
+
+    data = RetailDataEngine.from_complete_journey(tmp_path)
+    status = data.status()
+
+    assert status["counts"]["retail_transactions"] == 2
+    assert status["counts"]["retail_products"] == 1
+    assert status["counts"]["retail_promotions"] == 1
+    assert status["min_week"] == 1
+    assert status["max_week"] == 2
+    assert data.promotion_performance([2])[0]["display_location"] == "3"
