@@ -30,26 +30,36 @@ Open:
 The default dataset is an intentionally deterministic CI fixture. The UI and
 API label it as such.
 
-## 3. Use a real Complete Journey checkout
+## 3. Download the public CC0 Complete Journey data automatically
 
-Obtain the data under its publisher's terms. The repository does not
-redistribute it.
-
-Expected source files:
-
-- `transaction_data.csv`
-- `product.csv`
-- `causal_data.csv`
-
-Optionally convert them to compressed Parquet:
+The open-source `completejourney` package declares the dataset distribution as
+CC0 and publishes the full transaction and promotion tables in its GitHub
+repository. The ingestion command pins the upstream commit, downloads the R
+data files, records SHA-256 hashes, verifies the two published full-table row
+counts, and converts all eight package tables to compressed Parquet.
 
 ```bash
-python scripts/prepare_complete_journey.py /path/to/raw /path/to/retail
-export EIW_RETAIL_DATA_DIR=/path/to/retail
+python -m pip install -e '.[dev,retail-data]'
+python scripts/fetch_completejourney_cc0.py data/retail
+export EIW_RETAIL_DATA_DIR=$PWD/data/retail
 python -m uvicorn eiw.app:app --reload
 ```
 
-The runtime accepts the corresponding `.parquet` files as well.
+Expected verified core rows from that pinned distribution:
+
+- `transactions`: 1,469,307
+- `promotions`: 20,940,529
+
+The generated `completejourney-manifest.json` records actual row counts,
+columns, source URLs, source hashes and Parquet hashes for every table.
+
+The runtime also remains compatible with the original dunnhumby source-file
+schema (`transaction_data.csv`, `product.csv`, `causal_data.csv`). For
+that variant, use:
+
+```bash
+python scripts/prepare_complete_journey.py /path/to/raw /path/to/retail
+```
 
 ## 4. Run the BA benchmark
 
