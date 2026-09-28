@@ -24,3 +24,20 @@
 
 .report-toolbar{display:flex;justify-content:flex-end;margin-bottom:8px}.report-toolbar button{padding:9px 12px;background:var(--accent);font-size:11px}.report-toolbar button:hover{background:#0d5a52}
 @media print{.topbar,.prompt-panel,.workstreams,.insights,.report-toolbar{display:none!important}.workspace{display:block}.canvas{display:block}.chart-card,.report,.kpis,.hero-card{box-shadow:none!important;border-color:#ccd3d6!important;break-inside:avoid}.shell{max-width:none;padding:0}.report{display:block!important}}
+
+.prompt-presets{display:flex;gap:8px;flex-wrap:wrap;margin:-7px 0 16px}
+.prompt-presets button{background:transparent;color:var(--muted);border:1px solid #cfd8db;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:700}
+.prompt-presets button:hover,.prompt-presets button.active{border-color:var(--accent);color:var(--accent);background:var(--soft)}
+.supervisor-card,.agent{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid #edf0f1;transition:.2s background,.2s border}
+.supervisor-card{background:#f4f8f7;border-left:3px solid var(--accent)}
+.supervisor-card>span,.agent>span{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#edf1f2;color:#51626b;font-size:9px;font-weight:900}
+.supervisor-card>span{background:var(--accent);color:#fff}
+.supervisor-card b,.agent b{font-size:11px;display:block}.supervisor-card small,.agent small{display:block;color:var(--muted);font-size:9px;margin-top:2px}
+.supervisor-card em,.agent em{font-style:normal;font-size:9px;text-transform:uppercase;color:#87949a;font-weight:800}
+.supervisor-card.running,.agent.running{background:#edf7f4;border-left:3px solid var(--accent)}
+.supervisor-card.running em,.agent.running em{color:var(--accent)}
+.supervisor-card.done,.agent.done{background:#f7faf8}.supervisor-card.done em,.agent.done em{color:#4f8f62}
+.supervisor-card.failed,.agent.failed{background:#fff1ee;border-left:3px solid var(--accent2)}.supervisor-card.failed em,.agent.failed em{color:var(--accent2)}
+.agent.running>span{background:var(--accent);color:#fff;animation:pulse 1.2s infinite}.agent.done>span{background:#dcebe1;color:#3c7450}
+.activity-head{padding:10px 16px 5px;font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#8b979d;font-weight:800;border-top:1px solid var(--line)}
+@media(max-width:760px){.prompt-presets{overflow:auto;flex-wrap:nowrap;padding-bottom:3px}.prompt-presets button{white-space:nowrap}}
