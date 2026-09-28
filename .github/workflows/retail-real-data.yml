@@ -57,6 +57,7 @@ jobs:
           python scripts/run_retail_benchmark.py
           --data-dir data/retail
           --output artifacts/retail-real-benchmark.json
+          --assert-smoke
 
       - name: Run small real-data latency smoke
         run: >
