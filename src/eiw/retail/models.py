@@ -129,3 +129,5 @@ class RetailAnalysisResponse(BaseModel):
     report: ExecutiveReport
     events: list[RuntimeEvent]
     timings_ms: dict[str, float]
+    guardrail: dict[str, Any] = Field(default_factory=dict)
+    limitations: list[str] = Field(default_factory=list)
