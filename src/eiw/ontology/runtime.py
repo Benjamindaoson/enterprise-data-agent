@@ -34,7 +34,7 @@ class OntologyRuntime:
                 "evidence": len(state.evidence),
                 "relations": len(state.relations),
             },
-            "tools": state.schema.tool_contracts,
+            "tools": state.schema_state.tool_contracts,
             "source_kind": state.source_kind,
         }
 
