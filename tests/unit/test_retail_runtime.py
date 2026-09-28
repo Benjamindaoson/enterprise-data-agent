@@ -53,3 +53,24 @@ def test_runtime_replans_after_initial_diagnostic_wave() -> None:
     assert "replan_ready" in event_types
     assert WorkstreamName.PROMOTION in {item.name for item in response.workstreams}
     assert WorkstreamName.CUSTOMER in {item.name for item in response.workstreams}
+
+
+def test_insight_selection_preserves_requested_business_dimensions() -> None:
+    runtime = RetailBARuntime(RetailDataEngine.demo())
+    response = runtime.analyze(
+        RetailAnalysisRequest(
+            question=(
+                "Why did recent sales change by store and category? "
+                "Recommend the next action."
+            ),
+            top_k=3,
+        )
+    )
+
+    covered = {
+        key
+        for insight in response.insights
+        for key in insight.dimensions
+    }
+    assert "store" in covered
+    assert "commodity" in covered
