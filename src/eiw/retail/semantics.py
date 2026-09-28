@@ -44,6 +44,18 @@ class RetailSemanticEngine:
         self._append_if(dimensions, "product", any(t in question for t in ("product", "sku", "商品", "单品")))
         self._append_if(dimensions, "commodity", any(t in question for t in ("category", "commodity", "品类", "类目")))
         self._append_if(dimensions, "household", any(t in question for t in ("customer", "household", "客户", "顾客", "会员")))
+        self._append_if(dimensions, "income", any(t in question for t in ("income", "收入", "消费层级")))
+        self._append_if(dimensions, "age", any(t in question for t in ("age", "年龄")))
+        self._append_if(
+            dimensions,
+            "household_comp",
+            any(t in question for t in ("household composition", "family", "家庭", "家庭结构")),
+        )
+        self._append_if(
+            dimensions,
+            "campaign",
+            any(t in question for t in ("campaign", "coupon", "活动", "优惠券")),
+        )
         self._append_if(dimensions, "display", any(t in question for t in ("display", "merchandising", "陈列", "货架")))
         self._append_if(dimensions, "week", any(t in question for t in ("week", "周", "最近", "recent")))
 
