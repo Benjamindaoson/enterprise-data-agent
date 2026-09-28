@@ -60,10 +60,23 @@ The upstream bootstrap branch pins DeepAnalyze, Microsoft Data Formulator and Wr
 | Numeric Accuracy | **1.000** |
 | Report Completeness | **1.000** |
 | Action Coverage | **1.000** |
-| Mean time to first insight | **356 ms** |
-| End-to-end P95 | **401 ms** |
+| Mean time to first insight | **376 ms** |
+| End-to-end P95 | **435 ms** |
 
-A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **392 ms mean**, **399 ms P95**, and **2.55 requests/s**. These latency figures are CI smoke measurements, not production-capacity claims or external SoTA results. See [real-data benchmark notes](docs/BA_AGENT_REAL_DATA_RESULTS.md).
+A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **395 ms mean**, **400 ms P95**, and **2.53 requests/s**. These latency figures are CI smoke measurements, not production-capacity claims or external SoTA results. See [real-data benchmark notes](docs/BA_AGENT_REAL_DATA_RESULTS.md).
+
+### Real product proof
+
+The real-data workflow now boots the BA Agent against the pinned CC0 dataset and uses Playwright to execute the browser product end to end. CI retains a proof bundle containing:
+
+- pre-run and completed UI screenshots;
+- a recorded WebM interaction;
+- Playwright trace;
+- generated executive HTML report;
+- generated A4 PDF report;
+- exact benchmark JSON, scale JSON and dataset provenance manifest.
+
+The same CI path also exercises the first-party Docker AI-Coding sandbox (network disabled, read-only root, CPU/memory/PID limits) and the stateful follow-up/drill-down contracts.
 
 ## What this project is
 
@@ -129,7 +142,7 @@ See [Demo Console](docs/DEMO.md) for details.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **595 passed / 17 skipped** |
+| Core CI | **604 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
 | PostgreSQL + Redis integration | **6 passed** |
 | Hard benchmark acceptance gate | **PASS** |
@@ -918,7 +931,7 @@ Current verified snapshot:
 ```text
 Core CI                578 passed / 17 skipped
 Training CI              7 passed
-Production integration   6 passed
+Production integration   7 passed
 Hard-v1 acceptance       PASS
 RealData-v1              PASS
 ```
