@@ -26,7 +26,9 @@ EventCallback = Callable[[RuntimeEvent], None]
 
 
 class RetailBARuntime:
-    """Production-facing BA runtime built around an explicit LangGraph loop."""
+    """Retail vertical hosted by the canonical BusinessAgentRuntime."""
+
+    domain_id = "retail"
 
     def __init__(
         self,
@@ -44,6 +46,17 @@ class RetailBARuntime:
         self.charts = ChartPlanner()
         self.reports = RetailReportBuilder()
         self.planner = InvestigationPlanner(supervisor_policy)
+
+    def capabilities(self) -> dict[str, object]:
+        """Expose the executable vertical contract to BusinessAgentRuntime."""
+
+        return {
+            "domain_id": self.domain_id,
+            "runtime": "RetailBARuntime",
+            "orchestration": "langgraph-supervisor-specialists",
+            "execution": "typed-analytical-skills",
+            "data": self.data.status(),
+        }
 
     def analyze(
         self,
