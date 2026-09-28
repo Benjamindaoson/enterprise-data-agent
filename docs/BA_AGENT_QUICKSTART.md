@@ -1,15 +1,15 @@
 # BA Agent quick start
 
-This branch runs a production-shaped retail BA Agent while keeping large
-third-party components isolated behind replaceable boundaries.
+This branch runs a production-shaped, first-party Retail Business Analysis
+Agent. The previous OSS bootstrap source trees have been removed after
+first-party replacement and benchmark parity.
 
-## 1. Clone with pinned upstreams
+## 1. Clone
 
 ```bash
-git clone --recurse-submodules https://github.com/Benjamindaoson/enterprise-data-agent.git
+git clone https://github.com/Benjamindaoson/enterprise-data-agent.git
 cd enterprise-data-agent
 git checkout feat/ba-agent-upstream-bootstrap
-git submodule update --init --recursive
 ```
 
 ## 2. Run the first-party BA Agent
@@ -75,27 +75,19 @@ python scripts/benchmark_retail_scale.py /path/to/retail --requests 20 --concurr
 
 Only locally measured values should be published in README or resume claims.
 
-## 5. Start Microsoft Data Formulator alongside BA Agent
+## 5. Run the first-party Docker stack
 
 ```bash
-docker compose -f docker-compose.ba.yml --profile upstream-ui up --build
+RETAIL_DATA_DIR=$PWD/data/retail \
+docker compose -f docker-compose.ba.yml up --build
 ```
 
-- BA Agent: http://localhost:8000/ba
-- Data Formulator: http://localhost:5567
+BA Agent: http://localhost:8000/ba
 
-To mount real retail data into the container, set both the host mount and the
-container path:
-
-```bash
-RETAIL_DATA_DIR=/absolute/path/to/retail \
-EIW_RETAIL_DATA_DIR=/data/retail \
-docker compose -f docker-compose.ba.yml --profile upstream-ui up --build
-```
-
-Data Formulator remains a pinned MIT-licensed upstream during bootstrap. Its
-Data Thread / visualization / sandbox patterns are being replaced behind
-first-party product contracts after parity is established.
+For an optional local OpenAI-compatible model sidecar, set
+`LOCAL_MODEL_DIR` and start the `local-model` profile. Point
+`EIW_RETAIL_SUPERVISOR_URL` and/or `EIW_RETAIL_CODE_MODEL_URL` to
+`http://model-gateway:8000/v1`.
 
 ## 6. Optional model-driven Supervisor
 
@@ -169,36 +161,21 @@ POST /api/v1/ba/retail/code-analysis
 When `EIW_RETAIL_CODE_MODEL_URL` is configured, this first-party path takes
 priority.
 
-## 9. Optional DeepAnalyze bootstrap fallback
+## 9. Optional external DeepAnalyze fallback
 
-Download DeepAnalyze-8B separately and set:
-
-```bash
-export DEEPANALYZE_MODEL_DIR=/absolute/path/to/DeepAnalyze-8B
-docker compose -f docker-compose.ba.yml --profile deepanalyze up --build
-```
-
-The stack exposes:
-
-- vLLM: http://localhost:8001/v1
-- full DeepAnalyze API (including code execution): http://localhost:8200/v1
-
-To connect a locally started BA API:
+If an independently operated DeepAnalyze API already exists, it can be used as
+a compatibility fallback:
 
 ```bash
 export EIW_DEEPANALYZE_URL=http://127.0.0.1:8200/v1
 ```
 
-The BA endpoint `POST /api/v1/ba/retail/code-analysis` sends only a bounded
-store × commodity snapshot to the optional code analyst.
+No DeepAnalyze source is vendored by this repository. The first-party
+`EIW_RETAIL_CODE_MODEL_URL` path takes precedence.
 
-## 10. Upstream policy
+## 10. OSS bootstrap history
 
-See:
+See `THIRD_PARTY_NOTICES.md` and `docs/UPSTREAM_BOOTSTRAP.md`. The product
+runtime is now first-party; these files only record the bootstrap/reference
+history.
 
-- `THIRD_PARTY_NOTICES.md`
-- `docs/UPSTREAM_BOOTSTRAP.md`
-
-The first-party contracts are the product boundary. Upstream code is replaced
-one capability at a time only after tests and BA benchmarks show parity or
-improvement.
