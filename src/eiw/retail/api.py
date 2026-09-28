@@ -10,12 +10,18 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.data import RetailDataEngine
-from eiw.retail.models import ChartRestyleRequest, RetailAnalysisRequest, RuntimeEvent
+from eiw.retail.export import render_report_html
+from eiw.retail.models import (
+    ChartRestyleRequest,
+    RetailAnalysisRequest,
+    RetailAnalysisResponse,
+    RuntimeEvent,
+)
 from eiw.retail.runtime import RetailBARuntime
 
 
@@ -76,6 +82,10 @@ def create_retail_router() -> APIRouter:
     def restyle_chart(request: ChartRestyleRequest) -> dict[str, object]:
         chart = ChartPlanner().restyle(request.chart, request.instruction)
         return chart.model_dump(mode="json")
+
+    @router.post("/report/html", response_class=HTMLResponse)
+    def report_html(response: RetailAnalysisResponse) -> HTMLResponse:
+        return HTMLResponse(render_report_html(response))
 
     @router.post("/benchmark")
     def benchmark() -> dict[str, object]:
