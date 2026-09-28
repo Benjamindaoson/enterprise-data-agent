@@ -1,4 +1,4 @@
-"""Autonomous multi-workstream retail Business Analysis runtime."""
+"""Autonomous LangGraph retail Business Analysis runtime."""
 
 from __future__ import annotations
 
@@ -8,36 +8,21 @@ from uuid import uuid4
 
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.data import RetailDataEngine
+from eiw.retail.graph import RetailInvestigationGraph
 from eiw.retail.insight import InsightMiner
-from eiw.retail.models import (
-    RetailAnalysisRequest,
-    RetailAnalysisResponse,
-    RuntimeEvent,
-    WorkstreamName,
-    WorkstreamResult,
-)
-from eiw.retail.planner import InvestigationPlanner
+from eiw.retail.models import RetailAnalysisRequest, RetailAnalysisResponse, RuntimeEvent, WorkstreamName
 from eiw.retail.report import RetailReportBuilder
 from eiw.retail.skills import RetailAnalyticalWorkers
-from eiw.retail.team import RetailAnalysisTeam, SpecialistProfile
 
 EventCallback = Callable[[RuntimeEvent], None]
 
 
 class RetailBARuntime:
-    """Supervisor + specialist analytical worker runtime.
-
-    The supervisor launches an initial analytical wave, observes typed results,
-    replans when deeper investigation is warranted, and then produces ranked
-    insights, visualizations and a decision-ready report. Public events expose
-    operations and results, never private chain-of-thought.
-    """
+    """Production-facing BA runtime built around an explicit LangGraph loop."""
 
     def __init__(self, data: RetailDataEngine) -> None:
         self.data = data
-        self.planner = InvestigationPlanner()
         self.workers = RetailAnalyticalWorkers(data)
-        self.team = RetailAnalysisTeam(self.workers)
         self.insights = InsightMiner()
         self.charts = ChartPlanner()
         self.reports = RetailReportBuilder()
@@ -52,114 +37,53 @@ class RetailBARuntime:
         task_id = f"retail-{uuid4().hex[:12]}"
         events: list[RuntimeEvent] = []
 
-        def emit(
-            event_type: str,
-            message: str,
-            *,
-            workstream: WorkstreamName | None = None,
-            progress: float | None = None,
-            payload: dict[str, object] | None = None,
-        ) -> None:
-            event = RuntimeEvent(
-                event_type=event_type,
-                message=message,
-                workstream=workstream.value if workstream else None,
-                progress=progress,
-                payload=dict(payload or {}),
-            )
+        def record(event: RuntimeEvent) -> None:
             events.append(event)
             if on_event:
                 on_event(event)
 
+        def emit(
+            event_type: str,
+            message: str,
+            *,
+            progress: float | None = None,
+            payload: dict[str, object] | None = None,
+        ) -> None:
+            record(
+                RuntimeEvent(
+                    event_type=event_type,
+                    message=message,
+                    progress=progress,
+                    payload=dict(payload or {}),
+                )
+            )
+
         current, previous = self._periods(request)
         emit(
             "analysis_started",
-            "Business question accepted; building the investigation plan.",
+            "Business question accepted; starting the autonomous investigation graph.",
             progress=0.02,
             payload={"current_weeks": current, "previous_weeks": previous},
         )
 
-        initial = self.planner.initial_plan(request)
-        emit(
-            "plan_ready",
-            f"Launching the first wave with {len(initial)} specialist workstreams.",
-            progress=0.08,
-            payload={"workstreams": [item.value for item in initial], "wave": 1},
+        graph_started = perf_counter()
+        graph = RetailInvestigationGraph(self.workers, emit=record)
+        graph_state = graph.run(
+            request,
+            current_weeks=current,
+            previous_weeks=previous,
         )
+        graph_ms = (perf_counter() - graph_started) * 1000.0
 
-        workstream_started = perf_counter()
-        results: list[WorkstreamResult] = []
-        completed_count = 0
-
-        def on_started(profile: SpecialistProfile) -> None:
-            emit(
-                "workstream_started",
-                f"{profile.name} started: {profile.mission}",
-                workstream=profile.workstream,
-                progress=0.10,
-                payload={"specialist": profile.name, "wave": 1 if not results else 2},
-            )
-
-        def on_completed(profile: SpecialistProfile, result: WorkstreamResult) -> None:
-            nonlocal completed_count
-            completed_count += 1
-            emit(
-                "workstream_completed",
-                result.summary,
-                workstream=profile.workstream,
-                progress=min(0.48, 0.10 + 0.10 * completed_count),
-                payload={"specialist": profile.name, "row_count": len(result.rows)},
-            )
-
-        results.extend(
-            self.team.run_wave(
-                initial,
-                current,
-                previous,
-                on_started=on_started,
-                on_completed=on_completed,
-            )
-        )
-
-        emit(
-            "replan_started",
-            "Supervisor is deciding whether the current evidence warrants another analysis wave.",
-            progress=0.50,
-        )
-        follow_up = self.planner.replan(request, results)
-        if follow_up:
-            emit(
-                "replan_ready",
-                f"Launching {len(follow_up)} additional specialist workstreams.",
-                progress=0.53,
-                payload={"workstreams": [item.value for item in follow_up], "wave": 2},
-            )
-            results.extend(
-                self.team.run_wave(
-                    follow_up,
-                    current,
-                    previous,
-                    on_started=on_started,
-                    on_completed=on_completed,
-                )
-            )
-        else:
-            emit(
-                "replan_skipped",
-                "Current analysis is sufficient; no additional workstream is required.",
-                progress=0.53,
-            )
-
-        ordered_names = [*initial, *follow_up]
-        results.sort(key=lambda item: ordered_names.index(item.name))
-        workstream_ms = (perf_counter() - workstream_started) * 1000.0
-
+        semantics = graph_state["semantics"]
+        results = graph_state.get("results", [])
         overview = next((item for item in results if item.name == WorkstreamName.OVERVIEW), None)
         kpis = dict(overview.metrics) if overview else {}
+
         emit(
             "insight_mining_started",
             "Scanning analytical results for high-impact findings.",
-            progress=0.64,
+            progress=0.66,
         )
         insight_started = perf_counter()
         insights = self.insights.mine(results, top_k=request.top_k)
@@ -167,7 +91,7 @@ class RetailBARuntime:
         emit(
             "insights_ready",
             f"Ranked {len(insights)} business findings.",
-            progress=0.75,
+            progress=0.76,
             payload={"insight_ids": [item.insight_id for item in insights]},
         )
 
@@ -177,7 +101,7 @@ class RetailBARuntime:
         emit(
             "charts_ready",
             f"Prepared {len(charts)} decision-oriented chart specifications.",
-            progress=0.86,
+            progress=0.87,
         )
 
         report_started = perf_counter()
@@ -208,6 +132,7 @@ class RetailBARuntime:
             question=request.question,
             current_weeks=current,
             previous_weeks=previous,
+            semantics=semantics,
             kpis=kpis,
             workstreams=results,
             insights=insights,
@@ -215,7 +140,7 @@ class RetailBARuntime:
             report=report,
             events=events,
             timings_ms={
-                "workstreams": round(workstream_ms, 3),
+                "investigation_graph": round(graph_ms, 3),
                 "insight_mining": round(insight_ms, 3),
                 "chart_planning": round(chart_ms, 3),
                 "report": round(report_ms, 3),
