@@ -43,9 +43,9 @@ downloaded again.
 
 Measured workflow run:
 
-- GitHub Actions run: `36390530467`
-- source commit: `42c95622e3ef7302b4b11cbd6327f70ac585f85b`
-- benchmark artifact: `10955597771`
+- GitHub Actions run: `36394245153`
+- source commit: `d5a427d7a11fba226a60333f2d12c2e466580a6c`
+- benchmark artifact: `10957970871`
 - gold method: **independent_readonly_sql**
 - cases: **10**
 
@@ -58,9 +58,9 @@ Aggregate result:
 | Numeric Accuracy | **1.000** |
 | Report Completeness | **1.000** |
 | Action Coverage | **1.000** |
-| Mean time to first insight | **356.39 ms** |
-| Mean end-to-end latency | **373.29 ms** |
-| End-to-end P95 | **400.55 ms** |
+| Mean time to first insight | **376.43 ms** |
+| Mean end-to-end latency | **394.11 ms** |
+| End-to-end P95 | **435.07 ms** |
 
 The ten cases cover:
 
@@ -88,15 +88,34 @@ The same workflow ran three end-to-end requests with concurrency=1:
 | --- | ---: |
 | Requests | 3 |
 | Concurrency | 1 |
-| Mean | **392.25 ms** |
-| Median | **395.18 ms** |
-| P95 | **398.85 ms** |
-| Throughput | **2.55 requests/s** |
+| Mean | **394.67 ms** |
+| Median | **392.90 ms** |
+| P95 | **400.28 ms** |
+| Throughput | **2.53 requests/s** |
 
 This is a small GitHub-hosted CI smoke measurement. It is useful as a
 regression baseline, not as a production throughput claim. Larger local/hosted
 runs should report machine configuration, request count and concurrency before
 being used in resume claims.
+
+## Browser product proof
+
+The same pinned workflow starts the real-data FastAPI application, opens `/ba`
+with Playwright Chromium and executes the product end to end. Artifact
+`10957970871` contains:
+
+- `ba-agent-before-run.png`;
+- `ba-agent-real-data.png`;
+- `ba-agent-real-data.webm`;
+- `ba-agent-trace.zip`;
+- `ba-agent-executive-report.html`;
+- `ba-agent-executive-report.pdf`;
+- `demo-proof.txt`;
+- the benchmark/scale JSON and data manifest.
+
+The captured UI reports the exact dataset provenance
+`complete-journey:retail · 1,469,307 transactions · CC0 · 5b5d061`.
+The generated PDF was rendered in CI from the same analytical response.
 
 ## Regression gate
 
