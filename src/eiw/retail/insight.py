@@ -62,22 +62,44 @@ class InsightMiner:
             result = by_name.get(name)
             if not result:
                 continue
-            negatives = [row for row in result.rows if float(row.get("delta") or 0.0) < 0]
-            total_abs = sum(abs(float(row.get("delta") or 0.0)) for row in result.rows) or 1.0
-            for row in negatives[:4]:
+            total_abs = sum(
+                abs(float(row.get("delta") or 0.0))
+                for row in result.rows
+            ) or 1.0
+            for row in result.rows[:4]:
                 delta = float(row["delta"])
+                if abs(delta) < 1e-9:
+                    continue
                 share = abs(delta) / total_abs
                 impact = min(1.0, share * 2.0)
-                title = f"{label.title()} {row['segment']} is a major negative contributor"
+                direction = "negative" if delta < 0 else "positive"
+                title = (
+                    f"{label.title()} {row['segment']} is a major "
+                    f"{direction} contributor"
+                )
+                action = (
+                    f"Drill into {row['segment']} before applying a broad "
+                    "business response."
+                    if delta < 0
+                    else (
+                        f"Validate the drivers behind {row['segment']} and "
+                        "test whether the positive pattern is repeatable."
+                    )
+                )
                 candidates.append(
                     Insight(
                         insight_id=_fingerprint(f"{label}_driver", title),
                         kind=f"{label}_driver",
                         title=title,
-                        finding=f"{row['segment']} contributed {delta:,.1f} of listed sales change.",
+                        finding=(
+                            f"{row['segment']} contributed {delta:+,.1f} of "
+                            "listed sales change."
+                        ),
                         driver=f"{label.title()} contribution",
-                        business_impact=f"{share:.0%} of the absolute listed {label} movement.",
-                        recommended_action=f"Drill into {row['segment']} before applying a broad business response.",
+                        business_impact=(
+                            f"{share:.0%} of the absolute listed {label} movement."
+                        ),
+                        recommended_action=action,
                         score=_score(
                             impact=impact,
                             surprise=min(1.0, abs(delta) / 5000.0),
