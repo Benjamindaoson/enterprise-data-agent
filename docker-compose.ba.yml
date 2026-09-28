@@ -10,41 +10,27 @@ services:
       - "8000:8000"
     environment:
       EIW_MODEL_PROVIDER: deterministic
-      EIW_RETAIL_DATA_DIR: ${EIW_RETAIL_DATA_DIR:-}
+      EIW_RETAIL_DATA_DIR: /data/retail
+      EIW_RETAIL_SUPERVISOR_URL: ${EIW_RETAIL_SUPERVISOR_URL:-}
+      EIW_RETAIL_SUPERVISOR_MODEL: ${EIW_RETAIL_SUPERVISOR_MODEL:-qwen3}
+      EIW_RETAIL_SUPERVISOR_API_KEY: ${EIW_RETAIL_SUPERVISOR_API_KEY:-}
+      EIW_RETAIL_CODE_MODEL_URL: ${EIW_RETAIL_CODE_MODEL_URL:-}
+      EIW_RETAIL_CODE_MODEL: ${EIW_RETAIL_CODE_MODEL:-qwen3}
+      EIW_RETAIL_CODE_MODEL_API_KEY: ${EIW_RETAIL_CODE_MODEL_API_KEY:-}
       EIW_DEEPANALYZE_URL: ${EIW_DEEPANALYZE_URL:-}
     volumes:
       - ${RETAIL_DATA_DIR:-./data/retail}:/data/retail:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
-  data-formulator:
-    profiles: ["upstream-ui"]
-    build:
-      context: ./third_party/data-formulator
-      dockerfile: Dockerfile
-    image: ba-agent-data-formulator:local
-    ports:
-      - "5567:5567"
-    environment:
-      OPENAI_ENABLED: "false"
-      AZURE_ENABLED: "false"
-      ANTHROPIC_ENABLED: "false"
-      OLLAMA_ENABLED: "true"
-      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
-      OLLAMA_MODELS: ${OLLAMA_MODELS:-qwen3:32b}
-      SANDBOX: local
-      DISABLE_DISPLAY_KEYS: "true"
-    volumes:
-      - data_formulator_home:/home/appuser/.data_formulator
-    restart: unless-stopped
-
-  deepanalyze-model:
-    profiles: ["deepanalyze"]
+  model-gateway:
+    profiles: ["local-model"]
     image: ${VLLM_IMAGE:-vllm/vllm-openai:latest}
     command:
       - --model
       - /model
       - --served-model-name
-      - DeepAnalyze-8B
+      - ${LOCAL_MODEL_NAME:-qwen3}
       - --host
       - "0.0.0.0"
       - --port
@@ -54,7 +40,7 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ${DEEPANALYZE_MODEL_DIR:-./models/DeepAnalyze-8B}:/model:ro
+      - ${LOCAL_MODEL_DIR:-./models/qwen3}:/model:ro
     ipc: host
     deploy:
       resources:
@@ -64,18 +50,6 @@ services:
               count: 1
               capabilities: [gpu]
 
-  deepanalyze-api:
-    profiles: ["deepanalyze"]
-    build:
-      context: .
-      dockerfile: docker/deepanalyze-api.Dockerfile
-    image: ba-agent-deepanalyze-api:local
-    ports:
-      - "8200:8200"
-      - "8100:8100"
-    depends_on:
-      - deepanalyze-model
-    restart: unless-stopped
-
-volumes:
-  data_formulator_home:
+networks:
+  default:
+    name: ba-agent
