@@ -198,9 +198,9 @@ class RetailDataEngine:
         )
 
         conn = duckdb.connect(":memory:")
-        conn.execute(f"CREATE TEMP VIEW source_transactions AS SELECT * FROM {reader(tx)}")
-        conn.execute(f"CREATE TEMP VIEW source_products AS SELECT * FROM {reader(products)}")
-        conn.execute(f"CREATE TEMP VIEW source_promotions AS SELECT * FROM {reader(causal)}")
+        conn.execute(f"CREATE VIEW source_transactions AS SELECT * FROM {reader(tx)}")
+        conn.execute(f"CREATE VIEW source_products AS SELECT * FROM {reader(products)}")
+        conn.execute(f"CREATE VIEW source_promotions AS SELECT * FROM {reader(causal)}")
 
         tx_columns = columns(conn, "source_transactions")
         product_columns = columns(conn, "source_products")
