@@ -31,6 +31,11 @@ dependencies = [
 postgres = ["psycopg[binary]>=3.2,<4"]
 training = ["numpy>=2,<3", "torch>=2.4,<3"]
 benchmark = ["openpyxl>=3.1,<4"]
+retail-data = [
+  "pandas>=2.2,<3",
+  "pyarrow>=18,<24",
+  "pyreadr>=0.5,<1",
+]
 llm = [
   "accelerate>=1.10,<2",
   "peft>=0.17,<1",
