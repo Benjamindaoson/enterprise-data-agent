@@ -38,6 +38,16 @@ async def capture(base_url: str, output_dir: Path) -> None:
             full_page=True,
         )
 
+        # Use an explicit cross-functional request so product proof exercises the
+        # full investigation graph rather than depending on copy changes in the UI.
+        await page.fill(
+            "#question",
+            (
+                "Prepare an executive review of recent sales. Analyze store and "
+                "category drivers, promotion/display performance, customer and "
+                "basket opportunities, and recommend the next actions."
+            ),
+        )
         await page.click("#runBtn")
         await page.wait_for_selector("#report:not(.hidden)", timeout=60_000)
         await page.wait_for_function(
