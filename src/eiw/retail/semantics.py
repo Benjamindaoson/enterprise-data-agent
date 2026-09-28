@@ -63,6 +63,17 @@ class RetailSemanticEngine:
         self._append_if(intents, "compare", any(t in question for t in ("compare", "versus", "vs", "对比", "比较", "环比", "同比")))
         self._append_if(
             intents,
+            "decompose",
+            (
+                ("price" in question and "volume" in question)
+                or "pvm" in question
+                or "price-volume" in question
+                or "价量" in question
+                or "量价" in question
+            ),
+        )
+        self._append_if(
+            intents,
             "discover",
             any(
                 t in question
