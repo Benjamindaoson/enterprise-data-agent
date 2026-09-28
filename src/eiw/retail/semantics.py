@@ -77,7 +77,24 @@ class RetailSemanticEngine:
                 )
             ),
         )
-        self._append_if(intents, "recommend", any(t in question for t in ("recommend", "action", "怎么办", "建议", "下一步")))
+        self._append_if(
+            intents,
+            "recommend",
+            any(
+                t in question
+                for t in (
+                    "recommend",
+                    "recommendation",
+                    "action",
+                    "next action",
+                    "next step",
+                    "what should",
+                    "怎么办",
+                    "建议",
+                    "下一步",
+                )
+            ),
+        )
         self._append_if(intents, "report", any(t in question for t in ("report", "summary", "报告", "汇报", "总结")))
 
         if not intents:
