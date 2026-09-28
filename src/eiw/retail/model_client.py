@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from threading import Lock
 from time import perf_counter
-from typing import Any, Protocol
+from typing import Protocol
 from urllib.parse import quote
 
 import httpx
