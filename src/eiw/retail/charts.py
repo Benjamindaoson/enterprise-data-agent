@@ -30,6 +30,22 @@ class ChartPlanner:
                 )
             )
 
+        if store:
+            cross_scan = self._artifact_rows(store, "store_commodity_scan")
+            if cross_scan:
+                charts.append(
+                    self._heatmap(
+                        title="Store × commodity heatmap exposes concentrated pockets of change",
+                        subtitle="Largest scanned sales movements versus the comparison period",
+                        rows=cross_scan[:24],
+                        insight_ids=[
+                            item.insight_id
+                            for item in insights
+                            if item.kind == "cross_dimension_driver"
+                        ][:5],
+                    )
+                )
+
         product = by_name.get(WorkstreamName.PRODUCT)
         if product and product.rows:
             rows = product.rows[:10]
@@ -43,6 +59,20 @@ class ChartPlanner:
                     insight_ids=[item.insight_id for item in insights if item.kind == "commodity_driver"][:4],
                 )
             )
+
+        if product:
+            decomposition = self._artifact_rows(product, "price_volume_decomposition")
+            if decomposition:
+                charts.append(
+                    self._price_volume_chart(
+                        rows=decomposition[:8],
+                        insight_ids=[
+                            item.insight_id
+                            for item in insights
+                            if item.kind == "price_volume"
+                        ][:4],
+                    )
+                )
 
         promo = by_name.get(WorkstreamName.PROMOTION)
         if promo and promo.rows:
@@ -58,6 +88,110 @@ class ChartPlanner:
                 )
             )
         return [self._qa(chart) for chart in charts]
+
+    @staticmethod
+    def _artifact_rows(result: WorkstreamResult, artifact_type: str) -> list[dict[str, object]]:
+        for artifact in result.artifacts:
+            if artifact.get("type") == artifact_type:
+                return list(artifact.get("rows", []))
+        return []
+
+    def _heatmap(
+        self,
+        *,
+        title: str,
+        subtitle: str,
+        rows: list[dict[str, object]],
+        insight_ids: list[str],
+    ) -> ChartArtifact:
+        stores = list(dict.fromkeys(str(row["store_id"]) for row in rows))
+        commodities = list(dict.fromkeys(str(row["commodity"]) for row in rows))
+        store_index = {value: index for index, value in enumerate(stores)}
+        commodity_index = {value: index for index, value in enumerate(commodities)}
+        data = [
+            [
+                commodity_index[str(row["commodity"])],
+                store_index[str(row["store_id"])],
+                round(float(row.get("sales_delta") or 0.0), 2),
+            ]
+            for row in rows
+        ]
+        magnitudes = [abs(float(item[2])) for item in data]
+        bound = max(magnitudes) if magnitudes else 1.0
+        option = {
+            "title": {"text": title, "subtext": subtitle, "left": 0},
+            "tooltip": {"position": "top"},
+            "grid": {"left": 80, "right": 30, "top": 92, "bottom": 90},
+            "xAxis": {
+                "type": "category",
+                "data": commodities,
+                "axisLabel": {"rotate": 25},
+                "splitArea": {"show": True},
+            },
+            "yAxis": {
+                "type": "category",
+                "data": stores,
+                "splitArea": {"show": True},
+            },
+            "visualMap": {
+                "min": -bound,
+                "max": bound,
+                "calculable": True,
+                "orient": "horizontal",
+                "left": "center",
+                "bottom": 8,
+            },
+            "series": [
+                {
+                    "name": "Sales change",
+                    "type": "heatmap",
+                    "data": data,
+                    "label": {"show": False},
+                }
+            ],
+        }
+        return ChartArtifact(
+            chart_id=f"chart-{uuid4().hex[:10]}",
+            title=title,
+            subtitle=subtitle,
+            chart_type="heatmap",
+            option=option,
+            insight_ids=insight_ids,
+        )
+
+    def _price_volume_chart(
+        self,
+        *,
+        rows: list[dict[str, object]],
+        insight_ids: list[str],
+    ) -> ChartArtifact:
+        categories = [str(row["commodity"]) for row in rows]
+        volume = [round(float(row.get("volume_effect") or 0.0), 2) for row in rows]
+        price = [round(float(row.get("price_effect") or 0.0), 2) for row in rows]
+        option = {
+            "title": {
+                "text": "Price and volume effects explain how commodity sales moved",
+                "subtext": "Deterministic decomposition; the two effects reconcile sales change",
+                "left": 0,
+            },
+            "tooltip": {"trigger": "axis"},
+            "legend": {"top": 52},
+            "grid": {"left": 70, "right": 25, "top": 92, "bottom": 80},
+            "xAxis": {"type": "category", "data": categories, "axisLabel": {"rotate": 24}},
+            "yAxis": {"type": "value", "splitLine": {"lineStyle": {"color": "#e8ecef"}}},
+            "series": [
+                {"name": "Volume effect", "type": "bar", "data": volume, "barMaxWidth": 24},
+                {"name": "Price effect", "type": "bar", "data": price, "barMaxWidth": 24},
+            ],
+        }
+        return ChartArtifact(
+            chart_id=f"chart-{uuid4().hex[:10]}",
+            title="Price and volume effects explain how commodity sales moved",
+            subtitle="Deterministic decomposition",
+            chart_type="bar",
+            option=option,
+            insight_ids=insight_ids,
+        )
 
     def _bar(
         self,
