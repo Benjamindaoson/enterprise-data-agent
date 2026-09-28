@@ -40,6 +40,13 @@ class BusinessQuestionContext(BaseModel):
     semantic_content_hash: str
 
 
+class CodeAnalysisRequest(BaseModel):
+    instruction: str = Field(min_length=3, max_length=5000)
+    current_weeks: list[int] = Field(default_factory=list)
+    previous_weeks: list[int] = Field(default_factory=list)
+    max_rows: int = Field(default=100, ge=10, le=500)
+
+
 class RuntimeEvent(BaseModel):
     event_type: str
     message: str
