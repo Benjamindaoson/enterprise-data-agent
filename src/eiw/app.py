@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from eiw.business.models import BusinessTaskRequest
 from eiw.business.operations import BusinessOperationsService
 from eiw.production.persistence import ProductionStore
+from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.runtime.skills import default_skill_registry
 from eiw.workspace.analysis import DEFAULT_USER, AnalysisService
 from eiw.workspace.data import DIMENSIONS, METRICS, IowaData
@@ -66,6 +67,12 @@ def create_app() -> FastAPI:
     skill_registry = default_skill_registry()
     database_url = os.getenv("EIW_DATABASE_URL")
     production_store = ProductionStore(database_url) if database_url else None
+    runtime = BusinessAgentRuntime(
+        analysis_service=service,
+        business_service=business_service,
+        skills=skill_registry,
+        production_store=production_store,
+    )
     app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -83,33 +90,16 @@ def create_app() -> FastAPI:
     def capabilities() -> dict[str, Any]:
         return {
             "product": "Enterprise Business Intelligence & Autonomous Operations Agent",
-            "business_scenarios": ["ANALYTICS", "MARKETING_BUDGET", "SALES_EXPANSION", "MONETIZATION"],
-            "runtime": [
-                "agent_loop", "context_engineering", "checkpoint_resume", "failure_recovery",
-                "layered_memory", "skill_registry", "tool_budget", "token_budget",
-                "human_in_the_loop", "policy_guardrails", "observability", "trajectory_replay",
-            ],
-            "skills": [
-                {
-                    "skill_id": skill.skill_id,
-                    "version": skill.version,
-                    "description": skill.description,
-                    "tools": list(skill.tool_dependencies),
-                    "permissions": list(skill.permissions),
-                    "tags": list(skill.tags),
-                }
-                for skill in skill_registry.list()
-            ],
-            "public_reference_limits": {
-                "external_writes": "proposal/dry-run only",
-                "post_training": "Tiny policy SFT/GRPO verified in CI; real open-weight LLM training runs in the manual self-hosted workflow",
-                "real_campaign_crm_integrations": False,
-            },
+            **runtime.capabilities(),
         }
+
+    @app.get("/api/v1/runtime/events")
+    def runtime_events(task_id: str | None = None) -> dict[str, Any]:
+        return {"items": runtime.events(task_id=task_id)}
 
     @app.post("/api/v1/business-tasks")
     def create_business_task(request: BusinessTaskRequest) -> dict[str, Any]:
-        return business_service.plan(request).model_dump(mode="json")
+        return runtime.plan_business_task(request).model_dump(mode="json")
 
     @app.put("/api/v1/runtime/checkpoints/{task_id}")
     def save_durable_checkpoint(task_id: str, request: DurableCheckpointRequest) -> dict[str, Any]:
@@ -174,15 +164,22 @@ def create_app() -> FastAPI:
 
     @app.post("/api/v1/analysis-tasks")
     def create_task(request: CreateTaskRequest) -> dict[str, Any]:
-        return service.create(request.question, {**DEFAULT_USER, **(request.user_context or {})})
+        return runtime.analyze(
+            request.question,
+            {**DEFAULT_USER, **(request.user_context or {})},
+        )
 
     @app.post("/api/v1/analysis-tasks/{task_id}/follow-ups")
     def follow_up(task_id: str, request: FollowUpRequest) -> dict[str, Any]:
-        parent = store.get_task(task_id)
-        if not parent:
-            raise HTTPException(404, "Analysis task not found")
-        lineage = {"parent_task_id": task_id, "reused_evidence_ids": request.referenced_evidence_ids, "parent_context_version": parent.get("resolved_context", {}).get("context_version")}
-        return service.create(request.question, parent.get("user_context", DEFAULT_USER), lineage)
+        try:
+            return runtime.follow_up(
+                parent_task_id=task_id,
+                question=request.question,
+                referenced_evidence_ids=request.referenced_evidence_ids,
+                store=store,
+            )
+        except KeyError as exc:
+            raise HTTPException(404, "Analysis task not found") from exc
 
     @app.get("/api/v1/analysis-tasks")
     def list_tasks() -> dict[str, Any]:
