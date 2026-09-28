@@ -9,15 +9,17 @@ import threading
 from collections.abc import Iterator
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
+from eiw.retail.code_analysis import RetailCodeAnalyst
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.export import render_report_html
 from eiw.retail.models import (
     ChartRestyleRequest,
+    CodeAnalysisRequest,
     RetailAnalysisRequest,
     RetailAnalysisResponse,
     RuntimeEvent,
@@ -105,6 +107,26 @@ def create_retail_router() -> APIRouter:
                 yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(stream(), media_type="text/event-stream")
+
+    @router.post("/code-analysis")
+    def code_analysis(request: CodeAnalysisRequest) -> dict[str, object]:
+        base_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
+        if not base_url:
+            raise HTTPException(
+                status_code=503,
+                detail="EIW_DEEPANALYZE_URL is not configured",
+            )
+        worker = DeepAnalyzeWorker(base_url=base_url)
+        if not worker.health():
+            raise HTTPException(status_code=503, detail="DeepAnalyze API is unavailable")
+        default_current, default_previous = runtime.data.week_bounds()
+        analyst = RetailCodeAnalyst(runtime.data, worker)
+        return analyst.analyze(
+            request.instruction,
+            current_weeks=request.current_weeks or default_current,
+            previous_weeks=request.previous_weeks or default_previous,
+            max_rows=request.max_rows,
+        )
 
     @router.post("/charts/restyle")
     def restyle_chart(request: ChartRestyleRequest) -> dict[str, object]:
