@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -78,7 +79,11 @@ def create_app() -> FastAPI:
     app.include_router(
         create_retail_router(production_store=production_store)
     )
-    static_dir = Path(__file__).parent / "web" / "static"
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if getattr(sys, "frozen", False) and bundle_root:
+        static_dir = Path(bundle_root) / "eiw" / "web" / "static"
+    else:
+        static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     @app.get("/", response_class=HTMLResponse)
