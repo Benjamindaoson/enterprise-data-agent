@@ -67,6 +67,33 @@ jobs:
           --concurrency 1
           > artifacts/retail-real-scale.json
 
+      - name: Install demo browser
+        run: |
+          python -m pip install 'playwright>=1.55,<2'
+          python -m playwright install --with-deps chromium
+
+      - name: Start BA Agent on real data
+        run: |
+          mkdir -p artifacts/ba-demo
+          EIW_RETAIL_DATA_DIR="$PWD/data/retail" \
+            python -m uvicorn eiw.app:app --host 127.0.0.1 --port 8000 \
+            > artifacts/ba-demo/ba-api.log 2>&1 &
+          echo $! > artifacts/ba-demo/ba-api.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/api/v1/ba/retail/status >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat artifacts/ba-demo/ba-api.log
+          exit 1
+
+      - name: Capture real-data product proof
+        run: >
+          python scripts/capture_ba_demo.py
+          --base-url http://127.0.0.1:8000
+          --output-dir artifacts/ba-demo
+
       - name: Upload benchmark evidence
         uses: actions/upload-artifact@v4
         with:
@@ -75,5 +102,12 @@ jobs:
             data/retail/completejourney-manifest.json
             artifacts/retail-real-benchmark.json
             artifacts/retail-real-scale.json
+            artifacts/ba-demo/ba-agent-before-run.png
+            artifacts/ba-demo/ba-agent-real-data.png
+            artifacts/ba-demo/ba-agent-real-data.webm
+            artifacts/ba-demo/ba-agent-executive-report.html
+            artifacts/ba-demo/ba-agent-trace.zip
+            artifacts/ba-demo/demo-proof.txt
+            artifacts/ba-demo/ba-api.log
           if-no-files-found: error
           retention-days: 30
