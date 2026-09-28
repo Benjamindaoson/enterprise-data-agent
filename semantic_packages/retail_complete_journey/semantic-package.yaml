@@ -1,0 +1,110 @@
+package:
+  id: retail_complete_journey
+  version: "1.0.0"
+  title: Retail Complete Journey
+  timezone: America/Chicago
+  currency: USD
+  source_snapshot_alias: complete_journey
+  default_snapshot: complete_journey
+  description: Retail BA semantic package for transaction, product and promotion analysis.
+
+facts:
+  - id: transaction_lines
+    source: retail_transactions
+    grain: basket-product-line
+  - id: promotions
+    source: retail_promotions
+    grain: product-store-week
+
+metrics:
+  - id: sales_value
+    label: Sales
+    expression: SUM(retail_transactions.sales_value)
+    unit: USD
+    availability: {from: 2000-01-01, to: 2100-01-01}
+    description: Gross observed retail sales value in the source transaction line.
+  - id: units
+    label: Units
+    expression: SUM(retail_transactions.quantity)
+    unit: unit
+    availability: {from: 2000-01-01, to: 2100-01-01}
+  - id: baskets
+    label: Baskets
+    expression: COUNT(DISTINCT retail_transactions.basket_id)
+    unit: basket
+    availability: {from: 2000-01-01, to: 2100-01-01}
+  - id: average_basket_value
+    label: Average Basket Value
+    expression: SUM(retail_transactions.sales_value) / NULLIF(COUNT(DISTINCT retail_transactions.basket_id), 0)
+    unit: USD/basket
+    availability: {from: 2000-01-01, to: 2100-01-01}
+  - id: discount_amount
+    label: Discount Amount
+    expression: SUM(ABS(retail_transactions.retail_disc) + ABS(retail_transactions.coupon_disc) + ABS(retail_transactions.coupon_match_disc))
+    unit: USD
+    availability: {from: 2000-01-01, to: 2100-01-01}
+
+dimensions:
+  - id: store
+    label: Store
+    source: retail_transactions.store_id
+    grain: store
+    attributes: [store_id]
+  - id: product
+    label: Product
+    source: retail_products.product_id
+    grain: product
+    attributes: [product_id, department, commodity, sub_commodity, brand]
+  - id: department
+    label: Department
+    source: retail_products.department
+    grain: department
+    attributes: [department]
+  - id: commodity
+    label: Commodity
+    source: retail_products.commodity
+    grain: commodity
+    attributes: [commodity]
+  - id: household
+    label: Household
+    source: retail_transactions.household_key
+    grain: household
+    attributes: [household_key]
+  - id: week
+    label: Week
+    source: retail_transactions.week_no
+    grain: week
+    attributes: [week_no]
+  - id: display
+    label: Display Location
+    source: retail_promotions.display_location
+    grain: product-store-week
+    attributes: [display_location]
+
+join_policies:
+  - id: transaction_to_product
+    left: retail_transactions.product_id
+    right: retail_products.product_id
+    cardinality: many_to_one
+  - id: transaction_to_promotion
+    left: [retail_transactions.product_id, retail_transactions.store_id, retail_transactions.week_no]
+    right: [retail_promotions.product_id, retail_promotions.store_id, retail_promotions.week_no]
+    cardinality: many_to_one
+
+business_rules:
+  - id: merchandising_association_not_causality
+    description: Observed display or mailer performance must be described as association unless matched or experimental analysis supports causal language.
+  - id: negative_discount_encoding
+    description: Source discount columns may be negative; discount amount metrics use absolute magnitude.
+
+quality_rules:
+  - id: non_negative_sales
+    description: Sales values used in executive reporting should be checked for unexpected negative totals.
+  - id: promotion_join_grain
+    description: Promotion joins must use product, store and week together.
+
+access_policies:
+  analyst:
+    allow: [sales_value, units, baskets, average_basket_value, discount_amount]
+  executive:
+    allow: [sales_value, units, baskets, average_basket_value]

@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from eiw.business.models import BusinessTaskRequest
 from eiw.business.operations import BusinessOperationsService
 from eiw.production.persistence import ProductionStore
+from eiw.retail.api import create_retail_router
 from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.runtime.skills import default_skill_registry
 from eiw.workspace.analysis import DEFAULT_USER, AnalysisService
@@ -73,7 +74,8 @@ def create_app() -> FastAPI:
         skills=skill_registry,
         production_store=production_store,
     )
-    app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.3.0", description="Governed autonomous analytics and business-operations agent with evidence, skills, memory, approval boundaries and reliable runtime.")
+    app = FastAPI(title="Enterprise Business Intelligence & Autonomous Operations Agent", version="0.4.0", description="Production-oriented BA Agent with governed analytics, autonomous retail investigation, insight mining, visualization and decision reporting.")
+    app.include_router(create_retail_router())
     static_dir = Path(__file__).parent / "web" / "static"
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -85,6 +87,11 @@ def create_app() -> FastAPI:
     def demo() -> FileResponse:
         """Portfolio demo surface with deterministic presentation data."""
         return FileResponse(static_dir / "demo.html")
+
+    @app.get("/ba", response_class=HTMLResponse)
+    def ba_demo() -> FileResponse:
+        """Interactive retail Business Analysis Agent demo."""
+        return FileResponse(static_dir / "ba-demo.html")
 
     @app.get("/api/v1/capabilities")
     def capabilities() -> dict[str, Any]:

@@ -1,4 +1,4 @@
-.PHONY: setup setup-training setup-llm setup-production data test lint dev evaluation trajectories train-sft train-grpo flywheel-smoke benchmark-hard benchmark-real train-hard llm-dataset llm-sft llm-grpo production-test observability
+.PHONY: setup setup-training setup-llm setup-production data test lint dev evaluation trajectories train-sft train-grpo flywheel-smoke benchmark-hard benchmark-real retail-benchmark retail-demo train-hard llm-dataset llm-sft llm-grpo production-test observability
 
 setup:
 	python -m pip install -e '.[dev,postgres]'
@@ -68,3 +68,10 @@ production-test:
 
 observability:
 	docker compose up -d redis otel-collector prometheus grafana
+
+
+retail-benchmark:
+	python scripts/run_retail_benchmark.py --assert-smoke
+
+retail-demo:
+	python -m uvicorn eiw.app:app --reload

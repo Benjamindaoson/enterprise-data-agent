@@ -34,6 +34,7 @@ jobs:
           src/eiw/nl2sql/schema_linker.py
           src/eiw/nl2sql/service.py
           src/eiw/nl2sql/generator.py
+          src/eiw/retail
           tests/nl2sql/test_retrieval.py
           tests/nl2sql/test_schema_retriever_hybrid.py
           tests/nl2sql/test_service_convergence.py
@@ -45,6 +46,10 @@ jobs:
           tests/unit/test_production_runtime.py
           tests/unit/test_public_business_data.py
           tests/unit/test_runtime_orchestrator.py
+          tests/unit/test_retail_data.py
+          tests/unit/test_retail_runtime.py
+          tests/unit/test_retail_benchmark.py
+          tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
           scripts/run_business_agent_benchmark.py
@@ -53,6 +58,8 @@ jobs:
           scripts/evaluate_llm_agent.py
           scripts/agent_regression_gate.py
           scripts/check_hard_benchmark_acceptance.py
+          scripts/run_retail_benchmark.py
+          scripts/prepare_complete_journey.py
       - name: Tests
         run: >
           python -m pytest -q
@@ -61,6 +68,8 @@ jobs:
           --ignore=tests/integration/test_production_services.py
       - name: Hard benchmark reference policies
         run: python scripts/run_business_agent_benchmark.py --cases 48
+      - name: Retail BA Agent benchmark smoke
+        run: python scripts/run_retail_benchmark.py --assert-smoke
 
   post-training-smoke:
     runs-on: ubuntu-latest

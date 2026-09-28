@@ -15,6 +15,32 @@ A governed long-horizon **Business Analysis Agent (BA Agent)** that turns busine
 
 ---
 
+## Retail Intelligence reference product
+
+The first high-fidelity product vertical is a **Retail Business Analysis Agent (BA Agent)**. It is intentionally broader than Text-to-SQL:
+
+```text
+Business question
+      ↓
+Business semantics
+      ↓
+Supervisor + parallel analytical workstreams
+      ↓
+SQL / deterministic analytical skills / optional code worker
+      ↓
+Store · Product · Promotion · Customer investigation
+      ↓
+Programmatic insight mining
+      ↓
+Decision-oriented charts
+      ↓
+Executive Business Review + action cards
+```
+
+Run the deterministic end-to-end demo at `/ba`. Configure `EIW_RETAIL_DATA_DIR` to point at a local dunnhumby Complete Journey checkout; without it the product uses a deterministic CI fixture and labels the dataset accordingly.
+
+The upstream bootstrap branch pins DeepAnalyze, Microsoft Data Formulator and WrenAI as temporary acceleration components under `third_party/`. First-party contracts live under `src/eiw/retail/`; upstream implementations will be replaced one capability at a time behind those contracts after benchmark parity is established.
+
 ## What this project is
 
 Most BA / data agents stop at:

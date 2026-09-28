@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BA Agent · Retail Intelligence</title>
+  <link rel="stylesheet" href="/static/ba-demo.css" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">BA AGENT · RETAIL INTELLIGENCE</p>
+        <h1>不是等你问数据，而是主动把经营问题查到底。</h1>
+      </div>
+      <div class="status"><span></span><b id="datasetStatus">连接中</b></div>
+    </header>
+
+    <section class="prompt-panel">
+      <textarea id="question">分析最近一期经营表现，找出最值得管理层关注的问题和机会，解释原因，并告诉我下一步应该做什么。</textarea>
+      <button id="runBtn">开始自主分析</button>
+    </section>
+
+    <section class="workspace">
+      <aside class="workstreams">
+        <div class="section-head"><span>分析团队</span><b id="elapsed">0.0s</b></div>
+        <div id="activity" class="activity"></div>
+      </aside>
+
+      <section class="canvas">
+        <div id="hero" class="hero-card waiting">
+          <p>等待分析</p>
+          <h2>一个问题，自动完成取数、下钻、诊断、洞察、可视化与报告。</h2>
+        </div>
+        <div id="kpis" class="kpis"></div>
+        <div id="charts" class="charts"></div>
+        <section id="report" class="report hidden"></section>
+      </section>
+
+      <aside class="insights">
+        <div class="section-head"><span>实时发现</span><b id="insightCount">0</b></div>
+        <div id="insightList"></div>
+      </aside>
+    </section>
+  </main>
+  <script src="/static/ba-demo.js"></script>
+</body>
+</html>
