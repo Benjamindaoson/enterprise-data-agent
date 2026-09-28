@@ -129,6 +129,17 @@ class RetailDataEngine:
 
     @classmethod
     def from_complete_journey(cls, root: Path) -> RetailDataEngine:
+        """Load either the original dunnhumby CSV schema or completejourney CC0 Parquet.
+
+        Supported inputs:
+        - original source files: transaction_data.csv / product.csv / causal_data.csv;
+        - normalized files produced by scripts/fetch_completejourney_cc0.py:
+          transactions.parquet / products.parquet / promotions.parquet.
+
+        The two public distributions use different column names. This adapter
+        resolves both into one stable first-party schema.
+        """
+
         root = root.expanduser().resolve()
         if not root.exists():
             raise FileNotFoundError(root)
@@ -140,66 +151,133 @@ class RetailDataEngine:
                     return path
             raise FileNotFoundError(f"None of {names!r} found under {root}")
 
-        tx = find("transaction_data.csv", "transactions.csv", "transaction_data.parquet")
+        def reader(path: Path) -> str:
+            if path.suffix.lower() == ".parquet":
+                return f"read_parquet({_sql_literal(str(path))})"
+            return f"read_csv_auto({_sql_literal(str(path))}, header=true, sample_size=-1)"
+
+        def columns(connection: duckdb.DuckDBPyConnection, relation: str) -> dict[str, str]:
+            rows = connection.execute(f'DESCRIBE "{relation}"').fetchall()
+            return {str(row[0]).lower(): str(row[0]) for row in rows}
+
+        def quote(name: str) -> str:
+            return '"' + name.replace('"', '""') + '"'
+
+        def pick(
+            available: dict[str, str],
+            *aliases: str,
+            required: bool = True,
+        ) -> str | None:
+            for alias in aliases:
+                resolved = available.get(alias.lower())
+                if resolved is not None:
+                    return quote(resolved)
+            if required:
+                raise ValueError(
+                    f"Complete Journey source is missing required column; expected one of {aliases!r}"
+                )
+            return None
+
+        def number_or_zero(column: str | None) -> str:
+            if column is None:
+                return "CAST(0 AS DOUBLE)"
+            return f"COALESCE(CAST({column} AS DOUBLE), 0)"
+
+        tx = find(
+            "transaction_data.csv",
+            "transactions.csv",
+            "transaction_data.parquet",
+            "transactions.parquet",
+        )
         products = find("product.csv", "products.csv", "product.parquet", "products.parquet")
-        causal = find("causal_data.csv", "promotions.csv", "causal_data.parquet")
+        causal = find(
+            "causal_data.csv",
+            "promotions.csv",
+            "causal_data.parquet",
+            "promotions.parquet",
+        )
 
         conn = duckdb.connect(":memory:")
-        read_tx = (
-            f"read_parquet({_sql_literal(str(tx))})"
-            if tx.suffix.lower() == ".parquet"
-            else f"read_csv_auto({_sql_literal(str(tx))}, header=true)"
-        )
-        read_products = (
-            f"read_parquet({_sql_literal(str(products))})"
-            if products.suffix.lower() == ".parquet"
-            else f"read_csv_auto({_sql_literal(str(products))}, header=true)"
-        )
-        read_causal = (
-            f"read_parquet({_sql_literal(str(causal))})"
-            if causal.suffix.lower() == ".parquet"
-            else f"read_csv_auto({_sql_literal(str(causal))}, header=true)"
+        conn.execute(f"CREATE TEMP VIEW source_transactions AS SELECT * FROM {reader(tx)}")
+        conn.execute(f"CREATE TEMP VIEW source_products AS SELECT * FROM {reader(products)}")
+        conn.execute(f"CREATE TEMP VIEW source_promotions AS SELECT * FROM {reader(causal)}")
+
+        tx_columns = columns(conn, "source_transactions")
+        product_columns = columns(conn, "source_products")
+        promo_columns = columns(conn, "source_promotions")
+
+        basket = pick(tx_columns, "BASKET_ID", "basket_id")
+        household = pick(tx_columns, "HOUSEHOLD_KEY", "household_id")
+        week = pick(tx_columns, "WEEK_NO", "week")
+        product = pick(tx_columns, "PRODUCT_ID", "product_id")
+        quantity = pick(tx_columns, "QUANTITY", "quantity")
+        sales = pick(tx_columns, "SALES_VALUE", "sales_value")
+        store = pick(tx_columns, "STORE_ID", "store_id")
+        retail_disc = pick(tx_columns, "RETAIL_DISC", "retail_disc", required=False)
+        coupon_disc = pick(tx_columns, "COUPON_DISC", "coupon_disc", required=False)
+        coupon_match_disc = pick(
+            tx_columns,
+            "COUPON_MATCH_DISC",
+            "coupon_match_disc",
+            required=False,
         )
 
         conn.execute(
             f"""
             CREATE VIEW retail_transactions AS
             SELECT
-                CAST(BASKET_ID AS BIGINT) AS basket_id,
-                CAST(HOUSEHOLD_KEY AS INTEGER) AS household_key,
-                CAST(WEEK_NO AS INTEGER) AS week_no,
-                CAST(PRODUCT_ID AS INTEGER) AS product_id,
-                CAST(QUANTITY AS DOUBLE) AS quantity,
-                CAST(SALES_VALUE AS DOUBLE) AS sales_value,
-                CAST(STORE_ID AS INTEGER) AS store_id,
-                COALESCE(CAST(RETAIL_DISC AS DOUBLE), 0) AS retail_disc,
-                COALESCE(CAST(COUPON_DISC AS DOUBLE), 0) AS coupon_disc,
-                COALESCE(CAST(COUPON_MATCH_DISC AS DOUBLE), 0) AS coupon_match_disc
-            FROM {read_tx}
+                CAST({basket} AS BIGINT) AS basket_id,
+                CAST({household} AS INTEGER) AS household_key,
+                CAST({week} AS INTEGER) AS week_no,
+                CAST({product} AS INTEGER) AS product_id,
+                CAST({quantity} AS DOUBLE) AS quantity,
+                CAST({sales} AS DOUBLE) AS sales_value,
+                CAST({store} AS INTEGER) AS store_id,
+                {number_or_zero(retail_disc)} AS retail_disc,
+                {number_or_zero(coupon_disc)} AS coupon_disc,
+                {number_or_zero(coupon_match_disc)} AS coupon_match_disc
+            FROM source_transactions
             """
         )
+
+        product_id = pick(product_columns, "PRODUCT_ID", "product_id")
+        department = pick(product_columns, "DEPARTMENT", "department")
+        commodity = pick(product_columns, "COMMODITY_DESC", "commodity", "commodity_desc")
+        sub_commodity = pick(
+            product_columns,
+            "SUB_COMMODITY_DESC",
+            "sub_commodity",
+            "sub_commodity_desc",
+        )
+        brand = pick(product_columns, "BRAND", "brand")
         conn.execute(
             f"""
             CREATE VIEW retail_products AS
             SELECT
-                CAST(PRODUCT_ID AS INTEGER) AS product_id,
-                CAST(DEPARTMENT AS VARCHAR) AS department,
-                CAST(COMMODITY_DESC AS VARCHAR) AS commodity,
-                CAST(SUB_COMMODITY_DESC AS VARCHAR) AS sub_commodity,
-                CAST(BRAND AS VARCHAR) AS brand
-            FROM {read_products}
+                CAST({product_id} AS INTEGER) AS product_id,
+                CAST({department} AS VARCHAR) AS department,
+                CAST({commodity} AS VARCHAR) AS commodity,
+                CAST({sub_commodity} AS VARCHAR) AS sub_commodity,
+                CAST({brand} AS VARCHAR) AS brand
+            FROM source_products
             """
         )
+
+        promo_product = pick(promo_columns, "PRODUCT_ID", "product_id")
+        promo_store = pick(promo_columns, "STORE_ID", "store_id")
+        promo_week = pick(promo_columns, "WEEK_NO", "week")
+        display = pick(promo_columns, "display", "display_location")
+        mailer = pick(promo_columns, "mailer", "mailer_location")
         conn.execute(
             f"""
             CREATE VIEW retail_promotions AS
             SELECT
-                CAST(PRODUCT_ID AS INTEGER) AS product_id,
-                CAST(STORE_ID AS INTEGER) AS store_id,
-                CAST(WEEK_NO AS INTEGER) AS week_no,
-                CAST(display AS VARCHAR) AS display_location,
-                CAST(mailer AS VARCHAR) AS mailer_location
-            FROM {read_causal}
+                CAST({promo_product} AS INTEGER) AS product_id,
+                CAST({promo_store} AS INTEGER) AS store_id,
+                CAST({promo_week} AS INTEGER) AS week_no,
+                CAST({display} AS VARCHAR) AS display_location,
+                CAST({mailer} AS VARCHAR) AS mailer_location
+            FROM source_promotions
             """
         )
         return cls(conn, label=f"complete-journey:{root.name}")
