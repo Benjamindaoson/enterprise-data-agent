@@ -25,7 +25,10 @@ class RetailBenchmarkCase:
 class RetailBenchmarkResult:
     case_id: str
     driver_recall_at_k: float
+    expected_driver_terms: tuple[str, ...]
+    matched_driver_terms: tuple[str, ...]
     semantic_coverage: float
+    missing_semantics: tuple[str, ...]
     numeric_accuracy: float
     report_completeness: float
     has_action: float
@@ -404,11 +407,12 @@ class RetailBenchmarkRunner:
                     *(insight.business_impact for insight in response.insights[:10]),
                 ]
             ).upper()
-            matched = sum(
-                1
+            matched_driver_terms = tuple(
+                term
                 for term in case.expected_driver_terms
                 if term.upper() in haystack
             )
+            matched = len(matched_driver_terms)
             recall = (
                 matched / len(case.expected_driver_terms)
                 if case.expected_driver_terms
@@ -421,6 +425,7 @@ class RetailBenchmarkRunner:
                 *(("intent", value) for value in case.expected_intents),
             ]
             semantic_hits = 0
+            missing_semantics: list[str] = []
             for kind, value in expected_semantics:
                 matched_semantic = (
                     (kind == "metric" and value in response.semantics.metrics)
@@ -432,6 +437,8 @@ class RetailBenchmarkRunner:
                 )
                 if matched_semantic:
                     semantic_hits += 1
+                else:
+                    missing_semantics.append(f"{kind}:{value}")
             semantic_coverage = (
                 semantic_hits / len(expected_semantics)
                 if expected_semantics
@@ -479,7 +486,10 @@ class RetailBenchmarkRunner:
                 RetailBenchmarkResult(
                     case_id=case.case_id,
                     driver_recall_at_k=recall,
+                    expected_driver_terms=case.expected_driver_terms,
+                    matched_driver_terms=matched_driver_terms,
                     semantic_coverage=semantic_coverage,
+                    missing_semantics=tuple(missing_semantics),
                     numeric_accuracy=numeric_accuracy,
                     report_completeness=completeness,
                     has_action=1.0 if response.report.actions else 0.0,
