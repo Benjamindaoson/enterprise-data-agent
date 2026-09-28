@@ -51,6 +51,7 @@ class RetailBARuntime:
         self.planner = InvestigationPlanner(supervisor_policy)
         self.guard = RetailRequestGuard()
         self.semantic = RetailSemanticEngine()
+        self._available_week_cache: set[int] | None = None
 
     def capabilities(self) -> dict[str, object]:
         """Expose the executable vertical contract to BusinessAgentRuntime."""
@@ -277,13 +278,20 @@ class RetailBARuntime:
         )
 
     def _available_weeks(self) -> set[int]:
+        if self._available_week_cache is not None:
+            return set(self._available_week_cache)
         try:
             rows = self.data.query_readonly(
                 "SELECT DISTINCT week_no FROM retail_transactions ORDER BY week_no"
             )
         except Exception:
             return set()
-        return {int(row["week_no"]) for row in rows if row.get("week_no") is not None}
+        self._available_week_cache = {
+            int(row["week_no"])
+            for row in rows
+            if row.get("week_no") is not None
+        }
+        return set(self._available_week_cache)
 
     def _guarded_response(
         self,
