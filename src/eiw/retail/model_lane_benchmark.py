@@ -24,7 +24,7 @@ class ModelProviderSpec:
     output_cost_per_million: float = 0.0
 
     @classmethod
-    def from_env(cls, name: str) -> "ModelProviderSpec | None":
+    def from_env(cls, name: str) -> ModelProviderSpec | None:
         prefix = f"EIW_BENCH_{name.upper()}"
         base_url = os.getenv(f"{prefix}_BASE_URL", "").strip()
         model = os.getenv(f"{prefix}_MODEL", "").strip()

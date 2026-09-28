@@ -4,8 +4,8 @@ from typing import Any
 
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.model_lane_benchmark import RetailModelLaneBenchmark
-from eiw.retail.single_agent_policy import OpenAICompatibleSingleAgentPolicy
 from eiw.retail.models import WorkstreamName
+from eiw.retail.single_agent_policy import OpenAICompatibleSingleAgentPolicy
 
 
 class FakeResponse:

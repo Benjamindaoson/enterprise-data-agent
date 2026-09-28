@@ -11,9 +11,10 @@ of deterministic execution and persistence details.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import Any
 from uuid import uuid4
 
 from eiw.business.models import BusinessTaskRequest, BusinessTaskResponse

@@ -15,10 +15,10 @@ from typing import Any, cast
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.guard import RequestDisposition, RetailRequestGuard
 from eiw.retail.models import RetailAnalysisRequest, RetailAnalysisResponse, RuntimeEvent
-from eiw.runtime.domain import DomainClarificationRequired, DomainRequestRejected
 from eiw.retail.runtime import EventCallback, RetailBARuntime
 from eiw.retail.specialist_policy import OpenAICompatibleSpecialistPolicy
 from eiw.retail.supervisor import OpenAICompatibleSupervisor
+from eiw.runtime.domain import DomainClarificationRequired, DomainRequestRejected
 
 
 class RetailDomainRuntime:

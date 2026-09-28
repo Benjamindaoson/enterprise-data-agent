@@ -7,14 +7,12 @@ import os
 import queue
 import threading
 from collections.abc import Iterator
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from eiw.production.persistence import ProductionStore
-from eiw.runtime.domain import DomainRuntimeError
-from eiw.runtime.orchestrator import BusinessAgentRuntime
-from eiw.retail.domain import RetailDomainRuntime, build_retail_domain_runtime
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
 from eiw.retail.code_analysis import RetailCodeAnalyst
@@ -23,6 +21,7 @@ from eiw.retail.code_worker import (
     FirstPartyRetailCodeAnalyst,
     OpenAICompatibleCodeGenerator,
 )
+from eiw.retail.domain import RetailDomainRuntime, build_retail_domain_runtime
 from eiw.retail.export import render_report_html, render_report_pdf
 from eiw.retail.models import (
     ChartRestyleRequest,
@@ -32,7 +31,8 @@ from eiw.retail.models import (
     RuntimeEvent,
 )
 from eiw.retail.upstream import DeepAnalyzeWorker
-
+from eiw.runtime.domain import DomainRuntimeError
+from eiw.runtime.orchestrator import BusinessAgentRuntime
 
 
 def create_retail_router(
