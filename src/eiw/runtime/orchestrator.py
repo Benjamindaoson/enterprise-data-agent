@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from eiw.business.models import BusinessTaskRequest, BusinessTaskResponse
 from eiw.business.operations import BusinessOperationsService
+from eiw.production.persistence import ProductionStore
 from eiw.runtime.memory import MemoryKind, MemoryRecord, MemoryStore
 from eiw.runtime.skills import SkillRegistry, default_skill_registry
 from eiw.workspace.analysis import AnalysisService
@@ -71,12 +72,15 @@ class BusinessAgentRuntime:
         business_service: BusinessOperationsService | None = None,
         skills: SkillRegistry | None = None,
         memory: MemoryStore | None = None,
+        production_store: ProductionStore | None = None,
     ) -> None:
         self.analysis_service = analysis_service
         self.business_service = business_service or BusinessOperationsService()
         self.skills = skills or default_skill_registry()
         self.memory = memory or MemoryStore()
+        self.production_store = production_store
         self._events: list[RuntimeTraceEvent] = []
+        self._trajectory_steps: dict[str, int] = {}
 
     def capabilities(self) -> dict[str, Any]:
         """Return capabilities from the runtime that actually serves requests."""
@@ -274,11 +278,20 @@ class BusinessAgentRuntime:
         task_id: str | None = None,
         payload: dict[str, Any] | None = None,
     ) -> None:
-        self._events.append(
-            RuntimeTraceEvent(
-                event_type=event_type,
-                message=message,
-                task_id=task_id,
-                payload=payload or {},
-            )
+        event = RuntimeTraceEvent(
+            event_type=event_type,
+            message=message,
+            task_id=task_id,
+            payload=payload or {},
         )
+        self._events.append(event)
+
+        if self.production_store is not None and task_id is not None:
+            step_index = self._trajectory_steps.get(task_id, 0)
+            self.production_store.append_trajectory_event(
+                trajectory_id=f"runtime:{task_id}",
+                task_id=task_id,
+                step_index=step_index,
+                payload=event.as_dict(),
+            )
+            self._trajectory_steps[task_id] = step_index + 1
