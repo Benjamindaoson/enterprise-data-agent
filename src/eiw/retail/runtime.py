@@ -95,7 +95,11 @@ class RetailBARuntime:
             progress=0.66,
         )
         insight_started = perf_counter()
-        insights = self.insights.mine(results, top_k=request.top_k)
+        insights = self.insights.mine(
+            results,
+            top_k=request.top_k,
+            context=semantics,
+        )
         insight_ms = (perf_counter() - insight_started) * 1000.0
         emit(
             "insights_ready",
