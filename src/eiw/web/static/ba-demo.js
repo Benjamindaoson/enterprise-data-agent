@@ -81,7 +81,12 @@ function renderResult(r){
 }
 async function loadStatus(){
   const r=await fetch("/api/v1/ba/retail/status"); const j=await r.json();
-  $("#datasetStatus").textContent=`${j.dataset.label} · ${Number(j.dataset.counts.retail_transactions).toLocaleString()} rows`;
+  const source=j.dataset.source||{};
+  const provenance=source.license
+    ? ` · ${source.license}${source.source_commit ? " · "+source.source_commit.slice(0,7) : ""}`
+    : "";
+  $("#datasetStatus").textContent=
+    `${j.dataset.label} · ${Number(j.dataset.counts.retail_transactions).toLocaleString()} transactions${provenance}`;
 }
 async function run(){
   runBtn.disabled=true; currentResult=null; activity.innerHTML=""; charts.innerHTML=""; insightList.innerHTML=""; report.classList.add("hidden"); $("#kpis").innerHTML="";
