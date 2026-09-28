@@ -348,6 +348,134 @@ class RetailDataEngine:
             row["total_listed_delta"] = total_delta
         return rows
 
+    def cross_dimension_scan(
+        self,
+        current: list[int],
+        previous: list[int],
+        *,
+        limit: int = 30,
+    ) -> list[dict[str, Any]]:
+        """Scan store × commodity space for the largest business movements."""
+        cur_marks, cur_params = self._in_clause(current)
+        prev_marks, prev_params = self._in_clause(previous)
+        return self._query(
+            f"""
+            WITH cur AS (
+                SELECT
+                    t.store_id,
+                    p.commodity,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units
+                FROM retail_transactions t
+                JOIN retail_products p ON p.product_id = t.product_id
+                WHERE t.week_no IN ({cur_marks})
+                GROUP BY 1, 2
+            ),
+            prev AS (
+                SELECT
+                    t.store_id,
+                    p.commodity,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units
+                FROM retail_transactions t
+                JOIN retail_products p ON p.product_id = t.product_id
+                WHERE t.week_no IN ({prev_marks})
+                GROUP BY 1, 2
+            )
+            SELECT
+                COALESCE(cur.store_id, prev.store_id) AS store_id,
+                COALESCE(cur.commodity, prev.commodity) AS commodity,
+                COALESCE(cur.sales, 0) AS current_sales,
+                COALESCE(prev.sales, 0) AS previous_sales,
+                COALESCE(cur.units, 0) AS current_units,
+                COALESCE(prev.units, 0) AS previous_units,
+                COALESCE(cur.sales, 0) - COALESCE(prev.sales, 0) AS sales_delta
+            FROM cur
+            FULL OUTER JOIN prev USING(store_id, commodity)
+            ORDER BY ABS(sales_delta) DESC
+            LIMIT {int(limit)}
+            """,
+            [*cur_params, *prev_params],
+        )
+
+    def price_volume_decomposition(
+        self,
+        current: list[int],
+        previous: list[int],
+        *,
+        limit: int = 15,
+    ) -> list[dict[str, Any]]:
+        """Decompose revenue change into price and volume effects by commodity.
+
+        For each commodity:
+          volume_effect = (q1 - q0) * p0
+          price_effect  = q1 * (p1 - p0)
+        These two terms exactly reconcile p1*q1 - p0*q0 when units are nonzero.
+        """
+        cur_marks, cur_params = self._in_clause(current)
+        prev_marks, prev_params = self._in_clause(previous)
+        rows = self._query(
+            f"""
+            WITH cur AS (
+                SELECT
+                    p.commodity,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units
+                FROM retail_transactions t
+                JOIN retail_products p ON p.product_id = t.product_id
+                WHERE t.week_no IN ({cur_marks})
+                GROUP BY 1
+            ),
+            prev AS (
+                SELECT
+                    p.commodity,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units
+                FROM retail_transactions t
+                JOIN retail_products p ON p.product_id = t.product_id
+                WHERE t.week_no IN ({prev_marks})
+                GROUP BY 1
+            )
+            SELECT
+                COALESCE(cur.commodity, prev.commodity) AS commodity,
+                COALESCE(cur.sales, 0) AS current_sales,
+                COALESCE(prev.sales, 0) AS previous_sales,
+                COALESCE(cur.units, 0) AS current_units,
+                COALESCE(prev.units, 0) AS previous_units
+            FROM cur
+            FULL OUTER JOIN prev USING(commodity)
+            """,
+            [*cur_params, *prev_params],
+        )
+        decomposed: list[dict[str, Any]] = []
+        for row in rows:
+            current_sales = float(row["current_sales"] or 0.0)
+            previous_sales = float(row["previous_sales"] or 0.0)
+            current_units = float(row["current_units"] or 0.0)
+            previous_units = float(row["previous_units"] or 0.0)
+            current_price = current_sales / current_units if current_units else 0.0
+            previous_price = previous_sales / previous_units if previous_units else 0.0
+            volume_effect = (current_units - previous_units) * previous_price
+            price_effect = current_units * (current_price - previous_price)
+            decomposed.append(
+                {
+                    **row,
+                    "current_price": current_price,
+                    "previous_price": previous_price,
+                    "volume_effect": volume_effect,
+                    "price_effect": price_effect,
+                    "sales_delta": current_sales - previous_sales,
+                    "reconciliation_error": (current_sales - previous_sales)
+                    - volume_effect
+                    - price_effect,
+                }
+            )
+        return sorted(
+            decomposed,
+            key=lambda row: abs(float(row["sales_delta"])),
+            reverse=True,
+        )[:limit]
+
     def promotion_performance(self, current: list[int], *, limit: int = 12) -> list[dict[str, Any]]:
         marks, params = self._in_clause(current)
         return self._query(
