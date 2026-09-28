@@ -10,9 +10,11 @@ on:
     paths:
       - "scripts/fetch_completejourney_cc0.py"
       - "scripts/run_retail_benchmark.py"
+      - "scripts/run_retail_adversarial_benchmark.py"
       - "scripts/run_retail_ablation.py"
       - "scripts/benchmark_retail_scale.py"
       - "src/eiw/retail/**"
+      - "evaluation/retail/**"
       - "src/eiw/web/static/ba-demo.html"
       - "src/eiw/web/static/ba-demo.js"
       - "src/eiw/web/static/ba-demo.css"
@@ -85,6 +87,14 @@ jobs:
           --rolling
           --output artifacts/retail-rolling-benchmark.json
 
+      - name: Run 252-case retail adversarial benchmark
+        run: >
+          python scripts/run_retail_adversarial_benchmark.py
+          --data-dir data/retail
+          --split all
+          --output artifacts/retail-adversarial-benchmark.json
+          --assert-gate
+
       - name: Run BA Agent harness ablation
         run: >
           python scripts/run_retail_ablation.py
@@ -136,6 +146,7 @@ jobs:
             artifacts/retail-real-scale.json
             artifacts/retail-harness-ablation.json
             artifacts/retail-rolling-benchmark.json
+            artifacts/retail-adversarial-benchmark.json
             artifacts/ba-demo/ba-agent-before-run.png
             artifacts/ba-demo/ba-agent-real-data.png
             artifacts/ba-demo/ba-agent-real-data.webm
