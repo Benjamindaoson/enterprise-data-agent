@@ -90,10 +90,51 @@ def write_parquet(frame, destination: Path) -> None:
     frame.to_parquet(destination, index=False, compression="zstd")
 
 
-def materialize(output_dir: Path, *, keep_r_files: bool) -> dict[str, Any]:
+def reusable_manifest(output_dir: Path) -> dict[str, Any] | None:
+    manifest_path = output_dir / "completejourney-manifest.json"
+    if not manifest_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if manifest.get("source_commit") != SOURCE_COMMIT:
+        return None
+    if manifest.get("source_license") != SOURCE_LICENSE:
+        return None
+    files = manifest.get("files") or {}
+    for logical_name in FILES:
+        record = files.get(logical_name) or {}
+        parquet_name = record.get("parquet_file")
+        if not parquet_name:
+            return None
+        parquet_path = output_dir / str(parquet_name)
+        if not parquet_path.exists() or parquet_path.stat().st_size <= 0:
+            return None
+        expected = EXPECTED_ROWS.get(logical_name)
+        if expected is not None and int(record.get("rows") or -1) != expected:
+            return None
+    return manifest
+
+
+def materialize(
+    output_dir: Path,
+    *,
+    keep_r_files: bool,
+    force: bool = False,
+) -> dict[str, Any]:
     output_dir = output_dir.expanduser().resolve()
     raw_dir = output_dir / "_source_r"
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not force:
+        cached = reusable_manifest(output_dir)
+        if cached is not None:
+            print(
+                "[cache] Complete Journey Parquet is already materialized "
+                f"for {SOURCE_COMMIT[:7]}; reusing it."
+            )
+            return cached
 
     manifest: dict[str, Any] = {
         "dataset": "completejourney",
@@ -164,9 +205,18 @@ def main() -> None:
         action="store_true",
         help="Keep downloaded RDS/RDA source files after conversion.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Ignore an existing valid manifest and re-download/rebuild Parquet.",
+    )
     args = parser.parse_args()
 
-    manifest = materialize(Path(args.output_dir), keep_r_files=args.keep_r_files)
+    manifest = materialize(
+        Path(args.output_dir),
+        keep_r_files=args.keep_r_files,
+        force=args.force,
+    )
     core = manifest["files"]
     print("\nComplete Journey ready:")
     print(f"  transactions: {core['transactions']['rows']:,}")
