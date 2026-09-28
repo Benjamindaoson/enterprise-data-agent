@@ -29,6 +29,7 @@ jobs:
           src/eiw/llm_agent
           src/eiw/production
           src/eiw/training
+          src/eiw/runtime/domain.py
           src/eiw/runtime/governance.py
           src/eiw/runtime/memory.py
           src/eiw/runtime/orchestrator.py
@@ -62,6 +63,8 @@ jobs:
           tests/unit/test_retail_supervisor.py
           tests/unit/test_retail_first_party_code_worker.py
           tests/unit/test_retail_specialist_agents.py
+          tests/unit/test_retail_guardrails.py
+          tests/unit/test_retail_adversarial.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
@@ -75,6 +78,7 @@ jobs:
           scripts/prepare_complete_journey.py
           scripts/benchmark_retail_scale.py
           scripts/run_retail_ablation.py
+          scripts/run_retail_adversarial_benchmark.py
           scripts/fetch_completejourney_cc0.py
       - name: Tests
         run: >
@@ -86,6 +90,8 @@ jobs:
         run: python scripts/run_business_agent_benchmark.py --cases 48
       - name: Retail BA Agent benchmark smoke
         run: python scripts/run_retail_benchmark.py --assert-smoke
+      - name: Retail adversarial benchmark
+        run: python scripts/run_retail_adversarial_benchmark.py --split all --assert-gate
 
   post-training-smoke:
     runs-on: ubuntu-latest
