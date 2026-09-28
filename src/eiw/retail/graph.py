@@ -40,9 +40,10 @@ class RetailInvestigationGraph:
         workers: RetailAnalyticalWorkers,
         *,
         emit: EventEmitter,
+        planner: InvestigationPlanner | None = None,
     ) -> None:
         self.semantic = RetailSemanticEngine()
-        self.planner = InvestigationPlanner()
+        self.planner = planner or InvestigationPlanner()
         self.team = RetailAnalysisTeam(workers)
         self.emit = emit
         self._graph = self._compile()
@@ -106,7 +107,12 @@ class RetailInvestigationGraph:
                 event_type="plan_ready",
                 message=f"Launching the first wave with {len(plan)} specialist workstreams.",
                 progress=0.08,
-                payload={"workstreams": [item.value for item in plan], "wave": 1},
+                payload={
+                    "workstreams": [item.value for item in plan],
+                    "wave": 1,
+                    "planner_source": self.planner.last_source,
+                    "rationale": self.planner.last_rationale,
+                },
             )
         )
         return {"initial_plan": plan}
@@ -135,7 +141,12 @@ class RetailInvestigationGraph:
                     event_type="replan_ready",
                     message=f"Launching {len(follow_up)} additional specialist workstreams.",
                     progress=0.53,
-                    payload={"workstreams": [item.value for item in follow_up], "wave": 2},
+                    payload={
+                        "workstreams": [item.value for item in follow_up],
+                        "wave": 2,
+                        "planner_source": self.planner.last_source,
+                        "rationale": self.planner.last_rationale,
+                    },
                 )
             )
         else:
@@ -144,6 +155,10 @@ class RetailInvestigationGraph:
                     event_type="replan_skipped",
                     message="Current analysis is sufficient; no additional workstream is required.",
                     progress=0.53,
+                    payload={
+                        "planner_source": self.planner.last_source,
+                        "rationale": self.planner.last_rationale,
+                    },
                 )
             )
         return {"follow_up_plan": follow_up}
