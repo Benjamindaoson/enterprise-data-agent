@@ -10,7 +10,12 @@ from eiw.retail.charts import ChartPlanner
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.graph import RetailInvestigationGraph
 from eiw.retail.insight import InsightMiner
-from eiw.retail.models import RetailAnalysisRequest, RetailAnalysisResponse, RuntimeEvent, WorkstreamName
+from eiw.retail.models import (
+    RetailAnalysisRequest,
+    RetailAnalysisResponse,
+    RuntimeEvent,
+    WorkstreamName,
+)
 from eiw.retail.report import RetailReportBuilder
 from eiw.retail.skills import RetailAnalyticalWorkers
 
