@@ -6,7 +6,12 @@ from hashlib import sha1
 from math import tanh
 from typing import Any
 
-from eiw.retail.models import Insight, WorkstreamName, WorkstreamResult
+from eiw.retail.models import (
+    BusinessQuestionContext,
+    Insight,
+    WorkstreamName,
+    WorkstreamResult,
+)
 
 
 def _score(*, impact: float, surprise: float, support: float, actionability: float) -> float:
@@ -21,7 +26,13 @@ def _fingerprint(kind: str, title: str) -> str:
 class InsightMiner:
     """Extract high-value findings from typed analytical worker results."""
 
-    def mine(self, workstreams: list[WorkstreamResult], *, top_k: int) -> list[Insight]:
+    def mine(
+        self,
+        workstreams: list[WorkstreamResult],
+        *,
+        top_k: int,
+        context: BusinessQuestionContext | None = None,
+    ) -> list[Insight]:
         by_name = {item.name: item for item in workstreams}
         candidates: list[Insight] = []
 
@@ -325,7 +336,75 @@ class InsightMiner:
             if previous is None or candidate.score > previous.score:
                 deduped[key] = candidate
 
-        return sorted(deduped.values(), key=lambda item: item.score, reverse=True)[:top_k]
+        ranked = sorted(
+            deduped.values(),
+            key=lambda item: item.score,
+            reverse=True,
+        )
+        if context is None:
+            return ranked[:top_k]
+
+        # A BA report must answer the dimensions the user actually requested.
+        # Pure global ranking can suppress a requested commodity/customer
+        # finding behind several high-score store anomalies. Reserve one slot
+        # per requested analytical dimension, then fill remaining slots by the
+        # intrinsic insight score. This changes selection, not the underlying
+        # score, so ranking remains inspectable.
+        requested = [
+            dimension
+            for dimension in context.dimensions
+            if dimension
+            in {
+                "store",
+                "product",
+                "commodity",
+                "household",
+                "income",
+                "age",
+                "household_comp",
+                "display",
+                "campaign",
+            }
+        ]
+        selected: list[Insight] = []
+        selected_ids: set[str] = set()
+
+        def covers(insight: Insight, dimension: str) -> bool:
+            if dimension in insight.dimensions:
+                return True
+            if dimension == "product" and "commodity" in insight.dimensions:
+                return True
+            if dimension == "household":
+                return insight.kind in {
+                    "customer_segment_driver",
+                    "coupon_funnel",
+                }
+            return False
+
+        for dimension in requested:
+            candidate = next(
+                (
+                    item
+                    for item in ranked
+                    if item.insight_id not in selected_ids
+                    and covers(item, dimension)
+                ),
+                None,
+            )
+            if candidate is not None:
+                selected.append(candidate)
+                selected_ids.add(candidate.insight_id)
+                if len(selected) >= top_k:
+                    return selected
+
+        for candidate in ranked:
+            if candidate.insight_id in selected_ids:
+                continue
+            selected.append(candidate)
+            selected_ids.add(candidate.insight_id)
+            if len(selected) >= top_k:
+                break
+        return selected
 
 
 def bounded_surprise(value: float) -> float:
