@@ -87,6 +87,47 @@ class ChartPlanner:
                     insight_ids=[item.insight_id for item in insights if item.kind == "merchandising"][:2],
                 )
             )
+
+        customer = by_name.get(WorkstreamName.CUSTOMER)
+        if customer:
+            income_rows = self._artifact_rows(customer, "demographic_income")
+            if income_rows:
+                rows = income_rows[:10]
+                charts.append(
+                    self._bar(
+                        title="Customer income segments show different period movements",
+                        subtitle="Descriptive customer-mix analysis; not causal attribution",
+                        categories=[str(row["segment"]) for row in rows],
+                        values=[round(float(row["delta"] or 0.0), 2) for row in rows],
+                        series_name="Sales change",
+                        insight_ids=[
+                            item.insight_id
+                            for item in insights
+                            if item.kind == "customer_segment_driver"
+                        ][:3],
+                    )
+                )
+
+            coupon_rows = self._artifact_rows(customer, "coupon_funnel")
+            if coupon_rows:
+                rows = coupon_rows[:10]
+                charts.append(
+                    self._bar(
+                        title="Observed coupon redemption varies materially by campaign",
+                        subtitle="Targeting-to-redemption funnel; not incremental lift",
+                        categories=[str(row["campaign_id"]) for row in rows],
+                        values=[
+                            round(float(row["household_redemption_rate"] or 0.0) * 100.0, 2)
+                            for row in rows
+                        ],
+                        series_name="Household redemption rate (%)",
+                        insight_ids=[
+                            item.insight_id
+                            for item in insights
+                            if item.kind == "coupon_funnel"
+                        ][:2],
+                    )
+                )
         return [self._qa(chart) for chart in charts]
 
     @staticmethod
