@@ -79,6 +79,97 @@ class InsightMiner:
                     )
                 )
 
+        store_result = by_name.get(WorkstreamName.STORE)
+        if store_result:
+            cross_rows: list[dict[str, Any]] = []
+            for artifact in store_result.artifacts:
+                if artifact.get("type") == "store_commodity_scan":
+                    cross_rows = list(artifact.get("rows", []))
+                    break
+            total_abs_cross = sum(abs(float(row.get("sales_delta") or 0.0)) for row in cross_rows) or 1.0
+            for row in cross_rows[:5]:
+                delta = float(row.get("sales_delta") or 0.0)
+                if delta >= 0:
+                    continue
+                share = abs(delta) / total_abs_cross
+                title = f"Store {row['store_id']} × {row['commodity']} concentrates a high-impact decline"
+                candidates.append(
+                    Insight(
+                        insight_id=_fingerprint("cross_dimension_driver", title),
+                        kind="cross_dimension_driver",
+                        title=title,
+                        finding=(
+                            f"The store × commodity slice moved {delta:,.1f} in sales "
+                            "versus the comparison window."
+                        ),
+                        driver="Cross-dimensional store and commodity movement",
+                        business_impact=f"{share:.0%} of the absolute scanned store × commodity movement.",
+                        recommended_action=(
+                            f"Inspect product, promotion and availability proxies for store {row['store_id']} "
+                            f"within {row['commodity']} before applying a broad intervention."
+                        ),
+                        score=_score(
+                            impact=min(1.0, share * 3.0),
+                            surprise=min(1.0, abs(delta) / 4000.0),
+                            support=0.95,
+                            actionability=0.95,
+                        ),
+                        support=0.95,
+                        dimensions={
+                            "store": str(row["store_id"]),
+                            "commodity": str(row["commodity"]),
+                        },
+                        evidence=[row],
+                    )
+                )
+
+        product_result = by_name.get(WorkstreamName.PRODUCT)
+        if product_result:
+            decomposition: list[dict[str, Any]] = []
+            for artifact in product_result.artifacts:
+                if artifact.get("type") == "price_volume_decomposition":
+                    decomposition = list(artifact.get("rows", []))
+                    break
+            for row in decomposition[:3]:
+                delta = float(row.get("sales_delta") or 0.0)
+                if abs(delta) < 1e-9:
+                    continue
+                volume_effect = float(row.get("volume_effect") or 0.0)
+                price_effect = float(row.get("price_effect") or 0.0)
+                dominant = "volume" if abs(volume_effect) >= abs(price_effect) else "price"
+                dominant_value = volume_effect if dominant == "volume" else price_effect
+                title = f"{row['commodity']} change is primarily {dominant}-driven"
+                candidates.append(
+                    Insight(
+                        insight_id=_fingerprint("price_volume", title),
+                        kind="price_volume",
+                        title=title,
+                        finding=(
+                            f"Sales changed {delta:,.1f}; volume effect is {volume_effect:,.1f} "
+                            f"and price effect is {price_effect:,.1f}."
+                        ),
+                        driver=f"{dominant.title()} effect",
+                        business_impact=(
+                            f"The dominant {dominant} component contributes {dominant_value:,.1f} "
+                            "within the deterministic decomposition."
+                        ),
+                        recommended_action=(
+                            "Prioritize demand/availability diagnostics."
+                            if dominant == "volume"
+                            else "Review effective price, discount and promotion changes."
+                        ),
+                        score=_score(
+                            impact=min(1.0, abs(delta) / 8000.0),
+                            surprise=min(1.0, abs(dominant_value) / 5000.0),
+                            support=0.95,
+                            actionability=0.85,
+                        ),
+                        support=0.95,
+                        dimensions={"commodity": str(row["commodity"])},
+                        evidence=[row],
+                    )
+                )
+
         promo = by_name.get(WorkstreamName.PROMOTION)
         if promo and len(promo.rows) >= 2:
             ranked = sorted(promo.rows, key=lambda row: float(row.get("avg_line_sales") or 0.0), reverse=True)
