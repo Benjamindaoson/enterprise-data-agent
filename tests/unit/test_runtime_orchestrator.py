@@ -44,6 +44,15 @@ class FakeStore:
         return self.task
 
 
+class FakeProductionStore:
+    def __init__(self) -> None:
+        self.events: list[dict[str, Any]] = []
+
+    def append_trajectory_event(self, **event: Any) -> str:
+        self.events.append(event)
+        return f"event-{len(self.events)}"
+
+
 def test_capabilities_come_from_canonical_runtime() -> None:
     runtime = BusinessAgentRuntime(analysis_service=FakeAnalysisService())
 
@@ -123,3 +132,20 @@ def test_business_task_uses_same_runtime_and_records_memory() -> None:
     )
     assert memory is not None
     assert memory.value["scenario"] == "ANALYTICS"
+
+
+def test_completed_runtime_event_is_persisted_when_production_store_is_configured() -> None:
+    production = FakeProductionStore()
+    runtime = BusinessAgentRuntime(
+        analysis_service=FakeAnalysisService(),
+        production_store=production,
+    )
+
+    runtime.analyze("Compare sales by region", {"user_id": "analyst-1"})
+
+    assert len(production.events) == 1
+    event = production.events[0]
+    assert event["trajectory_id"] == "runtime:task-123"
+    assert event["task_id"] == "task-123"
+    assert event["step_index"] == 0
+    assert event["payload"]["event_type"] == "RUNTIME_COMPLETED"
