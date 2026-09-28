@@ -85,10 +85,8 @@ def normalize_columns(frame):
 
 def write_parquet(frame, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    for column in frame.columns:
-        dtype = str(frame[column].dtype)
-        if dtype == "category":
-            frame[column] = frame[column].astype("string")
+    # Preserve pandas categoricals. The promotions table has >20M rows and
+    # materializing factor columns as Python strings needlessly multiplies RAM.
     frame.to_parquet(destination, index=False, compression="zstd")
 
 
