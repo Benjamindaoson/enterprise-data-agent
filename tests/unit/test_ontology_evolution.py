@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from eiw.ontology.builder import SemanticPackageOntologyBuilder
-from eiw.ontology.evolution import (
+from eiw.ontology import (
     EvolutionMetrics,
     FailureAttributor,
     GroundedPatchFactory,
+    OntologyStore,
     SemanticEvolutionEngine,
+    SemanticPackageOntologyBuilder,
     TrajectoryFailure,
 )
-from eiw.ontology.store import OntologyStore
 from eiw.semantic.package import load_semantic_package
 
 
