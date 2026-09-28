@@ -49,6 +49,52 @@ The pinned real-data baseline currently contains **1,469,307 transaction lines**
 
 The current Retail Intelligence product path is first-party. DeepAnalyze, Microsoft Data Formulator and WrenAI were evaluated during bootstrap, but their source trees have been removed after first-party replacements passed the project benchmark and integration gates. An externally operated DeepAnalyze API remains an optional compatibility fallback only.
 
+### Retail runtime architecture
+
+```mermaid
+flowchart TD
+    U[Business question / follow-up] --> S[Business Semantic Engine]
+    S --> SUP[Supervisor]
+    SUP --> O[Overview Analyst]
+    SUP --> ST[Store Analyst]
+    SUP --> PR[Product Analyst]
+    SUP --> PM[Promotion Analyst]
+    SUP --> CU[Customer Analyst]
+
+    O --> SK[Typed Analytical Skills]
+    ST --> SK
+    PR --> SK
+    PM --> SK
+    CU --> SK
+
+    SK --> D[(DuckDB / Parquet)]
+    SK --> C[Bounded AI Coding]
+    C --> SB[Docker Sandbox]
+
+    O --> OBS[Typed observations]
+    ST --> OBS
+    PR --> OBS
+    PM --> OBS
+    CU --> OBS
+    OBS --> SUP
+    SUP -->|Replan| ST
+    SUP -->|Replan| PR
+    SUP -->|Replan| PM
+    SUP -->|Replan| CU
+
+    OBS --> IM[Insight Mining + Query-aware Ranking]
+    IM --> CH[Chart Planner / Restyler]
+    IM --> RP[Executive Report + Actions]
+    CH --> UI[Streaming BA Workspace]
+    RP --> UI
+    UI -->|click insight / chart| U
+```
+
+The Supervisor can be deterministic for reproducible evaluation or backed by an
+OpenAI-compatible model with a strict workstream allowlist and deterministic
+fallback. Specialist workstreams execute concurrently and exchange typed task
+state/results rather than free-form hidden reasoning.
+
 ### Multi-Agent orchestration
 
 The Retail runtime uses a LangGraph investigation loop with a Supervisor and
@@ -145,13 +191,14 @@ The result is not a single-call NL2SQL or ChatBI demo, but a **stateful, auditab
 
 ![Autonomous Operations Console](docs/assets/demo-console.svg)
 
-Run the presentation demo locally:
+Run the Retail Intelligence product locally:
 
 ```text
-http://127.0.0.1:8000/demo
+http://127.0.0.1:8000/ba
 ```
 
-See [Demo Console](docs/DEMO.md) for details.
+The legacy operations console remains available separately; the `/ba` surface
+is the product demo used by the real-data Playwright proof.
 
 ---
 
