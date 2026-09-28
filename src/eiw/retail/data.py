@@ -242,12 +242,19 @@ class RetailDataEngine:
 
         product_id = pick(product_columns, "PRODUCT_ID", "product_id")
         department = pick(product_columns, "DEPARTMENT", "department")
-        commodity = pick(product_columns, "COMMODITY_DESC", "commodity", "commodity_desc")
+        commodity = pick(
+            product_columns,
+            "COMMODITY_DESC",
+            "commodity",
+            "commodity_desc",
+            "product_category",
+        )
         sub_commodity = pick(
             product_columns,
             "SUB_COMMODITY_DESC",
             "sub_commodity",
             "sub_commodity_desc",
+            "product_type",
         )
         brand = pick(product_columns, "BRAND", "brand")
         conn.execute(
