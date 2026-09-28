@@ -20,7 +20,6 @@ services:
       EIW_DEEPANALYZE_URL: ${EIW_DEEPANALYZE_URL:-}
     volumes:
       - ${RETAIL_DATA_DIR:-./data/retail}:/data/retail:ro
-      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
   model-gateway:
