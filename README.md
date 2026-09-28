@@ -47,9 +47,11 @@ Evaluate / Learn / Improve
 
 The system is designed around one principle:
 
-> **The model decides what to do next; governed deterministic services decide how data and actions are executed.**
+> **One canonical runtime owns application orchestration; governed deterministic services own execution, while model-driven policies are evaluated and promoted through explicit Agent-learning lanes.**
 
-The result is not a single-call NL2SQL or ChatBI demo, but a **stateful, recoverable, auditable BA Agent** that can continue from analysis into governed business operations.
+The FastAPI surface now routes analytical requests, follow-ups, capability discovery and business-operation planning through `BusinessAgentRuntime`. The default public analytical lane remains deterministic and reproducible; model-driven action policies are kept behind explicit evaluation/post-training boundaries instead of being silently presented as production behavior.
+
+The result is not a single-call NL2SQL or ChatBI demo, but a **stateful, auditable BA Agent runtime** that connects governed analytics with approval-gated business operations.
 
 ## Product preview
 
@@ -77,7 +79,7 @@ See [Demo Console](docs/DEMO.md) for details.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **536 passed / 2 skipped** |
+| Core CI | **573 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
 | PostgreSQL + Redis integration | **6 passed** |
 | Hard benchmark acceptance gate | **PASS** |
@@ -173,46 +175,31 @@ Typical tasks:
 
 ```mermaid
 flowchart TD
-    U[Business User / API] --> S[Supervisor]
+    U[Business User / API] --> R[BusinessAgentRuntime]
 
-    S --> TS[(Durable Task State)]
-    TS --> C[Context Manager]
-    C --> M[(Layered Memory)]
+    R --> A[Deterministic Semantic Analytics Lane]
+    R --> B[Business Operations Lane]
+    R --> M[(Layered Episodic / Semantic / Procedural Memory)]
 
-    S --> SK[Skill Runtime]
-    SK --> A1[Analytics Skill]
-    SK --> A2[Attribution Skill]
-    SK --> A3[Marketing Budget Skill]
-    SK --> A4[Sales Expansion Skill]
-    SK --> A5[Monetization Skill]
-
-    A1 --> T[Governed Tool Layer]
-    A2 --> T
-    A3 --> T
-    A4 --> T
-    A5 --> T
-
-    SL[Semantic Layer] --> T
-    T --> D[(Business Data)]
-    T --> X[External Action Adapters]
-
+    A --> SL[Versioned Semantic Layer]
+    SL --> N[Governed NL2SQL / Analytical Tools]
+    N --> D[(Business Data)]
     D --> O[Observation / Evidence]
     O --> V[Claim-Evidence Verification]
-    V --> S
+    V --> R
 
-    X --> G[Policy / Budget / HITL Gate]
-    G --> X
+    B --> SK[Typed Skill Registry]
+    SK --> G[Permission / Budget / HITL Gate]
+    G --> X[Dry-run / Approval-gated External Actions]
 
-    TS --> CP[Checkpoint / Resume]
-    TS --> TR[Trajectory / Replay]
+    R --> OT[OpenTelemetry / Runtime Events]
+    OT --> P[Prometheus / Grafana]
 
-    TR --> E[Evaluation]
+    TR[Trajectory / Replay] --> E[BusinessAgentBench Evaluation]
     E --> FM[Failure Mining]
     FM --> PT[SFT / GRPO]
-    PT --> E
-
-    S --> OT[OpenTelemetry]
-    OT --> P[Prometheus / Grafana]
+    PT --> RG[Regression / Acceptance Gate]
+    RG --> E
 ```
 
 ---
@@ -221,24 +208,21 @@ flowchart TD
 
 ### Agent Runtime / Harness
 
-The runtime treats long-running work as a durable task rather than a chat transcript.
+`BusinessAgentRuntime` is the canonical application-layer facade used by the FastAPI surface. It composes the verified analytical workflow, business-operation planner, typed Skills, layered memory and governance contracts without duplicating their implementations.
 
 Implemented capabilities include:
 
-- Supervisor–Executor orchestration;
-- structured handoff;
-- persistent Task State;
-- `Plan → Act → Observe → Verify → Replan`;
-- checkpoint / resume;
-- failure recovery;
-- trajectory replay;
-- context compression;
-- role- and task-scoped context assembly;
-- tool-call and token budgets;
-- idempotent action contracts;
-- async execution and retry.
+- one application entry point for analysis, follow-ups and business-operation planning;
+- explicit runtime lane metadata and observable runtime events;
+- persistent analytical Task State and evidence lineage;
+- checkpoint / replay APIs;
+- layered episodic / semantic / procedural memory contracts;
+- typed Skill registration and permission requirements;
+- tool/token budgets and approval-gated high-risk actions;
+- PostgreSQL / Redis production adapters;
+- trajectory-based evaluation, SFT / GRPO and regression gates.
 
-This separates **runtime state** from **model context**, preventing every model call from replaying the full task history.
+A model-driven Supervisor–Executor implementation remains available as an agentic/research path, but the public default analytical API is deliberately deterministic until model-driven behavior is promoted through reproducible evaluation.
 
 ---
 
