@@ -490,6 +490,57 @@ class InsightMiner:
         return selected
 
 
+    def mine_focus(self, focus_result: dict[str, Any]) -> Insight | None:
+        """Create a dedicated drill-down finding for an interactive follow-up."""
+
+        rows = list(focus_result.get("rows") or [])
+        if not rows:
+            return None
+        row = rows[0]
+        focus_dimension = str(focus_result.get("focus_dimension") or "scope")
+        focus_value = str(focus_result.get("focus_value") or "")
+        breakdown_dimension = str(
+            focus_result.get("breakdown_dimension") or "segment"
+        )
+        segment = str(row.get("segment") or "UNKNOWN")
+        delta = float(row.get("delta") or 0.0)
+        share = float(row.get("share_of_absolute_change") or 0.0)
+        direction = "negative" if delta < 0 else "positive"
+        title = (
+            f"Within {focus_dimension} {focus_value}, {breakdown_dimension} "
+            f"{segment} is the largest {direction} movement"
+        )
+        return Insight(
+            insight_id=_fingerprint("focus_drilldown", title),
+            kind="focus_drilldown",
+            title=title,
+            finding=(
+                f"The focused slice moved {delta:+,.1f} in sales versus the "
+                "comparison window."
+            ),
+            driver=f"Focused {breakdown_dimension} contribution",
+            business_impact=(
+                f"{share:.0%} of absolute movement within the selected "
+                f"{focus_dimension} scope."
+            ),
+            recommended_action=(
+                f"Continue into {breakdown_dimension} {segment} and inspect "
+                "product, promotion and availability signals."
+            ),
+            score=_score(
+                impact=min(1.0, share * 2.0),
+                surprise=min(1.0, abs(delta) / 5000.0),
+                support=0.95,
+                actionability=0.95,
+            ),
+            support=0.95,
+            dimensions={
+                focus_dimension: focus_value,
+                breakdown_dimension: segment,
+            },
+            evidence=[row],
+        )
+
 def bounded_surprise(value: float) -> float:
     """Utility used by future benchmark extensions."""
     return float(tanh(abs(value)))
