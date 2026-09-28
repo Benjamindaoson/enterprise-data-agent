@@ -1,0 +1,34 @@
+package_id: enterprise_sales
+version: "1.0.0"
+title: Enterprise Sales
+schema_name: public
+fact_table: sales_fact
+timezone: UTC
+currency: USD
+
+metrics:
+  - id: revenue
+    label: Revenue
+    column: revenue
+    aggregation: sum
+    unit: USD
+    description: Governed observed sales revenue.
+  - id: units
+    label: Units
+    column: units
+    aggregation: sum
+    unit: unit
+
+dimensions:
+  - id: region
+    label: Region
+    column: region
+    grain: region
+  - id: product
+    label: Product
+    column: product
+    grain: product
+
+role_metric_allowlist:
+  analyst: [revenue, units]
+  executive: [revenue, units]
