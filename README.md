@@ -125,10 +125,21 @@ runs the real Docker sandbox, not a mock.
 | Numeric Accuracy | **1.000** |
 | Report Completeness | **1.000** |
 | Action Coverage | **1.000** |
-| Mean time to first insight | **376 ms** |
-| End-to-end P95 | **435 ms** |
+| Mean time to first insight | **355 ms** |
+| End-to-end P95 | **401 ms** |
 
-A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **395 ms mean**, **400 ms P95**, and **2.53 requests/s**. These latency figures are CI smoke measurements, not production-capacity claims or external SoTA results. See [real-data benchmark notes](docs/BA_AGENT_REAL_DATA_RESULTS.md).
+A separate 3-request, concurrency-1 GitHub Actions scale smoke measured **389 ms mean**, **392 ms P95**, and **2.57 requests/s**. These latency figures are CI smoke measurements, not production-capacity claims or external SoTA results. See [real-data benchmark notes](docs/BA_AGENT_REAL_DATA_RESULTS.md).
+
+### Harness ablation
+
+`RetailHarnessAblation-v1` holds the analytical workstream outputs constant
+and removes only harness behavior. On the same 10 real-data cases, naive
+intrinsic-score ranking reached **0.90 Driver Recall@K**, while query-aware
+semantic selection reached **1.00 (+10 pp)**. Dynamic re-planning added
+specialist workstreams in **8/10** cases. In the same GitHub-hosted smoke,
+parallel specialist execution averaged **342 ms** versus **444 ms**
+sequentially (**1.30× wall-clock speedup**). These are system-ablation results,
+not external SoTA claims.
 
 ### Real product proof
 
@@ -208,7 +219,7 @@ is the product demo used by the real-data Playwright proof.
 
 | Area | Verified status |
 | --- | ---: |
-| Core CI | **604 passed / 17 skipped** |
+| Core CI | **605 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
 | PostgreSQL + Redis + Docker code sandbox integration | **7 passed** |
 | Hard benchmark acceptance gate | **PASS** |
