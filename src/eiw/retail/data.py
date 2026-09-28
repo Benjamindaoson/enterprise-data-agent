@@ -299,6 +299,82 @@ class RetailDataEngine:
             FROM source_promotions
             """
         )
+
+        def optional_parquet(name: str) -> Path | None:
+            path = root / f"{name}.parquet"
+            return path if path.exists() else None
+
+        demographics = optional_parquet("demographics")
+        if demographics is not None:
+            conn.execute(
+                f"""
+                CREATE VIEW retail_demographics AS
+                SELECT
+                    CAST(household_id AS INTEGER) AS household_key,
+                    CAST(age AS VARCHAR) AS age,
+                    CAST(income AS VARCHAR) AS income,
+                    CAST(home_ownership AS VARCHAR) AS home_ownership,
+                    CAST(marital_status AS VARCHAR) AS marital_status,
+                    CAST(household_size AS VARCHAR) AS household_size,
+                    CAST(household_comp AS VARCHAR) AS household_comp,
+                    CAST(kids_count AS VARCHAR) AS kids_count
+                FROM read_parquet({_sql_literal(str(demographics))})
+                """
+            )
+
+        campaigns = optional_parquet("campaigns")
+        if campaigns is not None:
+            conn.execute(
+                f"""
+                CREATE VIEW retail_campaigns AS
+                SELECT
+                    CAST(campaign_id AS VARCHAR) AS campaign_id,
+                    CAST(household_id AS INTEGER) AS household_key
+                FROM read_parquet({_sql_literal(str(campaigns))})
+                """
+            )
+
+        campaign_descriptions = optional_parquet("campaign_descriptions")
+        if campaign_descriptions is not None:
+            conn.execute(
+                f"""
+                CREATE VIEW retail_campaign_descriptions AS
+                SELECT
+                    CAST(campaign_id AS VARCHAR) AS campaign_id,
+                    CAST(campaign_type AS VARCHAR) AS campaign_type,
+                    CAST(start_date AS DATE) AS start_date,
+                    CAST(end_date AS DATE) AS end_date
+                FROM read_parquet({_sql_literal(str(campaign_descriptions))})
+                """
+            )
+
+        coupons = optional_parquet("coupons")
+        if coupons is not None:
+            conn.execute(
+                f"""
+                CREATE VIEW retail_coupons AS
+                SELECT
+                    CAST(coupon_upc AS VARCHAR) AS coupon_upc,
+                    CAST(product_id AS INTEGER) AS product_id,
+                    CAST(campaign_id AS VARCHAR) AS campaign_id
+                FROM read_parquet({_sql_literal(str(coupons))})
+                """
+            )
+
+        coupon_redemptions = optional_parquet("coupon_redemptions")
+        if coupon_redemptions is not None:
+            conn.execute(
+                f"""
+                CREATE VIEW retail_coupon_redemptions AS
+                SELECT
+                    CAST(household_id AS INTEGER) AS household_key,
+                    CAST(coupon_upc AS VARCHAR) AS coupon_upc,
+                    CAST(campaign_id AS VARCHAR) AS campaign_id,
+                    CAST(redemption_date AS DATE) AS redemption_date
+                FROM read_parquet({_sql_literal(str(coupon_redemptions))})
+                """
+            )
+
         manifest_path = root / "completejourney-manifest.json"
         metadata: dict[str, Any] = {"source": "complete-journey"}
         if manifest_path.exists():
@@ -317,11 +393,37 @@ class RetailDataEngine:
         cursor = self._conn.cursor().execute(sql, list(params))
         return _records(cursor)
 
+    def relation_exists(self, relation: str) -> bool:
+        rows = self._query(
+            """
+            SELECT table_name
+            FROM information_schema.views
+            WHERE lower(table_name) = lower(?)
+            UNION ALL
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE lower(table_name) = lower(?)
+            """,
+            [relation, relation],
+        )
+        return bool(rows)
+
     def status(self) -> dict[str, Any]:
         counts = {}
-        for table in ("retail_transactions", "retail_products", "retail_promotions"):
-            value = self._query(f"SELECT COUNT(*) AS n FROM {table}")[0]["n"]
-            counts[table] = int(value)
+        tables = (
+            "retail_transactions",
+            "retail_products",
+            "retail_promotions",
+            "retail_demographics",
+            "retail_campaigns",
+            "retail_campaign_descriptions",
+            "retail_coupons",
+            "retail_coupon_redemptions",
+        )
+        for table in tables:
+            if self.relation_exists(table):
+                value = self._query(f"SELECT COUNT(*) AS n FROM {table}")[0]["n"]
+                counts[table] = int(value)
         bounds = self._query(
             "SELECT MIN(week_no) AS min_week, MAX(week_no) AS max_week FROM retail_transactions"
         )[0]
@@ -647,6 +749,146 @@ class RetailDataEngine:
             LIMIT {int(limit)}
             """,
             params,
+        )
+
+    def demographic_contribution(
+        self,
+        dimension: str,
+        current: list[int],
+        previous: list[int],
+        *,
+        limit: int = 12,
+    ) -> list[dict[str, Any]]:
+        """Compare sales by a descriptive household segment.
+
+        This is a compositional/descriptive comparison, not a causal claim.
+        """
+
+        allowed = {
+            "age": "age",
+            "income": "income",
+            "home_ownership": "home_ownership",
+            "household_size": "household_size",
+            "household_comp": "household_comp",
+            "kids_count": "kids_count",
+        }
+        if dimension not in allowed:
+            raise ValueError(f"unsupported demographic dimension: {dimension}")
+        if not self.relation_exists("retail_demographics"):
+            return []
+
+        field = allowed[dimension]
+        cur_marks, cur_params = self._in_clause(current)
+        prev_marks, prev_params = self._in_clause(previous)
+        rows = self._query(
+            f"""
+            WITH cur AS (
+                SELECT
+                    COALESCE(NULLIF(TRIM(d.{field}), ''), 'UNKNOWN') AS segment,
+                    COUNT(DISTINCT t.household_key) AS households,
+                    COUNT(DISTINCT t.basket_id) AS baskets,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units
+                FROM retail_transactions t
+                JOIN retail_demographics d
+                  ON d.household_key = t.household_key
+                WHERE t.week_no IN ({cur_marks})
+                GROUP BY 1
+            ),
+            prev AS (
+                SELECT
+                    COALESCE(NULLIF(TRIM(d.{field}), ''), 'UNKNOWN') AS segment,
+                    COUNT(DISTINCT t.household_key) AS households,
+                    COUNT(DISTINCT t.basket_id) AS baskets,
+                    SUM(t.sales_value) AS sales,
+                    SUM(t.quantity) AS units
+                FROM retail_transactions t
+                JOIN retail_demographics d
+                  ON d.household_key = t.household_key
+                WHERE t.week_no IN ({prev_marks})
+                GROUP BY 1
+            )
+            SELECT
+                COALESCE(cur.segment, prev.segment) AS segment,
+                COALESCE(cur.households, 0) AS current_households,
+                COALESCE(cur.baskets, 0) AS current_baskets,
+                COALESCE(cur.sales, 0) AS current_sales,
+                COALESCE(prev.sales, 0) AS previous_sales,
+                COALESCE(cur.sales, 0) - COALESCE(prev.sales, 0) AS delta,
+                CASE
+                    WHEN COALESCE(cur.baskets, 0) = 0 THEN 0
+                    ELSE COALESCE(cur.sales, 0) / cur.baskets
+                END AS avg_basket_value
+            FROM cur
+            FULL OUTER JOIN prev USING(segment)
+            ORDER BY ABS(delta) DESC
+            LIMIT {int(limit)}
+            """,
+            [*cur_params, *prev_params],
+        )
+        total_abs = sum(abs(float(row["delta"] or 0.0)) for row in rows) or 1.0
+        for row in rows:
+            row["share_of_absolute_change"] = abs(float(row["delta"] or 0.0)) / total_abs
+        return rows
+
+    def coupon_funnel(self, *, limit: int = 12) -> list[dict[str, Any]]:
+        """Describe campaign targeting and coupon redemption by campaign.
+
+        Campaign membership and redemption are observed facts. The returned
+        rates must not be interpreted as incremental campaign lift.
+        """
+
+        required = (
+            "retail_campaigns",
+            "retail_coupons",
+            "retail_coupon_redemptions",
+        )
+        if not all(self.relation_exists(table) for table in required):
+            return []
+        return self._query(
+            f"""
+            WITH assignments AS (
+                SELECT
+                    campaign_id,
+                    COUNT(DISTINCT household_key) AS targeted_households
+                FROM retail_campaigns
+                GROUP BY 1
+            ),
+            inventory AS (
+                SELECT
+                    campaign_id,
+                    COUNT(DISTINCT coupon_upc) AS coupon_offers,
+                    COUNT(DISTINCT product_id) AS coupon_products
+                FROM retail_coupons
+                GROUP BY 1
+            ),
+            redemptions AS (
+                SELECT
+                    campaign_id,
+                    COUNT(*) AS redemptions,
+                    COUNT(DISTINCT household_key) AS redeeming_households,
+                    COUNT(DISTINCT coupon_upc) AS redeemed_coupon_offers
+                FROM retail_coupon_redemptions
+                GROUP BY 1
+            )
+            SELECT
+                a.campaign_id,
+                a.targeted_households,
+                COALESCE(i.coupon_offers, 0) AS coupon_offers,
+                COALESCE(i.coupon_products, 0) AS coupon_products,
+                COALESCE(r.redemptions, 0) AS redemptions,
+                COALESCE(r.redeeming_households, 0) AS redeeming_households,
+                COALESCE(r.redeemed_coupon_offers, 0) AS redeemed_coupon_offers,
+                CASE
+                    WHEN a.targeted_households = 0 THEN 0
+                    ELSE COALESCE(r.redeeming_households, 0)::DOUBLE / a.targeted_households
+                END AS household_redemption_rate
+            FROM assignments a
+            LEFT JOIN inventory i USING(campaign_id)
+            LEFT JOIN redemptions r USING(campaign_id)
+            ORDER BY household_redemption_rate DESC, a.targeted_households DESC
+            LIMIT {int(limit)}
+            """
         )
 
     def store_anomalies(self, current: list[int], *, limit: int = 10) -> list[dict[str, Any]]:
