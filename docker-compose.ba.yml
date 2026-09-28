@@ -1,0 +1,57 @@
+name: ba-agent
+
+services:
+  ba-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ba-agent:local
+    ports:
+      - "8000:8000"
+    environment:
+      EIW_MODEL_PROVIDER: deterministic
+      EIW_RETAIL_DATA_DIR: /data/retail
+      EIW_RETAIL_SUPERVISOR_URL: ${EIW_RETAIL_SUPERVISOR_URL:-}
+      EIW_RETAIL_SUPERVISOR_MODEL: ${EIW_RETAIL_SUPERVISOR_MODEL:-qwen3}
+      EIW_RETAIL_SUPERVISOR_API_KEY: ${EIW_RETAIL_SUPERVISOR_API_KEY:-}
+      EIW_RETAIL_SPECIALIST_URL: ${EIW_RETAIL_SPECIALIST_URL:-}
+      EIW_RETAIL_SPECIALIST_MODEL: ${EIW_RETAIL_SPECIALIST_MODEL:-qwen3}
+      EIW_RETAIL_SPECIALIST_API_KEY: ${EIW_RETAIL_SPECIALIST_API_KEY:-}
+      EIW_RETAIL_CODE_MODEL_URL: ${EIW_RETAIL_CODE_MODEL_URL:-}
+      EIW_RETAIL_CODE_MODEL: ${EIW_RETAIL_CODE_MODEL:-qwen3}
+      EIW_RETAIL_CODE_MODEL_API_KEY: ${EIW_RETAIL_CODE_MODEL_API_KEY:-}
+      EIW_DEEPANALYZE_URL: ${EIW_DEEPANALYZE_URL:-}
+    volumes:
+      - ${RETAIL_DATA_DIR:-./data/retail}:/data/retail:ro
+    restart: unless-stopped
+
+  model-gateway:
+    profiles: ["local-model"]
+    image: ${VLLM_IMAGE:-vllm/vllm-openai:latest}
+    command:
+      - --model
+      - /model
+      - --served-model-name
+      - ${LOCAL_MODEL_NAME:-qwen3}
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --dtype
+      - auto
+    ports:
+      - "8001:8000"
+    volumes:
+      - ${LOCAL_MODEL_DIR:-./models/qwen3}:/model:ro
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+networks:
+  default:
+    name: ba-agent
