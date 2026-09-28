@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.charts import ChartPlanner
@@ -21,7 +21,7 @@ from eiw.retail.code_worker import (
     OpenAICompatibleCodeGenerator,
 )
 from eiw.retail.data import RetailDataEngine
-from eiw.retail.export import render_report_html
+from eiw.retail.export import render_report_html, render_report_pdf
 from eiw.retail.models import (
     ChartRestyleRequest,
     CodeAnalysisRequest,
@@ -241,6 +241,22 @@ def create_retail_router() -> APIRouter:
     @router.post("/report/html", response_class=HTMLResponse)
     def report_html(response: RetailAnalysisResponse) -> HTMLResponse:
         return HTMLResponse(render_report_html(response))
+
+    @router.post("/report/pdf")
+    def report_pdf(response: RetailAnalysisResponse) -> Response:
+        try:
+            payload = render_report_pdf(response)
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        return Response(
+            content=payload,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="BA-Agent-{response.task_id}.pdf"'
+                )
+            },
+        )
 
     @router.post("/benchmark")
     def benchmark() -> dict[str, object]:
