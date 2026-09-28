@@ -100,6 +100,10 @@ class RetailRequestGuard:
     _CAUSAL = (
         "did promotion cause",
         "did the promotion cause",
+        "did coupon cause",
+        "did the coupon cause",
+        "did display",
+        "did the display",
         "causal effect",
         "caused the sales",
         "prove that",
