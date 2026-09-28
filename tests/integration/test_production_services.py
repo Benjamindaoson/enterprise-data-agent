@@ -2,7 +2,17 @@ import asyncio
 import os
 
 import pytest
+from sqlalchemy import text
 
+from eiw.connectors.postgres import (
+    PostgresAnalysisRequest,
+    PostgresConnectorConfig,
+    PostgresDimensionSpec,
+    PostgresDomainRuntime,
+    PostgresEnterpriseConnector,
+    PostgresMetricSpec,
+    PostgresSemanticConfig,
+)
 from eiw.production.persistence import ProductionStore
 from eiw.production.queue import RedisTaskQueue, TaskEnvelope
 
@@ -64,3 +74,119 @@ def test_redis_queue_round_trip():
         await queue.close()
 
     asyncio.run(run())
+
+
+
+@pytest.mark.integration
+def test_postgres_enterprise_connector_full_chain():
+    database_url = os.getenv("EIW_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("EIW_TEST_DATABASE_URL not configured")
+
+    connector = PostgresEnterpriseConnector(
+        database_url,
+        config=PostgresConnectorConfig(
+            allowed_schemas=["public"],
+            allowed_tables=["enterprise_sales_fixture"],
+            denied_columns=["secret_note"],
+            max_rows=25,
+        ),
+    )
+    with connector.engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS enterprise_sales_fixture"))
+        connection.execute(
+            text(
+                """
+                CREATE TABLE enterprise_sales_fixture (
+                    id INTEGER PRIMARY KEY,
+                    region TEXT NOT NULL,
+                    product TEXT NOT NULL,
+                    revenue NUMERIC NOT NULL,
+                    units INTEGER NOT NULL,
+                    secret_note TEXT
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO enterprise_sales_fixture
+                    (id, region, product, revenue, units, secret_note)
+                VALUES
+                    (1, 'East', 'A', 120.0, 12, 'hidden'),
+                    (2, 'East', 'B', 80.0, 8, 'hidden'),
+                    (3, 'West', 'A', 90.0, 9, 'hidden'),
+                    (4, 'West', 'B', 60.0, 6, 'hidden')
+                """
+            )
+        )
+
+    semantic = PostgresSemanticConfig(
+        package_id="enterprise-sales-test",
+        title="Enterprise Sales Test",
+        fact_table="enterprise_sales_fixture",
+        metrics=[
+            PostgresMetricSpec(
+                id="revenue",
+                label="Revenue",
+                column="revenue",
+                aggregation="sum",
+                unit="USD",
+            ),
+            PostgresMetricSpec(
+                id="units",
+                label="Units",
+                column="units",
+                aggregation="sum",
+                unit="unit",
+            ),
+        ],
+        dimensions=[
+            PostgresDimensionSpec(id="region", label="Region", column="region"),
+            PostgresDimensionSpec(id="product", label="Product", column="product"),
+        ],
+        role_metric_allowlist={
+            "analyst": ["revenue", "units"],
+            "viewer": ["units"],
+        },
+    )
+
+    try:
+        domain = PostgresDomainRuntime(connector, semantic)
+        assert connector.ping() is True
+        table = domain.catalog.tables[0]
+        assert table.table_name == "enterprise_sales_fixture"
+        assert "secret_note" not in {column.name for column in table.columns}
+        assert domain.semantic_package.content_hash
+
+        response = domain.analyze(
+            PostgresAnalysisRequest(
+                question="Show Revenue by Region",
+                role="analyst",
+                top_k=10,
+            )
+        )
+        assert response.status == "COMPLETED"
+        assert response.metric_id == "revenue"
+        assert response.dimension_ids == ["region"]
+        assert response.rows[0]["region"] == "East"
+        assert float(response.rows[0]["revenue"]) == 200.0
+        assert response.evidence["read_only"] is True
+        assert response.evidence["catalog_hash"] == domain.catalog.catalog_hash
+        assert (
+            response.evidence["semantic_content_hash"]
+            == domain.semantic_package.content_hash
+        )
+        assert response.report["executive_summary"]
+
+        with pytest.raises(PermissionError):
+            domain.analyze(
+                PostgresAnalysisRequest(
+                    question="Show Revenue by Region",
+                    role="viewer",
+                )
+            )
+    finally:
+        with connector.engine.begin() as connection:
+            connection.execute(text("DROP TABLE IF EXISTS enterprise_sales_fixture"))
