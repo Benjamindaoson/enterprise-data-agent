@@ -53,6 +53,10 @@ jobs:
           tests/unit/test_retail_semantics.py
           tests/unit/test_retail_export.py
           tests/unit/test_retail_code_analysis.py
+          tests/unit/test_retail_ablation.py
+          tests/unit/test_retail_followup.py
+          tests/unit/test_retail_supervisor.py
+          tests/unit/test_retail_first_party_code_worker.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
@@ -65,6 +69,7 @@ jobs:
           scripts/run_retail_benchmark.py
           scripts/prepare_complete_journey.py
           scripts/benchmark_retail_scale.py
+          scripts/run_retail_ablation.py
           scripts/fetch_completejourney_cc0.py
       - name: Tests
         run: >
