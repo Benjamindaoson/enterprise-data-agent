@@ -57,6 +57,28 @@ def _build_runtime() -> RetailBARuntime:
 def create_retail_router() -> APIRouter:
     router = APIRouter(prefix="/api/v1/ba/retail", tags=["ba-retail"])
     runtime = _build_runtime()
+    history: dict[str, RetailAnalysisResponse] = {}
+    history_lock = threading.Lock()
+
+    def remember(response: RetailAnalysisResponse) -> None:
+        with history_lock:
+            history[response.task_id] = response
+            while len(history) > 100:
+                history.pop(next(iter(history)))
+
+    def inherit(request: RetailAnalysisRequest) -> RetailAnalysisRequest:
+        if not request.parent_task_id:
+            return request
+        with history_lock:
+            parent = history.get(request.parent_task_id)
+        if parent is None:
+            raise HTTPException(404, "Parent retail analysis task not found")
+        updates: dict[str, object] = {}
+        if not request.current_weeks:
+            updates["current_weeks"] = list(parent.current_weeks)
+        if not request.previous_weeks:
+            updates["previous_weeks"] = list(parent.previous_weeks)
+        return request.model_copy(update=updates)
 
     @router.get("/status")
     def status() -> dict[str, object]:
@@ -91,10 +113,22 @@ def create_retail_router() -> APIRouter:
 
     @router.post("/analyze")
     def analyze(request: RetailAnalysisRequest) -> dict[str, object]:
-        return runtime.analyze(request).model_dump(mode="json")
+        resolved = inherit(request)
+        response = runtime.analyze(resolved)
+        remember(response)
+        return response.model_dump(mode="json")
+
+    @router.get("/runs/{task_id}")
+    def get_run(task_id: str) -> dict[str, object]:
+        with history_lock:
+            response = history.get(task_id)
+        if response is None:
+            raise HTTPException(404, "Retail analysis task not found")
+        return response.model_dump(mode="json")
 
     @router.post("/analyze/stream")
     def analyze_stream(request: RetailAnalysisRequest) -> StreamingResponse:
+        resolved = inherit(request)
         channel: queue.Queue[dict[str, object] | None] = queue.Queue()
 
         def emit(event: RuntimeEvent) -> None:
@@ -102,7 +136,8 @@ def create_retail_router() -> APIRouter:
 
         def run() -> None:
             try:
-                response = runtime.analyze(request, on_event=emit)
+                response = runtime.analyze(resolved, on_event=emit)
+                remember(response)
                 channel.put({"kind": "result", "payload": response.model_dump(mode="json")})
             except Exception as exc:  # pragma: no cover - defensive API boundary
                 channel.put({"kind": "error", "payload": {"message": str(exc)}})
