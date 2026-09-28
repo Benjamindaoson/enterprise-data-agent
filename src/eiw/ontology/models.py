@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class OntologyModel(BaseModel):
@@ -101,7 +101,10 @@ class OntologyState(OntologyModel):
     version: str
     parent_version: str | None = None
     source_kind: str
-    schema: OntologySchemaState = Field(default_factory=OntologySchemaState)
+    schema_state: OntologySchemaState = Field(
+        default_factory=OntologySchemaState,
+        validation_alias=AliasChoices("schema_state", "schema"),
+    )
     terms: dict[str, OntologyTerm] = Field(default_factory=dict)
     mappings: dict[str, OntologyMapping] = Field(default_factory=dict)
     constraints: dict[str, OntologyConstraint] = Field(default_factory=dict)
