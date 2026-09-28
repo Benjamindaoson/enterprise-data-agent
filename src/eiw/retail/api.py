@@ -14,7 +14,8 @@ from fastapi.responses import StreamingResponse
 
 from eiw.retail.benchmark import RetailBenchmarkRunner
 from eiw.retail.data import RetailDataEngine
-from eiw.retail.models import RetailAnalysisRequest, RuntimeEvent
+from eiw.retail.charts import ChartPlanner
+from eiw.retail.models import ChartRestyleRequest, RetailAnalysisRequest, RuntimeEvent
 from eiw.retail.runtime import RetailBARuntime
 
 
@@ -70,6 +71,11 @@ def create_retail_router() -> APIRouter:
                 yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(stream(), media_type="text/event-stream")
+
+    @router.post("/charts/restyle")
+    def restyle_chart(request: ChartRestyleRequest) -> dict[str, object]:
+        chart = ChartPlanner().restyle(request.chart, request.instruction)
+        return chart.model_dump(mode="json")
 
     @router.post("/benchmark")
     def benchmark() -> dict[str, object]:
