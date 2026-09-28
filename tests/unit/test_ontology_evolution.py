@@ -2,15 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from eiw.ontology import (
-    EvolutionMetrics,
-    FailureAttributor,
-    GroundedPatchFactory,
-    OntologyStore,
-    SemanticEvolutionEngine,
-    SemanticPackageOntologyBuilder,
-    TrajectoryFailure,
-)
+import eiw.ontology as ontology
 from eiw.semantic.package import load_semantic_package
 
 
@@ -23,20 +15,20 @@ _RETAIL_PACKAGE = (
 )
 
 
-def _store() -> OntologyStore:
+def _store() -> ontology.OntologyStore:
     package = load_semantic_package(_RETAIL_PACKAGE)
-    state = SemanticPackageOntologyBuilder().build(
+    state = ontology.SemanticPackageOntologyBuilder().build(
         package,
         ontology_id="retail",
         version="1.0.0",
     )
-    store = OntologyStore()
+    store = ontology.OntologyStore()
     store.put(state, make_current=True)
     return store
 
 
-def _metrics(*, quality: float, security: float = 1.0) -> EvolutionMetrics:
-    return EvolutionMetrics(
+def _metrics(*, quality: float, security: float = 1.0) -> ontology.EvolutionMetrics:
+    return ontology.EvolutionMetrics(
         semantic_coverage=quality,
         driver_recall=quality,
         numeric_accuracy=1.0,
@@ -50,15 +42,15 @@ def _metrics(*, quality: float, security: float = 1.0) -> EvolutionMetrics:
 
 def test_failure_is_attributed_and_grounded_candidate_is_promoted_only_after_gate() -> None:
     store = _store()
-    signatures = FailureAttributor().attribute(
+    signatures = ontology.FailureAttributor().attribute(
         [
-            TrajectoryFailure(
+            ontology.TrajectoryFailure(
                 failure_id="f1",
                 category="SEMANTIC",
                 summary="Revenue requests repeatedly missed the governed sales concept.",
                 semantic_refs=["metric:sales_value"],
             ),
-            TrajectoryFailure(
+            ontology.TrajectoryFailure(
                 failure_id="f2",
                 category="SEMANTIC",
                 summary="Revenue requests repeatedly missed the governed sales concept.",
@@ -70,7 +62,7 @@ def test_failure_is_attributed_and_grounded_candidate_is_promoted_only_after_gat
     assert signatures[0].occurrences == 2
     assert signatures[0].level.value == "content"
 
-    patch = GroundedPatchFactory().constraint_from_failure(
+    patch = ontology.GroundedPatchFactory().constraint_from_failure(
         signatures[0],
         parent_version="1.0.0",
         source_payload={"evaluation_case_ids": ["GC-101", "GC-102"]},
@@ -79,7 +71,7 @@ def test_failure_is_attributed_and_grounded_candidate_is_promoted_only_after_gat
             "sales_value concept before falling back to raw-schema exploration."
         ),
     )
-    engine = SemanticEvolutionEngine(store)
+    engine = ontology.SemanticEvolutionEngine(store)
     candidate = engine.stage_candidate(
         "retail",
         patch,
@@ -105,9 +97,9 @@ def test_failure_is_attributed_and_grounded_candidate_is_promoted_only_after_gat
 
 def test_quality_gain_cannot_override_security_regression() -> None:
     store = _store()
-    signature = FailureAttributor().attribute(
+    signature = ontology.FailureAttributor().attribute(
         [
-            TrajectoryFailure(
+            ontology.TrajectoryFailure(
                 failure_id="f1",
                 category="SEMANTIC",
                 summary="A missing semantic constraint was observed.",
@@ -115,13 +107,13 @@ def test_quality_gain_cannot_override_security_regression() -> None:
             )
         ]
     )[0]
-    patch = GroundedPatchFactory().constraint_from_failure(
+    patch = ontology.GroundedPatchFactory().constraint_from_failure(
         signature,
         parent_version="1.0.0",
         source_payload={"case_id": "GC-200"},
         description="Candidate learned semantic constraint.",
     )
-    engine = SemanticEvolutionEngine(store)
+    engine = ontology.SemanticEvolutionEngine(store)
     engine.stage_candidate(
         "retail",
         patch,
