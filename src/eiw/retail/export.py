@@ -117,3 +117,39 @@ options.forEach((option,index)=>{{
 }});
 </script>
 </body></html>"""
+
+
+def render_report_pdf(response: RetailAnalysisResponse) -> bytes:
+    """Render the executive report to PDF with Playwright.
+
+    Playwright is an optional reporting dependency so the core BA runtime stays
+    lightweight. Charts are rendered before printing.
+    """
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:  # pragma: no cover - optional dependency boundary
+        raise RuntimeError(
+            "PDF export requires the optional demo/reporting dependency: "
+            "pip install -e '.[demo]'"
+        ) from exc
+
+    html = render_report_html(response)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.set_content(html, wait_until="networkidle")
+        page.wait_for_timeout(600)
+        page.emulate_media(media="print")
+        pdf = page.pdf(
+            format="A4",
+            print_background=True,
+            margin={
+                "top": "12mm",
+                "right": "12mm",
+                "bottom": "12mm",
+                "left": "12mm",
+            },
+        )
+        browser.close()
+    return pdf
