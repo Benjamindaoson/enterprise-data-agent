@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from hashlib import sha256
 from pathlib import Path
-from collections.abc import Callable
 from typing import Any, Literal
 
 import yaml  # type: ignore[import-untyped]
