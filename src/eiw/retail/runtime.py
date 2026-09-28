@@ -100,6 +100,33 @@ class RetailBARuntime:
             top_k=request.top_k,
             context=semantics,
         )
+        focus_result: dict[str, object] | None = None
+        if request.focus:
+            focus_result = self.data.focus_diagnostic(
+                request.focus,
+                current,
+                previous,
+                limit=12,
+            )
+            focus_insight = self.insights.mine_focus(focus_result)
+            if focus_insight is not None:
+                insights = [
+                    focus_insight,
+                    *[
+                        item
+                        for item in insights
+                        if item.insight_id != focus_insight.insight_id
+                    ],
+                ][: request.top_k]
+                emit(
+                    "focus_drilldown_ready",
+                    focus_insight.title,
+                    progress=0.74,
+                    payload={
+                        "focus": dict(request.focus),
+                        "insight_id": focus_insight.insight_id,
+                    },
+                )
         insight_ms = (perf_counter() - insight_started) * 1000.0
         emit(
             "insights_ready",
@@ -119,6 +146,13 @@ class RetailBARuntime:
 
         chart_started = perf_counter()
         charts = self.charts.plan(results, insights)
+        if focus_result is not None and insights:
+            focus_chart = self.charts.focus_chart(
+                focus_result,
+                insight_id=insights[0].insight_id,
+            )
+            if focus_chart is not None:
+                charts = [focus_chart, *charts]
         chart_ms = (perf_counter() - chart_started) * 1000.0
         for index, chart in enumerate(charts):
             record(
@@ -158,6 +192,7 @@ class RetailBARuntime:
 
         return RetailAnalysisResponse(
             task_id=task_id,
+            parent_task_id=request.parent_task_id,
             status="COMPLETED",
             dataset=self.data.status(),
             question=request.question,
