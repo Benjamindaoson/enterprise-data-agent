@@ -163,7 +163,7 @@ See [Demo Console](docs/DEMO.md) for details.
 | --- | ---: |
 | Core CI | **604 passed / 17 skipped** |
 | Post-training tests | **7 passed** |
-| PostgreSQL + Redis integration | **6 passed** |
+| PostgreSQL + Redis + Docker code sandbox integration | **7 passed** |
 | Hard benchmark acceptance gate | **PASS** |
 | UCI real-data benchmark | **587,120 rows parsed in CI** |
 
