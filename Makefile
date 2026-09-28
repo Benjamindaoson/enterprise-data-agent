@@ -75,3 +75,6 @@ retail-benchmark:
 
 retail-demo:
 	python -m uvicorn eiw.app:app --reload
+
+retail-scale:
+	python scripts/benchmark_retail_scale.py ${EIW_RETAIL_DATA_DIR}
