@@ -393,6 +393,22 @@ class RetailDataEngine:
         cursor = self._conn.cursor().execute(sql, list(params))
         return _records(cursor)
 
+    def query_readonly(
+        self,
+        sql: str,
+        params: Iterable[Any] = (),
+    ) -> list[dict[str, Any]]:
+        """Execute a bounded read-only evaluation query.
+
+        This is primarily used by independent benchmark gold queries. Product
+        runtime paths should prefer typed analytical methods.
+        """
+
+        normalized = sql.lstrip().lower()
+        if not normalized.startswith(("select", "with")):
+            raise ValueError("query_readonly only accepts SELECT/WITH statements")
+        return self._query(sql, params)
+
     def relation_exists(self, relation: str) -> bool:
         rows = self._query(
             """
