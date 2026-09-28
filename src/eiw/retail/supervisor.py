@@ -13,9 +13,9 @@ import json
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-import httpx
 from pydantic import BaseModel, Field
 
+from eiw.retail.model_client import ChatClient, OpenAICompatibleChatClient, PolicyTelemetry
 from eiw.retail.models import WorkstreamName, WorkstreamResult
 
 
@@ -41,6 +41,8 @@ class OpenAICompatibleSupervisor:
     model: str
     api_key: str = ""
     timeout_seconds: float = 60.0
+    client: ChatClient | None = None
+    telemetry: PolicyTelemetry | None = None
 
     def decide(
         self,
@@ -74,47 +76,57 @@ class OpenAICompatibleSupervisor:
                 "rationale": "one short public explanation, no hidden reasoning",
             },
         }
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-
-        response = httpx.post(
-            f"{self.base_url.rstrip('/')}/chat/completions",
-            headers=headers,
-            json={
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a BA Agent supervisor. Select only from the "
-                            "provided workstream allowlist. Do not reveal chain-of-thought."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": json.dumps(prompt, ensure_ascii=False),
-                    },
-                ],
-                "temperature": 0.0,
-                "stream": False,
-            },
-            timeout=self.timeout_seconds,
+        if self.telemetry is not None:
+            self.telemetry.record_call(stage=stage)
+        client = self.client or OpenAICompatibleChatClient(
+            base_url=self.base_url,
+            model=self.model,
+            api_key=self.api_key,
+            timeout_seconds=self.timeout_seconds,
         )
-        response.raise_for_status()
-        payload = response.json()
-        raw = str(payload["choices"][0]["message"]["content"]).strip()
-        parsed = self._parse_json(raw)
-        decision = SupervisorDecision.model_validate(parsed)
+        try:
+            raw = client.complete(
+                system=(
+                    "You are a BA Agent supervisor. Select only from the provided "
+                    "workstream allowlist. Return bounded JSON; do not reveal "
+                    "chain-of-thought."
+                ),
+                user=json.dumps(prompt, ensure_ascii=False),
+            ).content.strip()
+            parsed = self._parse_json(raw)
+            raw_workstreams = parsed.get("workstreams", [])
+            if not isinstance(raw_workstreams, list):
+                raise ValueError("Supervisor workstreams must be a list")
 
-        completed_names = {item.name for item in completed}
-        deduped: list[WorkstreamName] = []
-        for name in decision.workstreams:
-            if stage == "replan" and name in completed_names:
-                continue
-            if name not in deduped:
-                deduped.append(name)
-        return decision.model_copy(update={"workstreams": deduped[:max_workstreams]})
+            invalid = 0
+            selected: list[WorkstreamName] = []
+            for raw_name in raw_workstreams:
+                try:
+                    name = WorkstreamName(str(raw_name))
+                except ValueError:
+                    invalid += 1
+                    continue
+                if name not in selected:
+                    selected.append(name)
+            if self.telemetry is not None:
+                self.telemetry.record_invalid(invalid)
+
+            completed_names = {item.name for item in completed}
+            deduped = [
+                name
+                for name in selected
+                if not (stage == "replan" and name in completed_names)
+            ][:max_workstreams]
+            if self.telemetry is not None and stage == "replan":
+                self.telemetry.record_replan_result(nonempty=bool(deduped))
+            return SupervisorDecision(
+                workstreams=deduped,
+                rationale=str(parsed.get("rationale", ""))[:500],
+            )
+        except Exception:
+            if self.telemetry is not None:
+                self.telemetry.record_failure()
+            raise
 
     @staticmethod
     def _parse_json(raw: str) -> dict[str, Any]:
