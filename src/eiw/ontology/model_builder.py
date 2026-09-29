@@ -167,7 +167,7 @@ class OpenAIResponsesSemanticBuilderModel:
                             "columns": ["quantity", "unit_price"],
                             "aggregation": "sum",
                             "operator": "multiply",
-                            "predicate_value": null,
+                            "predicate_value": None,
                         }
                     ],
                     "constraints": [],
