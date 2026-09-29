@@ -14,6 +14,10 @@ __all__ = [
     "MemoryKind",
     "MemoryRecord",
     "MemoryStore",
+    "HindsightLongTermMemory",
+    "LongTermMemoryBackend",
+    "LongTermMemoryItem",
+    "long_term_memory_from_env",
     "SkillCollection",
     "SkillDefinition",
     "SkillLifecycle",
@@ -39,6 +43,22 @@ _EXPORTS = {
     "MemoryKind": ("eiw.runtime.memory", "MemoryKind"),
     "MemoryRecord": ("eiw.runtime.memory", "MemoryRecord"),
     "MemoryStore": ("eiw.runtime.memory", "MemoryStore"),
+    "HindsightLongTermMemory": (
+        "eiw.runtime.long_term_memory",
+        "HindsightLongTermMemory",
+    ),
+    "LongTermMemoryBackend": (
+        "eiw.runtime.long_term_memory",
+        "LongTermMemoryBackend",
+    ),
+    "LongTermMemoryItem": (
+        "eiw.runtime.long_term_memory",
+        "LongTermMemoryItem",
+    ),
+    "long_term_memory_from_env": (
+        "eiw.runtime.long_term_memory",
+        "long_term_memory_from_env",
+    ),
     "SkillCollection": ("eiw.runtime.skills", "SkillCollection"),
     "SkillDefinition": ("eiw.runtime.skills", "SkillDefinition"),
     "SkillLifecycle": ("eiw.runtime.skills", "SkillLifecycle"),

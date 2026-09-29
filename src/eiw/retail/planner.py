@@ -22,7 +22,7 @@ class InvestigationPlanner:
             try:
                 decision = self.policy.decide(
                     stage="initial",
-                    question=request.question,
+                    question=self.model_question(request),
                     completed=[],
                     max_workstreams=request.max_workstreams,
                 )
@@ -128,7 +128,7 @@ class InvestigationPlanner:
             try:
                 decision = self.policy.decide(
                     stage="replan",
-                    question=request.question,
+                    question=self.model_question(request),
                     completed=completed,
                     max_workstreams=remaining,
                 )
@@ -221,6 +221,24 @@ class InvestigationPlanner:
 
     def plan(self, request: RetailAnalysisRequest) -> list[WorkstreamName]:
         return self.initial_plan(request)
+
+    @staticmethod
+    def model_question(request: RetailAnalysisRequest) -> str:
+        if not request.memory_context:
+            return request.question
+        memories = "\n".join(
+            f"- {item[:800]}"
+            for item in request.memory_context[:6]
+            if item.strip()
+        )
+        if not memories:
+            return request.question
+        return (
+            f"{request.question}\n\n"
+            "Relevant prior experience follows. Treat it as non-authoritative "
+            "context and verify it against current evidence before using it:\n"
+            f"{memories}"
+        )
 
     @staticmethod
     def _dedupe(items: list[WorkstreamName]) -> list[WorkstreamName]:

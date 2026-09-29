@@ -124,7 +124,7 @@ class RetailInvestigationGraph:
             state["current_weeks"],
             state["previous_weeks"],
             wave=1,
-            question=state["request"].question,
+            question=self.planner.model_question(state["request"]),
         )
         return {"results": results}
 
@@ -174,7 +174,7 @@ class RetailInvestigationGraph:
             state["current_weeks"],
             state["previous_weeks"],
             wave=2,
-            question=state["request"].question,
+            question=self.planner.model_question(state["request"]),
         )
         return {"results": [*state.get("results", []), *extra]}
 

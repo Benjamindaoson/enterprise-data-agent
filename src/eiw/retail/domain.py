@@ -20,6 +20,7 @@ from eiw.retail.runtime import EventCallback, RetailBARuntime
 from eiw.retail.specialist_policy import OpenAICompatibleSpecialistPolicy
 from eiw.retail.supervisor import OpenAICompatibleSupervisor
 from eiw.runtime.domain import DomainClarificationRequired, DomainRequestRejected
+from eiw.training.agent_lightning import resolve_model_endpoint
 
 
 class RetailDomainRuntime:
@@ -123,22 +124,30 @@ def build_retail_domain_runtime(
             data = RetailDataEngine.from_complete_journey(path)
             break
 
-    supervisor_url = os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip()
+    supervisor_url, supervisor_model, supervisor_key, _ = resolve_model_endpoint(
+        os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip(),
+        os.getenv("EIW_RETAIL_SUPERVISOR_MODEL", "qwen3"),
+        os.getenv("EIW_RETAIL_SUPERVISOR_API_KEY", ""),
+    )
     supervisor = None
     if supervisor_url:
         supervisor = OpenAICompatibleSupervisor(
             base_url=supervisor_url,
-            model=os.getenv("EIW_RETAIL_SUPERVISOR_MODEL", "qwen3"),
-            api_key=os.getenv("EIW_RETAIL_SUPERVISOR_API_KEY", ""),
+            model=supervisor_model,
+            api_key=supervisor_key,
         )
 
-    specialist_url = os.getenv("EIW_RETAIL_SPECIALIST_URL", "").strip()
+    specialist_url, specialist_model, specialist_key, _ = resolve_model_endpoint(
+        os.getenv("EIW_RETAIL_SPECIALIST_URL", "").strip(),
+        os.getenv("EIW_RETAIL_SPECIALIST_MODEL", "qwen3"),
+        os.getenv("EIW_RETAIL_SPECIALIST_API_KEY", ""),
+    )
     specialist = None
     if specialist_url:
         specialist = OpenAICompatibleSpecialistPolicy(
             base_url=specialist_url,
-            model=os.getenv("EIW_RETAIL_SPECIALIST_MODEL", "qwen3"),
-            api_key=os.getenv("EIW_RETAIL_SPECIALIST_API_KEY", ""),
+            model=specialist_model,
+            api_key=specialist_key,
         )
 
     return RetailDomainRuntime(
