@@ -33,6 +33,7 @@ jobs:
           src/eiw/training
           src/eiw/runtime/governance.py
           src/eiw/runtime/memory.py
+          src/eiw/runtime/long_term_memory.py
           src/eiw/runtime/orchestrator.py
           src/eiw/runtime/skills.py
           src/eiw/nl2sql/retrieval.py
@@ -52,6 +53,8 @@ jobs:
           tests/unit/test_production_runtime.py
           tests/unit/test_public_business_data.py
           tests/unit/test_runtime_orchestrator.py
+          tests/unit/test_hindsight_memory.py
+          tests/unit/test_agent_lightning_integration.py
           tests/unit/test_retail_data.py
           tests/unit/test_retail_runtime.py
           tests/unit/test_retail_benchmark.py
@@ -92,6 +95,8 @@ jobs:
           scripts/run_ontology_evolution_smoke.py
           scripts/run_blind_ontology_benchmark.py
           scripts/run_live_model_ontology_builder.py
+          scripts/run_agent_lightning_retail_rollout.py
+          scripts/export_agent_lightning_retail_cases.py
       - name: Tests
         run: >
           python -m pytest -q
@@ -213,3 +218,36 @@ jobs:
         with:
           name: blind-ontology-benchmark
           path: artifacts/ontology-blind-benchmark/blind-ontology-benchmark.json
+
+
+  agent-integrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Hindsight + Agent Lightning integration stack
+        run: python -m pip install -e '.[dev,hindsight,agent-lightning]'
+      - name: Import external integration packages
+        run: >-
+          python -c "import hindsight_client, agentlightning;
+          from hindsight_client import Hindsight;
+          print(Hindsight.__name__, agentlightning.__name__)"
+      - name: Integration contract lint
+        run: >-
+          python -m ruff check
+          src/eiw/runtime/long_term_memory.py
+          src/eiw/training/agent_lightning.py
+          src/eiw/retail/agent_lightning.py
+          scripts/run_agent_lightning_retail_rollout.py
+          scripts/export_agent_lightning_retail_cases.py
+          tests/unit/test_hindsight_memory.py
+          tests/unit/test_agent_lightning_integration.py
+      - name: Integration contract tests
+        run: >-
+          python -m pytest
+          tests/unit/test_hindsight_memory.py
+          tests/unit/test_agent_lightning_integration.py
+          tests/unit/test_runtime_orchestrator.py
+          -q

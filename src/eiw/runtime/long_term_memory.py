@@ -172,8 +172,6 @@ def long_term_memory_from_env() -> LongTermMemoryBackend | None:
         or os.getenv("HINDSIGHT_API_URL", "").strip()
     )
     backend = os.getenv("EIW_LONG_TERM_MEMORY_BACKEND", "").strip().lower()
-    if not backend and base_url:
-        backend = "hindsight"
     if not backend or backend in {"none", "disabled"}:
         return None
     if backend != "hindsight":
