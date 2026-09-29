@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import MetaData, Table, create_engine, func, inspect, select
 from sqlalchemy.engine import Engine
 
@@ -37,7 +37,22 @@ class PostgresPermissionPolicy(BaseModel):
 class PostgresMetric(BaseModel):
     table: str
     column: str
-    aggregation: Literal["sum", "avg", "count", "min", "max"]
+    aggregation: Literal["sum", "avg", "count", "min", "max", "count_distinct"]
+    columns: list[str] = Field(default_factory=list)
+    operator: Literal["column", "multiply", "add", "subtract", "divide"] = "column"
+
+    @model_validator(mode="after")
+    def expression_contract_is_bounded(self) -> "PostgresMetric":
+        refs = self.referenced_columns()
+        if self.operator == "column":
+            if len(refs) != 1:
+                raise ValueError("column metric must reference exactly one column")
+        elif len(refs) != 2:
+            raise ValueError(f"{self.operator} metric must reference exactly two columns")
+        return self
+
+    def referenced_columns(self) -> list[str]:
+        return list(self.columns) if self.columns else [self.column]
 
 
 class PostgresDimension(BaseModel):
@@ -213,12 +228,13 @@ class EnterprisePostgresConnector:
 
         for metric_id, metric in package.metrics.items():
             self._validate_identifier(metric_id)
-            self._validate_catalog_ref(
-                package.schema_name,
-                metric.table,
-                metric.column,
-                allowed_catalog,
-            )
+            for column in metric.referenced_columns():
+                self._validate_catalog_ref(
+                    package.schema_name,
+                    metric.table,
+                    column,
+                    allowed_catalog,
+                )
         for dimension_id, dimension in package.dimensions.items():
             self._validate_identifier(dimension_id)
             self._validate_catalog_ref(
@@ -259,14 +275,18 @@ class EnterprisePostgresConnector:
             schema=package.schema_name,
             autoload_with=self.engine,
         )
-        metric_column = table.c[metric.column]
-        aggregate = {
+        metric_expression = self._metric_expression(table, metric)
+        aggregate_builders = {
             "sum": func.sum,
             "avg": func.avg,
             "count": func.count,
             "min": func.min,
             "max": func.max,
-        }[metric.aggregation](metric_column).label(request.metric_id)
+            "count_distinct": lambda value: func.count(func.distinct(value)),
+        }
+        aggregate = aggregate_builders[metric.aggregation](metric_expression).label(
+            request.metric_id
+        )
 
         dimension_columns = [
             table.c[dimension.column].label(dimension_id)
@@ -427,6 +447,22 @@ class EnterprisePostgresConnector:
             "query_sha256": query_sha,
             "raw_values_returned": False,
         }
+
+    @staticmethod
+    def _metric_expression(table: Table, metric: PostgresMetric) -> Any:
+        columns = [table.c[name] for name in metric.referenced_columns()]
+        if metric.operator == "column":
+            return columns[0]
+        left, right = columns
+        if metric.operator == "multiply":
+            return left * right
+        if metric.operator == "add":
+            return left + right
+        if metric.operator == "subtract":
+            return left - right
+        if metric.operator == "divide":
+            return left / func.nullif(right, 0)
+        raise ValueError(f"unsupported metric operator: {metric.operator}")
 
     def _validate_catalog_ref(
         self,
