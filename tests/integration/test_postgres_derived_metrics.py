@@ -33,7 +33,8 @@ def test_postgres_connector_executes_bounded_derived_metrics() -> None:
                     customer_id TEXT,
                     country TEXT NOT NULL,
                     quantity INTEGER NOT NULL,
-                    unit_price NUMERIC(12, 2) NOT NULL
+                    unit_price NUMERIC(12, 2) NOT NULL,
+                    converted BOOLEAN NOT NULL
                 )
                 """
             )
@@ -42,12 +43,12 @@ def test_postgres_connector_executes_bounded_derived_metrics() -> None:
             text(
                 """
                 INSERT INTO derived_demo.transactions
-                    (invoice, customer_id, country, quantity, unit_price)
+                    (invoice, customer_id, country, quantity, unit_price, converted)
                 VALUES
-                    ('A', 'C1', 'UK', 2, 10.00),
-                    ('B', 'C1', 'UK', 1, 5.00),
-                    ('C', 'C2', 'UK', 3, 4.00),
-                    ('D', 'C3', 'FR', 2, 7.50)
+                    ('A', 'C1', 'UK', 2, 10.00, TRUE),
+                    ('B', 'C1', 'UK', 1, 5.00, FALSE),
+                    ('C', 'C2', 'UK', 3, 4.00, TRUE),
+                    ('D', 'C3', 'FR', 2, 7.50, FALSE)
                 """
             )
         )
@@ -64,6 +65,7 @@ def test_postgres_connector_executes_bounded_derived_metrics() -> None:
                     "country",
                     "quantity",
                     "unit_price",
+                    "converted",
                 }
             },
         ),
@@ -84,6 +86,12 @@ def test_postgres_connector_executes_bounded_derived_metrics() -> None:
                 table="transactions",
                 column="customer_id",
                 aggregation="count_distinct",
+            ),
+            "conversion_rate": PostgresMetric(
+                table="transactions",
+                column="converted",
+                aggregation="rate_equals",
+                predicate_value=True,
             ),
         },
         dimensions={
@@ -119,3 +127,22 @@ def test_postgres_connector_executes_bounded_derived_metrics() -> None:
         for row in customers.rows
     }
     assert customer_counts == {"UK": 2, "FR": 1}
+
+
+    conversions = connector.analyze(
+        package,
+        ConnectorAnalysisRequest(
+            metric_id="conversion_rate",
+            dimensions=["country"],
+        ),
+    )
+    conversion_rates = {
+        row["country"]: float(row["conversion_rate"])
+        for row in conversions.rows
+    }
+    assert conversion_rates["UK"] == pytest.approx(2 / 3)
+    assert conversion_rates["FR"] == pytest.approx(0.0)
+    assert (
+        conversions.evidence.parameters["metric:conversion_rate:predicate"]
+        is True
+    )
