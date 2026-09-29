@@ -50,7 +50,7 @@ class ModelSemanticMapping(BaseModel):
     operator: Literal["column", "multiply", "add", "subtract", "divide"] = "column"
 
     @model_validator(mode="after")
-    def bounded_expression(self) -> "ModelSemanticMapping":
+    def bounded_expression(self) -> ModelSemanticMapping:
         if self.operator == "column" and len(self.columns) != 1:
             raise ValueError("column mapping must reference exactly one column")
         if self.operator != "column" and len(self.columns) != 2:
