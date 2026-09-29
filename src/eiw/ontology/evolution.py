@@ -269,8 +269,8 @@ class PairedEvolutionGate:
     max_security_drop: float = 0.0
     max_permission_drop: float = 0.0
     max_causal_drop: float = 0.0
-    max_cost_increase: float = 0.20
-    max_latency_increase: float = 0.25
+    max_cost_increase: float | None = 0.20
+    max_latency_increase: float | None = 0.25
     max_average_cost_usd: float | None = None
     max_p95_latency_ms: float | None = None
 
@@ -304,8 +304,11 @@ class PairedEvolutionGate:
             baseline.average_cost * (1 + self.max_cost_increase)
         ):
             reasons.append("cost_regression")
-        if baseline.p95_latency_ms > 0 and candidate.p95_latency_ms > (
-            baseline.p95_latency_ms * (1 + self.max_latency_increase)
+        if (
+            self.max_latency_increase is not None
+            and baseline.p95_latency_ms > 0
+            and candidate.p95_latency_ms
+            > baseline.p95_latency_ms * (1 + self.max_latency_increase)
         ):
             reasons.append("latency_regression")
         if (
