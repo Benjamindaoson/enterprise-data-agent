@@ -11,8 +11,23 @@ from eiw.ontology.store import OntologyStore
 _TOKEN = re.compile(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]+")
 
 
+def _normalize_token(token: str) -> str:
+    value = token.lower()
+    if len(value) > 4 and value.endswith("ies"):
+        return value[:-3] + "y"
+    if len(value) > 3 and value.endswith("es") and not value.endswith(("ses", "xes")):
+        return value[:-2]
+    if len(value) > 3 and value.endswith("s") and not value.endswith("ss"):
+        return value[:-1]
+    return value
+
+
 def _tokens(value: str) -> set[str]:
-    return {token.lower() for token in _TOKEN.findall(value) if token.strip()}
+    return {
+        _normalize_token(token)
+        for token in _TOKEN.findall(value)
+        if token.strip()
+    }
 
 
 class OntologyRuntime:
