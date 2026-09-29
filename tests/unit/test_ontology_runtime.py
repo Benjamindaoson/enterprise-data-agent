@@ -7,7 +7,6 @@ import pytest
 import eiw.ontology as ontology
 from eiw.semantic.package import load_semantic_package
 
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _RETAIL_PACKAGE = (
     _REPO_ROOT
