@@ -10,7 +10,7 @@ from eiw.retail.specialist_policy import (
     SpecialistDecision,
     SpecialistPolicy,
 )
-from eiw.runtime.skills import SkillRegistry, SkillScheduleRequest, SkillScheduler
+from eiw.runtime.skills import SkillRegistry, SkillScheduler, SkillScheduleRequest
 
 
 class RetailAnalyticalWorkers:

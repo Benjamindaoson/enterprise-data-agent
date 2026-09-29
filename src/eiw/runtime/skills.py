@@ -123,9 +123,12 @@ class SkillRegistry:
                 raise ValueError(
                     f"skill parent changed: expected {expected_parent_version}, got {actual}"
                 )
-        if candidate.parent_version is not None and current is not None:
-            if candidate.parent_version != current.version:
-                raise ValueError("candidate is not based on the current promoted skill")
+        if (
+            candidate.parent_version is not None
+            and current is not None
+            and candidate.parent_version != current.version
+        ):
+            raise ValueError("candidate is not based on the current promoted skill")
         active = replace(candidate, lifecycle=SkillLifecycle.ACTIVE)
         self._versions[skill_id][version] = active
         self._skills[skill_id] = active
