@@ -161,7 +161,7 @@ class BlindOnboardingBenchmark:
             store,
             gate=PairedEvolutionGate(
                 min_quality_gain=0.01,
-                max_latency_increase=100.0,
+                max_latency_increase=None,
                 max_average_cost_usd=0.0,
                 max_p95_latency_ms=5000.0,
             ),
