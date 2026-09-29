@@ -68,8 +68,11 @@ jobs:
           tests/unit/test_retail_model_lane.py
           tests/unit/test_ontology_runtime.py
           tests/unit/test_ontology_evolution.py
+          tests/unit/test_ontology_model_builder.py
           tests/integration/test_postgres_connector.py
           tests/integration/test_postgres_ontology_builder.py
+          tests/integration/test_postgres_derived_metrics.py
+          tests/integration/test_blind_ontology_benchmark.py
           tests/contract/test_retail_semantic_package.py
           scripts/generate_agent_trajectories.py
           scripts/run_agent_flywheel.py
@@ -87,6 +90,8 @@ jobs:
           scripts/run_retail_adversarial_benchmark.py
           scripts/run_retail_model_lane_benchmark.py
           scripts/run_ontology_evolution_smoke.py
+          scripts/run_blind_ontology_benchmark.py
+          scripts/run_live_model_ontology_builder.py
       - name: Tests
         run: >
           python -m pytest -q
@@ -185,8 +190,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install production stack
-        run: python -m pip install -e '.[dev,production]'
+      - name: Install production + benchmark stack
+        run: python -m pip install -e '.[dev,production,benchmark]'
       - name: Production unit and integration tests
         run: >
           python -m pytest
@@ -195,4 +200,16 @@ jobs:
           tests/integration/test_retail_code_sandbox.py
           tests/integration/test_postgres_connector.py
           tests/integration/test_postgres_ontology_builder.py
+          tests/integration/test_postgres_derived_metrics.py
+          tests/integration/test_blind_ontology_benchmark.py
           -q
+      - name: Blind real-data ontology ablation
+        run: >-
+          python scripts/run_blind_ontology_benchmark.py
+          --max-rows 25000
+          --assert-gate
+      - name: Upload blind ontology evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: blind-ontology-benchmark
+          path: artifacts/ontology-blind-benchmark/blind-ontology-benchmark.json
