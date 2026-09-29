@@ -22,7 +22,7 @@ class AgentLightningConfig:
         return bool(self.openai_base_url)
 
     @classmethod
-    def from_env(cls) -> "AgentLightningConfig | None":
+    def from_env(cls) -> AgentLightningConfig | None:
         base_url = os.getenv("AGL_OPENAI_BASE_URL", "").strip()
         if not base_url:
             return None
