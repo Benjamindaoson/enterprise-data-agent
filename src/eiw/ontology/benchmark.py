@@ -12,7 +12,6 @@ from statistics import fmean
 from time import perf_counter
 from typing import Any
 
-from openpyxl import load_workbook
 from sqlalchemy import (
     Column,
     DateTime,
@@ -650,6 +649,13 @@ def load_online_retail_sample_into_postgres(
     max_rows: int = 25_000,
 ) -> dict[str, Any]:
     """Load a deterministic prefix of the real UCI Online Retail workbook."""
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise RuntimeError(
+            "install the benchmark extra: pip install -e '.[benchmark]'"
+        ) from exc
 
     raw = zip_path.read_bytes()
     with zipfile.ZipFile(io.BytesIO(raw)) as archive:
