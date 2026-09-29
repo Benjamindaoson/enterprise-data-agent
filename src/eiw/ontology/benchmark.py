@@ -602,11 +602,6 @@ class BlindOnboardingBenchmark:
     def _aggregate(results: list[dict[str, float]]) -> OntologyLaneMetrics:
         latencies = sorted(item["latency_ms"] for item in results)
         index = min(len(latencies) - 1, int(0.95 * len(latencies)))
-        abstention_rows = [
-            item["abstention"]
-            for item in results
-            if item["abstention"] > 0.0
-        ]
         # When the unsupported case is incorrectly answered, its abstention value
         # is zero and must still be included. There is one unsupported case in v1.
         correct_abstention = sum(item["abstention"] for item in results)
