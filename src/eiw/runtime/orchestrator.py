@@ -11,6 +11,7 @@ of deterministic execution and persistence details.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from eiw.business.operations import BusinessOperationsService
 from eiw.ontology.runtime import OntologyRuntime
 from eiw.production.persistence import ProductionStore
 from eiw.runtime.domain import DomainRuntime
+from eiw.runtime.long_term_memory import LongTermMemoryBackend, LongTermMemoryItem
 from eiw.runtime.memory import MemoryKind, MemoryRecord, MemoryStore
 from eiw.runtime.skills import SkillRegistry, default_skill_registry
 from eiw.workspace.analysis import AnalysisService
@@ -75,6 +77,7 @@ class BusinessAgentRuntime:
         business_service: BusinessOperationsService | None = None,
         skills: SkillRegistry | None = None,
         memory: MemoryStore | None = None,
+        long_term_memory: LongTermMemoryBackend | None = None,
         production_store: ProductionStore | None = None,
         domains: list[DomainRuntime] | None = None,
         ontology_runtime: OntologyRuntime | None = None,
@@ -83,6 +86,7 @@ class BusinessAgentRuntime:
         self.business_service = business_service or BusinessOperationsService()
         self.skills = skills or default_skill_registry()
         self.memory = memory or MemoryStore()
+        self.long_term_memory = long_term_memory
         self.production_store = production_store
         self.ontology_runtime = ontology_runtime
         self._events: list[RuntimeTraceEvent] = []
@@ -152,6 +156,19 @@ class BusinessAgentRuntime:
         """Route a domain request through the single application runtime."""
 
         domain = self.domain_runtime(domain_id)
+        memory_scope = f"domain:{domain_id}"
+        question = getattr(request, "question", None)
+        if self.long_term_memory is not None and isinstance(question, str):
+            memories = self._recall_long_term(memory_scope, question)
+            if (
+                memories
+                and hasattr(request, "model_copy")
+                and hasattr(request, "memory_context")
+            ):
+                request = request.model_copy(
+                    update={"memory_context": [item.text for item in memories[:8]]}
+                )
+
         self._record(
             "DOMAIN_RUNTIME_STARTED",
             f"Domain runtime started: {domain_id}.",
@@ -182,6 +199,14 @@ class BusinessAgentRuntime:
             task_id=task_id,
             payload={"domain_id": domain_id},
         )
+        if self.long_term_memory is not None and isinstance(question, str):
+            self._retain_domain_result(
+                memory_scope,
+                domain_id=domain_id,
+                question=question,
+                response=response,
+                task_id=task_id,
+            )
         return response
 
     def capabilities(self) -> dict[str, Any]:
@@ -201,6 +226,19 @@ class BusinessAgentRuntime:
                 if self.ontology_runtime is not None
                 else {}
             ),
+            "long_term_memory": {
+                "configured": self.long_term_memory is not None,
+                "backend": (
+                    self.long_term_memory.name
+                    if self.long_term_memory is not None
+                    else None
+                ),
+                "operations": (
+                    ["recall", "retain", "reflect"]
+                    if self.long_term_memory is not None
+                    else []
+                ),
+            },
             "domains": {
                 domain_id: domain.capabilities()
                 for domain_id, domain in sorted(self._domains.items())
@@ -252,9 +290,18 @@ class BusinessAgentRuntime:
             payload={"invocation_id": invocation_id},
         )
 
+        memory_scope = self._user_memory_scope(user_context)
+        enriched_context = dict(user_context)
+        if self.long_term_memory is not None:
+            memories = self._recall_long_term(memory_scope, question)
+            if memories:
+                enriched_context["long_term_memory"] = [
+                    item.as_context() for item in memories
+                ]
+
         result = self.analysis_service.create(
             question,
-            user_context,
+            enriched_context,
             lineage=lineage,
         )
         task_id = str(result.get("task_id", "")) or None
@@ -286,6 +333,12 @@ class BusinessAgentRuntime:
         )
         if task_id:
             self._remember_analysis(task_id, question, result)
+            self._retain_analysis_long_term(
+                memory_scope,
+                task_id=task_id,
+                question=question,
+                result=result,
+            )
         return result
 
     def follow_up(
@@ -349,7 +402,37 @@ class BusinessAgentRuntime:
                 },
             )
         )
+        if self.long_term_memory is not None:
+            self._retain_long_term(
+                f"business:{response.scenario.value.lower()}",
+                json.dumps(
+                    {
+                        "question": request.question,
+                        "status": response.status,
+                        "capabilities_used": response.capabilities_used,
+                    },
+                    ensure_ascii=False,
+                ),
+                context="completed business task",
+                tags=("business-task", response.scenario.value.lower()),
+            )
         return response
+
+    def reflect_long_term_memory(
+        self,
+        query: str,
+        *,
+        user_context: dict[str, Any] | None = None,
+        domain_id: str | None = None,
+    ) -> str:
+        if self.long_term_memory is None:
+            raise RuntimeError("long-term memory is not configured")
+        scope = (
+            f"domain:{domain_id}"
+            if domain_id
+            else self._user_memory_scope(user_context or {})
+        )
+        return self.long_term_memory.reflect(scope, query)
 
     def events(self, *, task_id: str | None = None) -> list[dict[str, Any]]:
         """Return observable runtime events, optionally scoped to one task.
@@ -401,6 +484,140 @@ class BusinessAgentRuntime:
                     ],
                 },
             )
+        )
+
+    @staticmethod
+    def _user_memory_scope(user_context: dict[str, Any]) -> str:
+        tenant = str(user_context.get("tenant_id") or "default")
+        user = str(user_context.get("user_id") or "anonymous")
+        return f"tenant:{tenant}:user:{user}"
+
+    def _recall_long_term(
+        self,
+        scope: str,
+        question: str,
+    ) -> list[LongTermMemoryItem]:
+        if self.long_term_memory is None:
+            return []
+        try:
+            items = self.long_term_memory.recall(scope, question)
+        except Exception as exc:
+            self._record(
+                "LONG_TERM_MEMORY_UNAVAILABLE",
+                "Long-term memory recall failed; continuing without recalled context.",
+                payload={
+                    "backend": self.long_term_memory.name,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return []
+        self._record(
+            "LONG_TERM_MEMORY_RECALLED",
+            f"Recalled {len(items)} long-term memories.",
+            payload={
+                "backend": self.long_term_memory.name,
+                "bank_id": self.long_term_memory.bank_id(scope),
+                "memory_count": len(items),
+            },
+        )
+        return items
+
+    def _retain_long_term(
+        self,
+        scope: str,
+        content: str,
+        *,
+        context: str,
+        tags: tuple[str, ...],
+    ) -> None:
+        if self.long_term_memory is None:
+            return
+        try:
+            self.long_term_memory.retain(
+                scope,
+                content,
+                context=context,
+                tags=tags,
+            )
+        except Exception as exc:
+            self._record(
+                "LONG_TERM_MEMORY_UNAVAILABLE",
+                "Long-term memory retain failed; core task result remains valid.",
+                payload={
+                    "backend": self.long_term_memory.name,
+                    "error_type": type(exc).__name__,
+                },
+            )
+
+    def _retain_analysis_long_term(
+        self,
+        scope: str,
+        *,
+        task_id: str,
+        question: str,
+        result: dict[str, Any],
+    ) -> None:
+        self._retain_long_term(
+            scope,
+            json.dumps(
+                {
+                    "task_id": task_id,
+                    "question": question,
+                    "state": result.get("state"),
+                    "claim_ids": [
+                        claim.get("claim_id")
+                        for claim in result.get("claims", [])
+                        if claim.get("claim_id")
+                    ],
+                    "evidence_ids": [
+                        evidence.get("evidence_id")
+                        for evidence in result.get("evidence", [])
+                        if evidence.get("evidence_id")
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            context="completed enterprise analysis",
+            tags=("analysis", "completed"),
+        )
+
+    def _retain_domain_result(
+        self,
+        scope: str,
+        *,
+        domain_id: str,
+        question: str,
+        response: object,
+        task_id: str | None,
+    ) -> None:
+        payload: dict[str, Any] = {
+            "domain_id": domain_id,
+            "task_id": task_id,
+            "question": question,
+        }
+        if hasattr(response, "model_dump"):
+            rendered = response.model_dump(mode="json")
+            payload["status"] = rendered.get("status")
+            payload["insights"] = [
+                item.get("title")
+                for item in rendered.get("insights", [])[:8]
+                if item.get("title")
+            ]
+            payload["skills"] = sorted(
+                {
+                    skill
+                    for workstream in rendered.get("workstreams", [])
+                    for skill in workstream.get("metadata", {}).get(
+                        "selected_skills",
+                        [],
+                    )
+                }
+            )
+        self._retain_long_term(
+            scope,
+            json.dumps(payload, ensure_ascii=False),
+            context=f"completed {domain_id} domain analysis",
+            tags=("analysis", domain_id, "experience"),
         )
 
     def _record(
