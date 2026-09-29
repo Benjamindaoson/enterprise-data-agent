@@ -72,7 +72,7 @@ class HindsightLongTermMemory:
             return
         try:
             module = importlib.import_module("hindsight_client")
-            client_cls = getattr(module, "Hindsight")
+            client_cls = module.Hindsight
         except (ImportError, AttributeError) as exc:
             raise RuntimeError(
                 "Hindsight is configured but hindsight-client is not installed; "
@@ -117,16 +117,13 @@ class HindsightLongTermMemory:
         output: list[LongTermMemoryItem] = []
         for item in getattr(response, "results", []) or []:
             metadata = getattr(item, "metadata", None) or {}
+            context_value = getattr(item, "context", None)
             output.append(
                 LongTermMemoryItem(
                     memory_id=str(getattr(item, "id", "")),
                     text=str(getattr(item, "text", "")).strip(),
                     memory_type=str(getattr(item, "type", "memory")),
-                    context=(
-                        str(getattr(item, "context"))
-                        if getattr(item, "context", None) is not None
-                        else None
-                    ),
+                    context=str(context_value) if context_value is not None else None,
                     tags=tuple(
                         str(value) for value in (getattr(item, "tags", None) or [])
                     ),
