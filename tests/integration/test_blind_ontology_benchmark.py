@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
@@ -58,7 +59,8 @@ def test_blind_onboarding_benchmark_promotes_evolved_ontology() -> None:
         table_name="transactions",
     ).run()
 
-    assert result["gate"]["promoted"] is True, result["gate"]
+    if result["gate"]["promoted"] is not True:
+        raise AssertionError(json.dumps(result["gate"], indent=2, default=str))
     assert all(result["assertions"].values())
     evolved = result["lanes"]["evolved_ontology"]
     static = result["lanes"]["static_semantic_package"]
