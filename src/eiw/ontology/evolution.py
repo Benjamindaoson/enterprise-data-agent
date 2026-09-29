@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from statistics import fmean
 from typing import Any
 from uuid import uuid4
@@ -373,8 +373,8 @@ class SemanticEvolutionEngine:
             "candidate_version": candidate.version,
             "baseline_hash": baseline.content_hash,
             "candidate_hash": candidate.content_hash,
-            "baseline_metrics": baseline_metrics.__dict__,
-            "candidate_metrics": candidate_metrics.__dict__,
+            "baseline_metrics": asdict(baseline_metrics),
+            "candidate_metrics": asdict(candidate_metrics),
             "comparison": comparison,
             "promoted": promoted,
         }
