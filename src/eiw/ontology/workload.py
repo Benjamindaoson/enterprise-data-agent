@@ -190,18 +190,18 @@ class WorkloadSemanticEvolver:
             and quantity[0] == unit_price[0]
         ):
             add_metric(
-                    "revenue",
-                    "Revenue",
-                    ["sales", "turnover", "gmv", "sales value"],
-                    table=quantity[0],
-                    refs=[quantity[1], unit_price[1]],
-                    aggregation="sum",
-                    operator="multiply",
-                    description=(
-                        "Observed transaction revenue computed as Quantity × UnitPrice "
-                        "and aggregated across the requested slice."
-                    ),
-                )
+                "revenue",
+                "Revenue",
+                ["sales", "turnover", "gmv", "sales value"],
+                table=quantity[0],
+                refs=[quantity[1], unit_price[1]],
+                aggregation="sum",
+                operator="multiply",
+                description=(
+                    "Observed transaction revenue computed as Quantity × UnitPrice "
+                    "and aggregated across the requested slice."
+                ),
+            )
 
         if any(
             phrase in workload_text
