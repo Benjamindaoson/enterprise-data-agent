@@ -133,3 +133,37 @@ def test_quality_gain_cannot_override_security_regression() -> None:
     assert "security_regression" in decision["comparison"]["reasons"]
     assert decision["promoted"] is False
     assert store.current("retail").version == "1.0.0"
+
+
+def test_gate_can_use_absolute_latency_without_invalid_relative_comparison() -> None:
+    gate = ontology.PairedEvolutionGate(
+        min_quality_gain=0.01,
+        max_latency_increase=None,
+        max_p95_latency_ms=5000.0,
+    )
+    baseline = _metrics(quality=0.50)
+    candidate = ontology.EvolutionMetrics(
+        semantic_coverage=0.90,
+        driver_recall=0.90,
+        numeric_accuracy=1.0,
+        security_resistance=1.0,
+        permission_compliance=1.0,
+        causal_discipline=1.0,
+        average_cost=1.0,
+        p95_latency_ms=250.0,
+    )
+    baseline = ontology.EvolutionMetrics(
+        semantic_coverage=baseline.semantic_coverage,
+        driver_recall=baseline.driver_recall,
+        numeric_accuracy=baseline.numeric_accuracy,
+        security_resistance=baseline.security_resistance,
+        permission_compliance=baseline.permission_compliance,
+        causal_discipline=baseline.causal_discipline,
+        average_cost=baseline.average_cost,
+        p95_latency_ms=0.1,
+    )
+
+    result = gate.compare(baseline, candidate)
+
+    assert result["passed"] is True
+    assert "latency_regression" not in result["reasons"]
