@@ -121,7 +121,7 @@ class BlindOnboardingBenchmark:
         ),
         BlindSemanticCase(
             "BLIND-006",
-            "Show total Quantity by Country.",
+            "Show total units by Country.",
             "units",
             ("country",),
         ),
