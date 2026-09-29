@@ -21,6 +21,7 @@ from eiw.ontology.runtime import OntologyRuntime
 from eiw.ontology.store import OntologyStore
 from eiw.production.persistence import ProductionStore
 from eiw.retail.api import create_retail_router
+from eiw.runtime.long_term_memory import long_term_memory_from_env
 from eiw.runtime.orchestrator import BusinessAgentRuntime
 from eiw.runtime.skills import default_skill_registry
 from eiw.semantic.package import load_semantic_package
@@ -46,6 +47,12 @@ class ClarificationRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="", max_length=2000)
+
+
+class MemoryReflectRequest(BaseModel):
+    query: str = Field(min_length=3, max_length=5000)
+    user_context: dict[str, Any] | None = None
+    domain_id: str | None = Field(default=None, max_length=128)
 
 
 class DurableCheckpointRequest(BaseModel):
@@ -75,6 +82,7 @@ def create_app() -> FastAPI:
     skill_registry = default_skill_registry()
     database_url = os.getenv("EIW_DATABASE_URL")
     production_store = ProductionStore(database_url) if database_url else None
+    long_term_memory = long_term_memory_from_env()
 
     ontology_store = OntologyStore(artifact_root / "ontology-store.json")
     if not ontology_store.has("retail"):
@@ -97,6 +105,7 @@ def create_app() -> FastAPI:
         analysis_service=service,
         business_service=business_service,
         skills=skill_registry,
+        long_term_memory=long_term_memory,
         production_store=production_store,
         ontology_runtime=ontology_runtime,
     )
@@ -142,6 +151,19 @@ def create_app() -> FastAPI:
     @app.get("/api/v1/runtime/events")
     def runtime_events(task_id: str | None = None) -> dict[str, Any]:
         return {"items": runtime.events(task_id=task_id)}
+
+    @app.post("/api/v1/memory/reflect")
+    def reflect_memory(request: MemoryReflectRequest) -> dict[str, Any]:
+        if runtime.long_term_memory is None:
+            raise HTTPException(503, "Long-term memory is not configured")
+        return {
+            "backend": runtime.long_term_memory.name,
+            "text": runtime.reflect_long_term_memory(
+                request.query,
+                user_context=request.user_context,
+                domain_id=request.domain_id,
+            ),
+        }
 
     @app.post("/api/v1/business-tasks")
     def create_business_task(request: BusinessTaskRequest) -> dict[str, Any]:

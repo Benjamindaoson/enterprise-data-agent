@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from eiw.business.models import BusinessScenario, BusinessTaskRequest
+from eiw.runtime.long_term_memory import LongTermMemoryItem
 from eiw.runtime.memory import MemoryKind
 from eiw.runtime.orchestrator import BusinessAgentRuntime
 
@@ -32,6 +33,52 @@ class FakeAnalysisService:
             "claims": [{"claim_id": "claim-1"}],
             "evidence": [{"evidence_id": "evidence-1"}],
         }
+
+
+class FakeLongTermMemory:
+    name = "fake-memory"
+
+    def __init__(self) -> None:
+        self.retained: list[dict[str, Any]] = []
+
+    def bank_id(self, scope: str) -> str:
+        return f"bank:{scope}"
+
+    def recall(
+        self,
+        scope: str,
+        query: str,
+        *,
+        tags: tuple[str, ...] = (),
+    ) -> list[LongTermMemoryItem]:
+        return [
+            LongTermMemoryItem(
+                memory_id="memory-1",
+                text="Prior analysis found store contribution useful.",
+                memory_type="observation",
+            )
+        ]
+
+    def retain(
+        self,
+        scope: str,
+        content: str,
+        *,
+        context: str | None = None,
+        metadata: dict[str, str] | None = None,
+        tags: tuple[str, ...] = (),
+    ) -> None:
+        self.retained.append(
+            {
+                "scope": scope,
+                "content": content,
+                "context": context,
+                "tags": tags,
+            }
+        )
+
+    def reflect(self, scope: str, query: str) -> str:
+        return "Reuse contribution analysis before anomaly scans."
 
 
 class FakeStore:
@@ -149,3 +196,29 @@ def test_completed_runtime_event_is_persisted_when_production_store_is_configure
     assert event["task_id"] == "task-123"
     assert event["step_index"] == 0
     assert event["payload"]["event_type"] == "RUNTIME_COMPLETED"
+
+
+def test_long_term_memory_is_recalled_into_context_and_result_is_retained() -> None:
+    analysis = FakeAnalysisService()
+    memory = FakeLongTermMemory()
+    runtime = BusinessAgentRuntime(
+        analysis_service=analysis,
+        long_term_memory=memory,
+    )
+
+    runtime.analyze(
+        "Why did sales change?",
+        {
+            "tenant_id": "tenant-1",
+            "user_id": "analyst-1",
+        },
+    )
+
+    recalled = analysis.calls[0]["user_context"]["long_term_memory"]
+    assert recalled[0]["memory_id"] == "memory-1"
+    assert memory.retained
+    assert memory.retained[0]["scope"] == "tenant:tenant-1:user:analyst-1"
+    assert runtime.reflect_long_term_memory(
+        "What should we reuse?",
+        user_context={"tenant_id": "tenant-1", "user_id": "analyst-1"},
+    ).startswith("Reuse contribution")

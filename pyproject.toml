@@ -31,6 +31,8 @@ dependencies = [
 postgres = ["psycopg[binary]>=3.2,<4"]
 training = ["numpy>=2,<3", "torch>=2.4,<3"]
 benchmark = ["openpyxl>=3.1,<4"]
+hindsight = ["hindsight-client>=0.10.2,<1"]
+agent-lightning = ["agentlightning>=1.0.2,<2"]
 retail-data = [
   "pandas>=2.2,<3",
   "pyarrow>=18,<24",

@@ -33,6 +33,7 @@ from eiw.retail.models import (
 from eiw.retail.upstream import DeepAnalyzeWorker
 from eiw.runtime.domain import DomainRuntimeError
 from eiw.runtime.orchestrator import BusinessAgentRuntime
+from eiw.training.agent_lightning import AgentLightningConfig, resolve_model_endpoint
 
 
 def create_retail_router(
@@ -122,9 +123,22 @@ def create_retail_router(
     def capabilities() -> dict[str, object]:
         deep_url = os.getenv("EIW_DEEPANALYZE_URL", "").strip()
         deep = DeepAnalyzeWorker(base_url=deep_url) if deep_url else None
-        code_url = os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip()
-        supervisor_url = os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip()
-        specialist_url = os.getenv("EIW_RETAIL_SPECIALIST_URL", "").strip()
+        code_url, code_model, _, code_source = resolve_model_endpoint(
+            os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip(),
+            os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3"),
+            os.getenv("EIW_RETAIL_CODE_MODEL_API_KEY", ""),
+        )
+        supervisor_url, _, _, supervisor_source = resolve_model_endpoint(
+            os.getenv("EIW_RETAIL_SUPERVISOR_URL", "").strip(),
+            os.getenv("EIW_RETAIL_SUPERVISOR_MODEL", "qwen3"),
+            os.getenv("EIW_RETAIL_SUPERVISOR_API_KEY", ""),
+        )
+        specialist_url, _, _, specialist_source = resolve_model_endpoint(
+            os.getenv("EIW_RETAIL_SPECIALIST_URL", "").strip(),
+            os.getenv("EIW_RETAIL_SPECIALIST_MODEL", "qwen3"),
+            os.getenv("EIW_RETAIL_SPECIALIST_API_KEY", ""),
+        )
+        agent_lightning = AgentLightningConfig.from_env()
         sandbox = DockerCodeSandbox()
         return {
             "runtime": "first-party",
@@ -132,11 +146,13 @@ def create_retail_router(
             "multi_agent_supervisor": {
                 "mode": "model" if supervisor_url else "deterministic",
                 "model_base_url": supervisor_url or None,
+                "source": supervisor_source,
                 "fallback": "deterministic",
             },
             "specialist_agents": {
                 "mode": "model" if specialist_url else "deterministic",
                 "model_base_url": specialist_url or None,
+                "source": specialist_source,
                 "fallback": "deterministic-full-skill-set",
             },
             "analytical_skills": "first-party",
@@ -146,10 +162,18 @@ def create_retail_router(
                 "configured": bool(code_url),
                 "docker_available": sandbox.available(),
                 "model_base_url": code_url or None,
-                "model": (
-                    os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3")
-                    if code_url
+                "model": code_model if code_url else None,
+                "source": code_source,
+            },
+            "agent_lightning": {
+                "configured": agent_lightning is not None,
+                "model_proxy": (
+                    agent_lightning.openai_base_url
+                    if agent_lightning is not None
                     else None
+                ),
+                "reward_events": bool(
+                    agent_lightning is not None and agent_lightning.event_url
                 ),
             },
             "external_compatibility": {
@@ -238,7 +262,11 @@ def create_retail_router(
         current = request.current_weeks or default_current
         previous = request.previous_weeks or default_previous
 
-        code_url = os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip()
+        code_url, code_model, code_key, _ = resolve_model_endpoint(
+            os.getenv("EIW_RETAIL_CODE_MODEL_URL", "").strip(),
+            os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3"),
+            os.getenv("EIW_RETAIL_CODE_MODEL_API_KEY", ""),
+        )
         if code_url:
             sandbox = DockerCodeSandbox()
             if not sandbox.available():
@@ -248,8 +276,8 @@ def create_retail_router(
                 )
             generator = OpenAICompatibleCodeGenerator(
                 base_url=code_url,
-                model=os.getenv("EIW_RETAIL_CODE_MODEL", "qwen3"),
-                api_key=os.getenv("EIW_RETAIL_CODE_MODEL_API_KEY", ""),
+                model=code_model,
+                api_key=code_key,
             )
             analyst = FirstPartyRetailCodeAnalyst(domain.data, generator, sandbox)
             return analyst.analyze(
