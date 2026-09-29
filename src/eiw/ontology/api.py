@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from eiw.connectors.postgres import EnterprisePostgresConnector
 from eiw.ontology.builder import PostgresOntologyBuilder
+from eiw.ontology.model_builder import model_builder_from_env
 from eiw.ontology.runtime import OntologyRuntime
 
 
@@ -27,6 +29,7 @@ class OntologyPostgresBuildRequest(BaseModel):
     ontology_id: str = Field(min_length=1, max_length=128)
     version: str = Field(default="1.0.0", min_length=1, max_length=64)
     workload: list[str] = Field(default_factory=list, max_length=200)
+    builder_mode: Literal["deterministic", "model"] = "deterministic"
     promote: bool = False
 
 
@@ -87,11 +90,31 @@ def create_ontology_router(
             raise HTTPException(503, "PostgreSQL ontology builder is not configured")
         try:
             connector = postgres_connector_factory()
-            state = PostgresOntologyBuilder(connector).build(
-                ontology_id=request.ontology_id,
-                version=request.version,
-                workload=request.workload,
-            )
+            model_usage = None
+            if request.builder_mode == "model":
+                try:
+                    builder = model_builder_from_env(connector)
+                except RuntimeError as exc:
+                    raise HTTPException(503, str(exc)) from exc
+                state, usage = builder.build(
+                    ontology_id=request.ontology_id,
+                    version=request.version,
+                    workload=request.workload,
+                )
+                model_usage = {
+                    "provider": usage.provider,
+                    "model": usage.model,
+                    "latency_ms": usage.latency_ms,
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
+                    "estimated_cost_usd": usage.estimated_cost_usd,
+                }
+            else:
+                state = PostgresOntologyBuilder(connector).build(
+                    ontology_id=request.ontology_id,
+                    version=request.version,
+                    workload=request.workload,
+                )
             runtime.store.put(state)
             if request.promote:
                 runtime.store.promote(request.ontology_id, request.version)
@@ -99,6 +122,8 @@ def create_ontology_router(
                 "ontology_id": state.ontology_id,
                 "version": state.version,
                 "content_hash": state.content_hash,
+                "builder_mode": request.builder_mode,
+                "model_usage": model_usage,
                 "promoted": request.promote,
                 "human_review_required": True,
                 "manifest": (
