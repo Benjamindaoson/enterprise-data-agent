@@ -1,0 +1,53 @@
+name: Ontology live model builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: OpenAI Responses API model
+        required: true
+        default: gpt-6-luna
+      max_rows:
+        description: UCI Online Retail rows to load
+        required: true
+        default: "10000"
+
+jobs:
+  live-model-builder:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: eiw
+          POSTGRES_USER: eiw
+          POSTGRES_PASSWORD: eiw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eiw -d eiw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      EIW_TEST_DATABASE_URL: postgresql+psycopg://eiw:eiw@127.0.0.1:5432/eiw
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      EIW_ONTOLOGY_MODEL: ${{ inputs.model }}
+      EIW_ONTOLOGY_MODEL_BASE_URL: https://api.openai.com/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install -e '.[dev,production,benchmark]'
+      - name: Run credentialed model-driven onboarding
+        run: >-
+          python scripts/run_live_model_ontology_builder.py
+          --max-rows ${{ inputs.max_rows }}
+          --require-live
+      - name: Upload live model evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-model-ontology-builder
+          path: artifacts/ontology-live-builder/live-model-builder.json
