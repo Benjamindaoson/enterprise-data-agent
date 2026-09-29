@@ -41,6 +41,7 @@ class OntologyMapping(OntologyModel):
     aggregation: str | None = None
     columns: list[str] = Field(default_factory=list)
     operator: Literal["column", "multiply", "add", "subtract", "divide"] | None = None
+    predicate_value: str | int | float | bool | None = None
     join_path: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
 
