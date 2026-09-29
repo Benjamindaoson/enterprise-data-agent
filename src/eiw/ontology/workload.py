@@ -183,9 +183,13 @@ class WorkloadSemanticEvolver:
             exact_preference={"stockcode", "product_id", "sku"},
         )
 
-        if any(token in workload_text for token in ("revenue", "sales", "turnover", "gmv")):
-            if quantity and unit_price and quantity[0] == unit_price[0]:
-                add_metric(
+        if (
+            any(token in workload_text for token in ("revenue", "sales", "turnover", "gmv"))
+            and quantity
+            and unit_price
+            and quantity[0] == unit_price[0]
+        ):
+            add_metric(
                     "revenue",
                     "Revenue",
                     ["sales", "turnover", "gmv", "sales value"],
