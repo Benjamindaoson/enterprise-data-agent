@@ -35,6 +35,7 @@ class FakeConnector:
                                 {"name": "UnitPrice", "type": "NUMERIC", "nullable": False},
                                 {"name": "CustomerID", "type": "TEXT", "nullable": True},
                                 {"name": "Country", "type": "TEXT", "nullable": False},
+                                {"name": "Converted", "type": "BOOLEAN", "nullable": False},
                             ],
                             "primary_key": [],
                             "foreign_keys": [],
@@ -75,6 +76,10 @@ class FakeConnector:
                     table="transactions",
                     column="Country",
                 ),
+                "transactions__Converted": PostgresDimension(
+                    table="transactions",
+                    column="Converted",
+                ),
             },
         )
 
@@ -88,7 +93,13 @@ class FakeConnector:
             "schema": schema,
             "table": table_name,
             "column": column_name,
-            "type": "TEXT" if column_name in {"CustomerID", "Country"} else "NUMERIC",
+            "type": (
+                "TEXT"
+                if column_name in {"CustomerID", "Country"}
+                else "BOOLEAN"
+                if column_name == "Converted"
+                else "NUMERIC"
+            ),
             "nullable": column_name == "CustomerID",
             "row_count": 100,
             "non_null_count": 95,
@@ -123,6 +134,20 @@ class FakeModel:
                                 columns=revenue_columns,
                                 aggregation="sum",
                                 operator="multiply",
+                            )
+                        ],
+                    ),
+                    ModelSemanticConcept(
+                        concept_id="conversion_rate",
+                        label="Conversion Rate",
+                        semantic_type="metric",
+                        aliases=["conversion"],
+                        mappings=[
+                            ModelSemanticMapping(
+                                table="transactions",
+                                columns=["Converted"],
+                                aggregation="rate_equals",
+                                predicate_value=True,
                             )
                         ],
                     ),
@@ -165,6 +190,9 @@ def test_model_builder_creates_executable_derived_business_metric() -> None:
     assert revenue.referenced_columns() == ["Quantity", "UnitPrice"]
     assert revenue.aggregation == "sum"
     assert package.dimensions["country"].column == "Country"
+    conversion = package.metrics["conversion_rate"]
+    assert conversion.aggregation == "rate_equals"
+    assert conversion.predicate_value is True
     assert "constraint:unsupported:gross_margin" in state.constraints
     assert usage.provider == "fake"
 
