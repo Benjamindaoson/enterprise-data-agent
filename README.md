@@ -28,6 +28,8 @@ A production-shaped **Business Analysis Agent (BA Agent)** that understands busi
 
 See [the resume/evidence map](docs/RESUME_EVIDENCE.md) for the exact implementation and proof behind each capability.
 
+For the self-evolving semantic layer, see [Semantic Evolution Evidence](docs/SEMANTIC_EVOLUTION_EVIDENCE.md), including the four-way blind PostgreSQL onboarding ablation and its exact CI artifact.
+
 ## Retail Intelligence reference product
 
 The first high-fidelity product vertical is a **Retail Business Analysis Agent (BA Agent)**. It is intentionally broader than Text-to-SQL:
