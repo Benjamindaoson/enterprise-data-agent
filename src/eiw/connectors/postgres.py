@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import MetaData, Table, create_engine, func, inspect, select
+from sqlalchemy import MetaData, Table, case, create_engine, func, inspect, select
 from sqlalchemy.engine import Engine
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -37,8 +37,17 @@ class PostgresPermissionPolicy(BaseModel):
 class PostgresMetric(BaseModel):
     table: str
     column: str
-    aggregation: Literal["sum", "avg", "count", "min", "max", "count_distinct"]
+    aggregation: Literal[
+        "sum",
+        "avg",
+        "count",
+        "min",
+        "max",
+        "count_distinct",
+        "rate_equals",
+    ]
     columns: list[str] = Field(default_factory=list)
+    predicate_value: str | int | float | bool | None = None
     operator: Literal["column", "multiply", "add", "subtract", "divide"] = "column"
 
     @model_validator(mode="after")
@@ -49,6 +58,11 @@ class PostgresMetric(BaseModel):
                 raise ValueError("column metric must reference exactly one column")
         elif len(refs) != 2:
             raise ValueError(f"{self.operator} metric must reference exactly two columns")
+        if self.aggregation == "rate_equals":
+            if self.operator != "column":
+                raise ValueError("rate_equals requires a single-column metric")
+            if self.predicate_value is None:
+                raise ValueError("rate_equals requires predicate_value")
         return self
 
     def referenced_columns(self) -> list[str]:
@@ -276,17 +290,25 @@ class EnterprisePostgresConnector:
             autoload_with=self.engine,
         )
         metric_expression = self._metric_expression(table, metric)
-        aggregate_builders = {
-            "sum": func.sum,
-            "avg": func.avg,
-            "count": func.count,
-            "min": func.min,
-            "max": func.max,
-            "count_distinct": lambda value: func.count(func.distinct(value)),
-        }
-        aggregate = aggregate_builders[metric.aggregation](metric_expression).label(
-            request.metric_id
-        )
+        if metric.aggregation == "rate_equals":
+            aggregate = func.avg(
+                case(
+                    (metric_expression == metric.predicate_value, 1.0),
+                    else_=0.0,
+                )
+            ).label(request.metric_id)
+        else:
+            aggregate_builders = {
+                "sum": func.sum,
+                "avg": func.avg,
+                "count": func.count,
+                "min": func.min,
+                "max": func.max,
+                "count_distinct": lambda value: func.count(func.distinct(value)),
+            }
+            aggregate = aggregate_builders[metric.aggregation](metric_expression).label(
+                request.metric_id
+            )
 
         dimension_columns = [
             table.c[dimension.column].label(dimension_id)
@@ -295,6 +317,8 @@ class EnterprisePostgresConnector:
         statement = select(*dimension_columns, aggregate).select_from(table)
 
         parameters: dict[str, Any] = {}
+        if metric.aggregation == "rate_equals":
+            parameters[f"metric:{request.metric_id}:predicate"] = metric.predicate_value
         for dimension_id, value in request.filters.items():
             if dimension_id not in package.dimensions:
                 raise KeyError(f"filter must reference a governed dimension: {dimension_id}")
