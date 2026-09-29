@@ -4,21 +4,21 @@ from __future__ import annotations
 
 from eiw.retail.data import RetailDataEngine
 from eiw.retail.models import WorkstreamName, WorkstreamResult
+from eiw.retail.skill_system import retail_skill_registry
 from eiw.retail.specialist_policy import (
     SPECIALIST_SKILLS,
     SpecialistDecision,
     SpecialistPolicy,
-    deterministic_specialist_decision,
 )
+from eiw.runtime.skills import SkillRegistry, SkillScheduleRequest, SkillScheduler
 
 
 class RetailAnalyticalWorkers:
-    """Specialist agents that plan within bounded analytical skill allowlists.
+    """Specialist agents that plan within versioned, scheduled Skill boundaries.
 
-    The default policy executes the full verified deterministic skill set.
-    When a model policy is configured, each specialist independently chooses
-    its skill subset; execution still happens through deterministic data
-    operators rather than arbitrary model-generated SQL.
+    The Skill registry owns representation and organization; the scheduler ranks
+    promoted Skills under workstream and permission constraints; model policies
+    may choose a bounded subset; deterministic operators still own execution.
     """
 
     def __init__(
@@ -26,56 +26,90 @@ class RetailAnalyticalWorkers:
         data: RetailDataEngine,
         *,
         policy: SpecialistPolicy | None = None,
+        skill_registry: SkillRegistry | None = None,
+        skill_scheduler: SkillScheduler | None = None,
     ) -> None:
         self.data = data
         self.policy = policy
+        self.skill_registry = skill_registry or retail_skill_registry()
+        self.skill_scheduler = skill_scheduler or SkillScheduler(self.skill_registry)
+
+    def _allowed_skills(
+        self,
+        workstream: WorkstreamName,
+        question: str,
+    ) -> tuple[str, ...]:
+        executable = set(SPECIALIST_SKILLS[workstream])
+        schedule = self.skill_scheduler.schedule(
+            SkillScheduleRequest(
+                question=question,
+                workstream=workstream.value,
+                permissions=("analytics:read",),
+                max_skills=max(1, len(executable)),
+                allow_code_execution=False,
+            )
+        )
+        scheduled = tuple(
+            skill_id for skill_id in schedule.skill_ids if skill_id in executable
+        )
+        return scheduled or SPECIALIST_SKILLS[workstream]
 
     def _decision(
         self,
         workstream: WorkstreamName,
         question: str,
     ) -> tuple[SpecialistDecision, str]:
+        allowed_skills = self._allowed_skills(workstream, question)
         if self.policy is not None:
             try:
                 decision = self.policy.decide(
                     workstream=workstream,
                     question=question,
-                    allowed_skills=SPECIALIST_SKILLS[workstream],
+                    allowed_skills=allowed_skills,
                 )
-                allowed = set(SPECIALIST_SKILLS[workstream])
+                allowed = set(allowed_skills)
                 filtered: list[str] = []
                 for skill in decision.skills:
                     if skill in allowed and skill not in filtered:
                         filtered.append(skill)
                 if not filtered:
-                    filtered = list(SPECIALIST_SKILLS[workstream])
+                    filtered = list(allowed_skills)
                 return (
                     decision.model_copy(update={"skills": filtered}),
                     "model",
                 )
             except Exception:
-                fallback = deterministic_specialist_decision(workstream)
                 return (
-                    fallback.model_copy(
-                        update={
-                            "rationale": (
-                                "Specialist model unavailable; deterministic "
-                                "verified skill set used."
-                            )
-                        }
+                    SpecialistDecision(
+                        skills=list(allowed_skills),
+                        rationale=(
+                            "Specialist model unavailable; scheduled deterministic "
+                            "Skill set used."
+                        ),
                     ),
                     "deterministic-fallback",
                 )
-        return deterministic_specialist_decision(workstream), "deterministic"
+        return (
+            SpecialistDecision(
+                skills=list(allowed_skills),
+                rationale="Skill scheduler selected the promoted deterministic Skill set.",
+            ),
+            "deterministic",
+        )
 
-    @staticmethod
     def _metadata(
+        self,
         decision: SpecialistDecision,
         source: str,
     ) -> dict[str, object]:
+        versions = {
+            skill_id: self.skill_registry.get(skill_id).version
+            for skill_id in decision.skills
+        }
         return {
             "policy_source": source,
             "selected_skills": list(decision.skills),
+            "skill_versions": versions,
             "rationale": decision.rationale,
         }
 
