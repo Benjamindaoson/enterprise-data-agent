@@ -39,6 +39,8 @@ class OntologyMapping(OntologyModel):
     column: str | None = None
     expression: str | None = None
     aggregation: str | None = None
+    columns: list[str] = Field(default_factory=list)
+    operator: Literal["column", "multiply", "add", "subtract", "divide"] | None = None
     join_path: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
 
