@@ -58,7 +58,7 @@ def test_blind_onboarding_benchmark_promotes_evolved_ontology() -> None:
         table_name="transactions",
     ).run()
 
-    assert result["gate"]["promoted"] is True
+    assert result["gate"]["promoted"] is True, result["gate"]
     assert all(result["assertions"].values())
     evolved = result["lanes"]["evolved_ontology"]
     static = result["lanes"]["static_semantic_package"]
