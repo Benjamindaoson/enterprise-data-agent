@@ -271,6 +271,8 @@ class PairedEvolutionGate:
     max_causal_drop: float = 0.0
     max_cost_increase: float = 0.20
     max_latency_increase: float = 0.25
+    max_average_cost_usd: float | None = None
+    max_p95_latency_ms: float | None = None
 
     def compare(
         self,
@@ -306,6 +308,16 @@ class PairedEvolutionGate:
             baseline.p95_latency_ms * (1 + self.max_latency_increase)
         ):
             reasons.append("latency_regression")
+        if (
+            self.max_average_cost_usd is not None
+            and candidate.average_cost > self.max_average_cost_usd
+        ):
+            reasons.append("absolute_cost_budget_exceeded")
+        if (
+            self.max_p95_latency_ms is not None
+            and candidate.p95_latency_ms > self.max_p95_latency_ms
+        ):
+            reasons.append("absolute_latency_budget_exceeded")
         return {
             "passed": not reasons,
             "reasons": reasons,
