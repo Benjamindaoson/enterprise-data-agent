@@ -42,7 +42,7 @@ class PostgresMetric(BaseModel):
     operator: Literal["column", "multiply", "add", "subtract", "divide"] = "column"
 
     @model_validator(mode="after")
-    def expression_contract_is_bounded(self) -> "PostgresMetric":
+    def expression_contract_is_bounded(self) -> PostgresMetric:
         refs = self.referenced_columns()
         if self.operator == "column":
             if len(refs) != 1:
