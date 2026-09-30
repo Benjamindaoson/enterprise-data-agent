@@ -8,70 +8,29 @@ import json
 import os
 from pathlib import Path
 
-from eiw.retail.agent_lightning import (
-    RetailAgentLightningCase,
-    reward_retail_response,
-)
-from eiw.retail.domain import build_retail_domain_runtime
-from eiw.retail.models import RetailAnalysisRequest
-from eiw.training.agent_lightning import AgentLightningConfig
+from eiw.training.agent_lightning_agent import execute_retail_rollout
 
 
-def _load_case(path: Path | None) -> RetailAgentLightningCase:
-    raw = os.getenv("EIW_AGL_CASE_JSON", "").strip()
-    if raw:
-        return RetailAgentLightningCase.model_validate_json(raw)
+def _configure_case(path: Path | None) -> None:
+    if os.getenv("EIW_AGL_CASE_JSON", "").strip():
+        return
     if path is None:
         raise RuntimeError("EIW_AGL_CASE_JSON or --case-json is required")
-    return RetailAgentLightningCase.model_validate_json(
-        path.read_text(encoding="utf-8")
-    )
+    os.environ["EIW_AGL_CASE_JSON"] = path.read_text(encoding="utf-8")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--case-json", type=Path)
     args = parser.parse_args()
+    _configure_case(args.case_json)
 
-    config = AgentLightningConfig.from_env()
-    if config is None:
-        raise RuntimeError(
-            "AGL_OPENAI_BASE_URL is required for Agent Lightning rollout mode"
-        )
-    case = _load_case(args.case_json)
-
-    domain = build_retail_domain_runtime()
-    response = domain.analyze(
-        RetailAnalysisRequest(
-            question=case.question,
-            current_weeks=case.current_weeks,
-            previous_weeks=case.previous_weeks,
-        )
-    )
-    reward, metrics = reward_retail_response(response, case)
-    if config.event_url:
-        config.post_event(
-            "eiw_metrics",
-            {
-                "case_id": case.case_id,
-                **metrics,
-                "task_id": response.task_id,
-            },
-        )
-        config.post_reward(
-            reward,
-            source="eiw-retail-verifier",
-            reason=f"case={case.case_id}",
-        )
-
+    result = execute_retail_rollout()
     print(
         json.dumps(
             {
-                "case_id": case.case_id,
-                "task_id": response.task_id,
-                "reward": round(reward, 6),
-                "metrics": metrics,
-                "model_proxy": config.openai_base_url,
+                **result,
+                "reward": round(float(result["reward"]), 6),
             },
             indent=2,
         )
