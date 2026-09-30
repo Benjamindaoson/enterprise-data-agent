@@ -28,6 +28,8 @@ class RetailAnalysisRequest(BaseModel):
     max_workstreams: int = Field(default=5, ge=1, le=5)
     parent_task_id: str | None = Field(default=None, max_length=128)
     focus: dict[str, str] = Field(default_factory=dict)
+    tenant_id: str = Field(default="default", min_length=1, max_length=128)
+    user_id: str = Field(default="anonymous", min_length=1, max_length=128)
     memory_context: list[str] = Field(default_factory=list, max_length=8)
 
 
