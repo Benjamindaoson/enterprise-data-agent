@@ -239,9 +239,11 @@ jobs:
           python -m ruff check
           src/eiw/runtime/long_term_memory.py
           src/eiw/training/agent_lightning.py
+          src/eiw/training/agent_lightning_agent.py
           src/eiw/retail/agent_lightning.py
           scripts/run_agent_lightning_retail_rollout.py
           scripts/export_agent_lightning_retail_cases.py
+          scripts/train_agent_lightning_retail.py
           tests/unit/test_hindsight_memory.py
           tests/unit/test_agent_lightning_integration.py
       - name: Integration contract tests
