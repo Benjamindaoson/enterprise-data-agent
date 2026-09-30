@@ -222,3 +222,35 @@ def test_long_term_memory_is_recalled_into_context_and_result_is_retained() -> N
         "What should we reuse?",
         user_context={"tenant_id": "tenant-1", "user_id": "analyst-1"},
     ).startswith("Reuse contribution")
+
+
+def test_feedback_is_retained_as_long_term_learning_signal() -> None:
+    memory = FakeLongTermMemory()
+    runtime = BusinessAgentRuntime(
+        analysis_service=FakeAnalysisService(),
+        long_term_memory=memory,
+    )
+
+    runtime.record_feedback(
+        task_id="task-123",
+        rating=2,
+        comment="The store diagnosis missed the main driver.",
+        user_context={"tenant_id": "tenant-1", "user_id": "analyst-1"},
+    )
+
+    retained = memory.retained[-1]
+    assert retained["scope"] == "tenant:tenant-1:user:analyst-1"
+    assert "rating" in retained["content"]
+    assert retained["tags"] == ("feedback", "analysis", "rating:2")
+
+
+def test_domain_memory_scope_is_tenant_and_user_isolated() -> None:
+    request = type(
+        "Request",
+        (),
+        {"tenant_id": "tenant-a", "user_id": "user-b"},
+    )()
+
+    scope = BusinessAgentRuntime._domain_memory_scope("retail", request)
+
+    assert scope == "domain:retail:tenant:tenant-a:user:user-b"
