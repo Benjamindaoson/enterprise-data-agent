@@ -156,7 +156,7 @@ class BusinessAgentRuntime:
         """Route a domain request through the single application runtime."""
 
         domain = self.domain_runtime(domain_id)
-        memory_scope = f"domain:{domain_id}"
+        memory_scope = self._domain_memory_scope(domain_id, request)
         question = getattr(request, "question", None)
         if self.long_term_memory is not None and isinstance(question, str):
             memories = self._recall_long_term(memory_scope, question)
@@ -491,6 +491,34 @@ class BusinessAgentRuntime:
         tenant = str(user_context.get("tenant_id") or "default")
         user = str(user_context.get("user_id") or "anonymous")
         return f"tenant:{tenant}:user:{user}"
+
+    @staticmethod
+    def _domain_memory_scope(domain_id: str, request: object) -> str:
+        tenant = str(getattr(request, "tenant_id", None) or "default")
+        user = str(getattr(request, "user_id", None) or "anonymous")
+        return f"domain:{domain_id}:tenant:{tenant}:user:{user}"
+
+    def record_feedback(
+        self,
+        *,
+        task_id: str,
+        rating: int,
+        comment: str,
+        user_context: dict[str, Any],
+    ) -> None:
+        """Retain explicit user/expert feedback as cross-task learning evidence."""
+
+        if self.long_term_memory is None:
+            return
+        self._retain_long_term(
+            self._user_memory_scope(user_context),
+            json.dumps(
+                {"task_id": task_id, "rating": rating, "comment": comment},
+                ensure_ascii=False,
+            ),
+            context="explicit user or expert feedback",
+            tags=("feedback", "analysis", f"rating:{rating}"),
+        )
 
     def _recall_long_term(
         self,
