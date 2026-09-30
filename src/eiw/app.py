@@ -345,6 +345,12 @@ def create_app() -> FastAPI:
         task = get_task(task_id)
         task.setdefault("feedback", []).append(request.model_dump())
         store.put_task(task)
+        runtime.record_feedback(
+            task_id=task_id,
+            rating=request.rating,
+            comment=request.comment,
+            user_context=cast(dict[str, Any], task.get("user_context", {})),
+        )
         return {"saved": True, "feedback": task["feedback"][-1]}
 
     @app.get("/api/v1/home")
