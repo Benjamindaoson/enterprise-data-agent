@@ -75,3 +75,37 @@ pip install -e '.[agent-lightning]'
 Then use Agent Lightning's server/controller/VERL trainer. The repository does
 not claim live RL gains until a GPU-backed training run has produced a preserved
 artifact.
+
+
+## Production memory isolation
+
+Retail requests now carry tenant and user identifiers. Hindsight banks are
+derived from the domain, tenant and user, so cross-task experience does not
+silently cross identity boundaries. Explicit user or expert feedback is retained
+as a tagged learning signal; recalled memory remains non-authoritative and must
+be verified against current evidence.
+
+## Direct Agent Lightning local-runner training
+
+The repository provides an Agent Lightning local agent class:
+
+    eiw.training.agent_lightning_agent:RetailAgentLightningRunner
+
+The Agent Lightning controller injects the full rollout case through
+EIW_AGL_CASE_JSON. The runner executes the unchanged Retail BA Harness, while
+Supervisor, specialist and AI Coding model calls are routed through
+AGL_OPENAI_BASE_URL. The real response is scored and both metrics and scalar
+reward are posted to AGL_EVENT_URL.
+
+Build the rollout dataset:
+
+    python scripts/export_agent_lightning_retail_cases.py
+
+Launch the full Agent Lightning GRPO entrypoint after installing the upstream
+VERL stack:
+
+    python scripts/train_agent_lightning_retail.py --model Qwen/Qwen3-0.6B
+
+The rollout keeps LangGraph, Skill scheduling, ontology lookup, governed tools,
+sandbox execution and verification in the environment. RL updates the policy,
+not the Harness.
