@@ -108,3 +108,26 @@ def test_retail_reward_uses_real_response_contract(monkeypatch) -> None:
         "action_coverage",
         "task_completion",
     }
+
+
+def test_agent_lightning_local_runner_uses_single_case_json(monkeypatch) -> None:
+    import json
+
+    from eiw.training.agent_lightning_agent import load_case_from_env
+
+    monkeypatch.setenv(
+        "EIW_AGL_CASE_JSON",
+        json.dumps(
+            {
+                "case_id": "retail-1",
+                "question": "Why did sales change?",
+                "current_weeks": [7, 8],
+                "previous_weeks": [5, 6],
+            }
+        ),
+    )
+
+    case = load_case_from_env()
+
+    assert case.case_id == "retail-1"
+    assert case.current_weeks == [7, 8]
